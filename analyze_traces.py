@@ -1,4 +1,4 @@
-from tools import extract_curve, find_ranges, fit_curve
+from tools import *
 
 
 ''' 
@@ -24,47 +24,73 @@ p.dabrowski@cent.uw.edu.pl
 '''
 
 ''' Parameters '''
-data_path = '/Users/pawel/Documents/Projekty/2020 - Rozciaganie/'   # directory with the data
-data_files = {'TrmD': (240, 4.473, '3_1'),                          # dictionary with cores of file names as keys and
-#              'Tm1570': (0, 0 , '3_1'),                             # a tuple with (number of residues between the
-#              'fuzja': (0, 0, '3_1#3_1')}                           # attachment of DNA, distance in nm, expected knot)
-                }
+data_path = '/Users/pawel/Documents/Projekty/2020 - Rozciaganie/data/'   # directory with the data
+# dictionary with cores of file names as keys and a tuple with (number of residues between the attachment of DNA, distance in nm, number of residues in linker between domains)
+data_files = {
+    # 'TrmD': {'residues': 240, 'distance': 4.4743, 'linker': 30, 'DNA': True, 'source': 'experiment'},
+    # 'Tm1570': {'residues': 193, 'distance': 0.9901, 'linker': 0, 'DNA': True, 'source': 'experiment'},
+    # 'fuzja': {'residues': 432, 'distance': 6.0558, 'linker': 30, 'DNA': True, 'source': 'experiment'},
+    'CieplakT04': {'residues': 248, 'distance': 52.412, 'linker': 'none', 'unit': 'A', 'source': 'theory'},
+    'CieplakT05': {'residues': 248, 'distance': 52.412, 'linker': 'none', 'unit': 'A', 'source': 'theory'},
+    'CieplakT06': {'residues': 248, 'distance': 52.412, 'linker': 'none', 'unit': 'A', 'source': 'theory'},
+    'CieplakT05_spring': {'residues': 248, 'distance': 52.412, 'linker': 'none', 'unit': 'A', 'source': 'theory'},
+    'smogT04': {'residues': 248, 'distance': 52.412, 'linker': 'none', 'unit': 'A', 'source': 'theory'},
+    # 'smogT05': {'residues': 248, 'distance': 52.412, 'linker': 'none', 'unit': 'A', 'source': 'theory'},
+    'smogT06': {'residues': 248, 'distance': 52.412, 'linker': 'none', 'unit': 'A', 'source': 'theory'},
+    'smogT05_spring': {'residues': 248, 'distance': 52.412, 'linker': 'none', 'unit': 'A', 'source': 'theory'},
+    # 'CaT04': {'residues': 248, 'distance': 52.412, 'linker': 'none', 'unit': 'A', 'source': 'theory'},
+    'CaT05': {'residues': 248, 'distance': 52.412, 'linker': 'none', 'unit': 'A', 'source': 'theory'},
+    'CaT06': {'residues': 248, 'distance': 52.412, 'linker': 'none', 'unit': 'A', 'source': 'theory'}
+}
 data_file_prefix = 'raw_data_'                                      # the prefix for the core of the file name
 data_file_suffix = '.csv'                                           # the suffix for the core of the file name
-residues_distance = 0.365                                           # distance between residues in stretched chain
+residues_distance = {'experiment': 3.65, 'theory': 3.88}            # distance between residues in stretched chain in A
 gap_size = 0.2                                                      # the minimal gap between distances during jump
-minimal_stretch_distance = 15                                       # minimal distance between jumps
+minimal_stretch_distance = 10                                       # minimal distance between jumps
 break_size = 3                                                      # the minimal distance between the fitted parts
 high_force_cutoff = 5                                               # the cutoff delimiting the high force regime
-
-epsilon = 0.001
-K_ranges = (250, 450)
+max_force_rupture = 42                                              # the maximal force at which rupture may happen
+show_plots = True                                                   # boolean, if the plots are to be shown or saved
+extension_speed = 200                                               # speed of extension in nm/s
+force_decrease = 0.15                                               # decrease of smoothed force trace during rupture
+high_force = 1                                                      # the force cut of the backgroud
+columns = 4                                                         # number of columns of plots in mutliplots
 ''' End of parameters '''
 
 
 def analyze_case(structure_name):
     coefficients = []
-    for dist, forces in extract_curve(structure_name, data_path, data_file_prefix, data_file_suffix):
-        ranges = find_ranges(dist, gap_size, minimal_stretch_distance, break_size)
-        coefficients.append(fit_curve(dist, forces, ranges, high_force_cutoff))
-        print(coefficients)
-        expected = data_files[structure_name][0]*residues_distance
-        missing = expected - coefficients['characteristic lengths (L)'][-1]
-        missing_residues = missing/residues_distance
-        print(expected, missing, missing_residues)
-        break
+    rupture_forces = []
+    k = 1
+    contour_lengths = []
+    ranges_total = []
+    dist_total, forces_total = extract_curves(structure_name, data_path, data_file_prefix, data_file_suffix,
+                                              unit=data_files[structure_name]['unit'])
+    # dist_total_smooth = []
+    # forces_total_smooth = []
+    for dist, forces in zip(dist_total, forces_total):
+        print(str(k) + '/' + str(len(dist_total)))
+        ranges, dist_smooth, forces_smooth = find_ranges(dist, forces, gap=minimal_stretch_distance)
+        ranges_total.append(ranges)
+        # print(ranges)
+        ranges, dist_protein, forces_protein, coefficients_protein = separate_linker(ranges, dist_smooth,
+                                                        forces_smooth, linker=data_files[structure_name]['linker'])
+        coefficients.append(fit_curve(ranges, dist_protein, forces_protein, coefficients_protein))
+        print(coefficients[-1])
+        # rupture_forces += find_rupture_forces(dist, forces, ranges)
+        # contour_lengths += transform_coordinates(dist, forces, coefficients[-1])
+        # energies = find_energies(dist, forces, coefficients[-1])
+        k += 1
+    contour_length_gain = plot_coefficients(dist_total, forces_total, ranges_total, coefficients, name,
+                           linker=data_files[structure_name]['linker'], show_plots=False, columns=columns,
+                                            residues_distance=residues_distance[data_files[structure_name]['source']])
 
-    # for d, F in extract_curve(name):
-    #     ranges = find_ranges(d)
-    #     coefficients.append(fit_curve(d, F, ranges))
-    #     Lx.append(translate_F(d, F, coefficients[-1]))
-    #     find_energies(d, F, coefficients[-1])
-    #     Fs += find_rupture_forces(d, F)
-    # make_contour_length_histo(coefficients)
-    # total_stretching = find_total_stretching(coefficients)
-    # make_histograms(Lx)
-    # make_force_histogram(Fs)
-    # xd, G, v, tau = extract_life_times(Fs)
+    # total_stretching = find_total_stretching(coefficients, show_plots)
+    # force_counts, force_bins = make_force_histogram(rupture_forces, show_plots)
+    # transformed_coordinates = plot_transformed_coordinates(contour_lengths, show_plots)
+    # aver_dist, aver_forces = find_averages(dist_total, forces_total)
+    # xd, g, v, tau = extract_life_times(force_counts, force_bins, aver_dist, aver_forces, extension_speed, show_plots)
+    # save_data(contour_length_gain)
     return
 
 
