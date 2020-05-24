@@ -20,35 +20,35 @@ The script calculates:
 12. Plots overlayed traces.
 
 p.dabrowski@cent.uw.edu.pl
-10.05.2020
+23.05.2020
 '''
 
 ''' Parameters '''
 data_path = '/Users/pawel/Documents/Projekty/2020 - Rozciaganie/data/'   # directory with the data
 # dictionary with cores of file names as keys and a tuple with (number of residues between the attachment of DNA, distance in nm, number of residues in linker between domains)
 data_files = {
-    # 'TrmD': {'residues': 240, 'distance': 4.4743, 'linker': 30, 'DNA': True, 'source': 'experiment'},
-    # 'Tm1570': {'residues': 193, 'distance': 0.9901, 'linker': 0, 'DNA': True, 'source': 'experiment'},
-    # 'fuzja': {'residues': 432, 'distance': 6.0558, 'linker': 30, 'DNA': True, 'source': 'experiment'},
-    'CieplakT04': {'residues': 248, 'distance': 52.412, 'linker': 'none', 'unit': 'A', 'source': 'theory'},
-    'CieplakT05': {'residues': 248, 'distance': 52.412, 'linker': 'none', 'unit': 'A', 'source': 'theory'},
-    'CieplakT06': {'residues': 248, 'distance': 52.412, 'linker': 'none', 'unit': 'A', 'source': 'theory'},
-    'CieplakT05_spring': {'residues': 248, 'distance': 52.412, 'linker': 'none', 'unit': 'A', 'source': 'theory'},
-    'smogT04': {'residues': 248, 'distance': 52.412, 'linker': 'none', 'unit': 'A', 'source': 'theory'},
+    # 'TrmD': {'residues': 240, 'distance': 4.4743, 'linker': 'dna', 'source': 'experiment', 'unit': 'nm'},
+    # 'Tm1570': {'residues': 193, 'distance': 0.9901, 'linker': 'dna', 'source': 'experiment', 'unit': 'nm'},
+    # 'fuzja': {'residues': 432, 'distance': 6.0558, 'linker': 'dna', 'source': 'experiment', 'unit': 'nm'},
+    # 'CieplakT04': {'residues': 248, 'distance': 52.412, 'linker': 'none', 'unit': 'A', 'source': 'theory'},
+    # 'CieplakT05': {'residues': 248, 'distance': 52.412, 'linker': 'none', 'unit': 'A', 'source': 'theory'},
+    # 'CieplakT06': {'residues': 248, 'distance': 52.412, 'linker': 'none', 'unit': 'A', 'source': 'theory'},
+    # 'CieplakT05_spring': {'residues': 248, 'distance': 52.412, 'linker': 'none', 'unit': 'A', 'source': 'theory'},
+    # 'smogT04': {'residues': 248, 'distance': 52.412, 'linker': 'none', 'unit': 'A', 'source': 'theory'},
     # 'smogT05': {'residues': 248, 'distance': 52.412, 'linker': 'none', 'unit': 'A', 'source': 'theory'},
-    'smogT06': {'residues': 248, 'distance': 52.412, 'linker': 'none', 'unit': 'A', 'source': 'theory'},
+    # 'smogT06': {'residues': 248, 'distance': 52.412, 'linker': 'none', 'unit': 'A', 'source': 'theory'},
     'smogT05_spring': {'residues': 248, 'distance': 52.412, 'linker': 'none', 'unit': 'A', 'source': 'theory'},
     # 'CaT04': {'residues': 248, 'distance': 52.412, 'linker': 'none', 'unit': 'A', 'source': 'theory'},
-    'CaT05': {'residues': 248, 'distance': 52.412, 'linker': 'none', 'unit': 'A', 'source': 'theory'},
-    'CaT06': {'residues': 248, 'distance': 52.412, 'linker': 'none', 'unit': 'A', 'source': 'theory'}
+    # 'CaT05': {'residues': 248, 'distance': 52.412, 'linker': 'none', 'unit': 'A', 'source': 'theory'},
+    # 'CaT06': {'residues': 248, 'distance': 52.412, 'linker': 'none', 'unit': 'A', 'source': 'theory'}
 }
 data_file_prefix = 'raw_data_'                                      # the prefix for the core of the file name
 data_file_suffix = '.csv'                                           # the suffix for the core of the file name
-residues_distance = {'experiment': 3.65, 'theory': 3.88}            # distance between residues in stretched chain in A
+residues_distance = {'experiment': 3.65, 'theory': 3.86}            # distance between residues in stretched chain in A
 gap_size = 0.2                                                      # the minimal gap between distances during jump
 minimal_stretch_distance = 10                                       # minimal distance between jumps
 break_size = 3                                                      # the minimal distance between the fitted parts
-high_force_cutoff = 5                                               # the cutoff delimiting the high force regime
+high_force_cutoff = 1                                               # the cutoff delimiting the high force regime
 max_force_rupture = 42                                              # the maximal force at which rupture may happen
 show_plots = True                                                   # boolean, if the plots are to be shown or saved
 extension_speed = 200                                               # speed of extension in nm/s
@@ -70,12 +70,17 @@ def analyze_case(structure_name):
     # forces_total_smooth = []
     for dist, forces in zip(dist_total, forces_total):
         print(str(k) + '/' + str(len(dist_total)))
-        ranges, dist_smooth, forces_smooth = find_ranges(dist, forces, gap=minimal_stretch_distance)
+        ranges, dist_smooth, forces_smooth = find_ranges(dist, forces, gap=minimal_stretch_distance,
+                                                         high_force_cutoff=high_force_cutoff)
         ranges_total.append(ranges)
-        # print(ranges)
-        ranges, dist_protein, forces_protein, coefficients_protein = separate_linker(ranges, dist_smooth,
-                                                        forces_smooth, linker=data_files[structure_name]['linker'])
-        coefficients.append(fit_curve(ranges, dist_protein, forces_protein, coefficients_protein))
+        print(ranges)
+        # ranges, dist_protein, forces_protein, coefficients_protein = separate_linker(ranges, dist_smooth,
+        #                                                 forces_smooth, linker=data_files[structure_name]['linker'])
+        if data_files[structure_name]['linker'] == 'dna':
+            coefficients_trace = fit_curve_dna(ranges, dist_smooth, forces_smooth)
+        else:
+            coefficients_trace = fit_curve(ranges, dist_smooth, forces_smooth)
+        coefficients.append(coefficients_trace)
         print(coefficients[-1])
         # rupture_forces += find_rupture_forces(dist, forces, ranges)
         # contour_lengths += transform_coordinates(dist, forces, coefficients[-1])

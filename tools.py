@@ -28,7 +28,7 @@ def extract_curves(name, data_path, data_file_prefix, data_file_suffix, unit='A'
         pairs = sorted(pairs)
         dist = [v[0] for v in pairs]
         force = [v[1] for v in pairs]
-        if unit == 'np':
+        if unit == 'nm':
             dist = [10*d for d in dist]
         dist_total.append(dist)
         forces_total.append(force)
@@ -51,7 +51,7 @@ def smooth_curves(dist, forces):
 
 
 def running_average(dist, forces):
-    window =int((max(dist)-min(dist))/100)
+    window = int((max(dist)-min(dist))/100)
     dist_smooth = np.convolve(dist, np.ones((window,))/window, mode='valid')
     forces_smooth = np.convolve(forces, np.ones((window,))/window, mode='valid')
     return dist_smooth, forces_smooth
@@ -63,7 +63,7 @@ def find_derivative(dist, forces):
     return running_average(dist_derivative, forces_derivative)
 
 
-def find_ranges(dist, forces, gap=10):
+def find_ranges(dist, forces, gap=10, high_force_cutoff=5):
     dist_smooth, forces_smooth = smooth_curves(dist, forces)
     dist_smooth, forces_smooth = running_average(dist_smooth, forces_smooth)
     dist_derivative, forces_derivative = find_derivative(dist_smooth, forces_smooth)
@@ -76,7 +76,7 @@ def find_ranges(dist, forces, gap=10):
                 negative_derivative = d
             # if the window of negative derivative is at least equal 'gap' parameter, we finish the current range
             if negative_derivative > 0 and dist_derivative[d] - dist_derivative[negative_derivative] >= gap \
-                    and len(current_range) == 1:
+                    and len(current_range) == 1 and forces_smooth[d] >= high_force_cutoff:
                 current_range.append(dist_derivative[negative_derivative])
                 ranges.append(current_range)
                 current_range = []
@@ -91,17 +91,35 @@ def find_ranges(dist, forces, gap=10):
     return ranges, dist_smooth, forces_smooth
 
 
-def fit_last_part(dist, forces, coefficients):
+def fit_last_part(dist, forces):
     dlast = Variable('dlast')
     flast = Variable('flast')
+    clast = Parameter('clast')
     llast = Parameter('llast', value=max(dist) + 20, min=max(dist) + 1)
     plast = Parameter('plast', value=1, min=0.1)
-    model = Model({flast: plast * (0.25 / ((1 - dlast / llast) ** 2) - 0.25 + dlast / llast)})
+    model = Model({flast: plast * (0.25 / ((1 - dlast / llast) ** 2) - 0.25 + dlast / llast) + clast})
     fit = Fit(model, dlast=dist, flast=forces)
     fit_result = fit.execute()
-    coefficients['llast'] = (fit_result.value(llast))
-    coefficients['plast'] = (fit_result.value(plast))
+    coefficients = {'llast': fit_result.value(llast), 'plast': fit_result.value(plast), 'clast': fit_result.value(clast)}
     return coefficients
+
+
+def solve_wlc(f, p, l=None, d=None):
+    b = -2.25 - f/p
+    c = 1.5 + 2*f/p
+    d = - f/p
+    roots = np.roots([1, b, c, d])
+    result = 0
+    for root in roots[np.imag(roots) == 0]:
+        if 0 < root < 1:
+            result = np.real(root)
+            break
+    if l:
+        return l*result
+    elif d:
+        return d/result
+    else:
+        return 0
 
 
 def separate_linker(ranges, dist_smooth, forces_smooth, linker='none'):
@@ -136,12 +154,65 @@ def separate_linker(ranges, dist_smooth, forces_smooth, linker='none'):
         plt.show()
         return ranges, dist_smooth, forces_smooth, coefficients
     elif linker == 'dna':
-        return ranges, dist_smooth, forces_smooth, coefficients
+        low_force_cutoff = 0.1
+        dist_to_fit = [dist_smooth[_] for _ in range(len(dist_smooth)) if
+                       ranges[0][0] <= dist_smooth[_] <= ranges[0][1] and forces_smooth[_] > low_force_cutoff]
+        forces_to_fit = [forces_smooth[_] for _ in range(len(dist_smooth)) if
+                       ranges[0][0] <= dist_smooth[_] <= ranges[0][1] and forces_smooth[_] > low_force_cutoff]
+        ddna = Variable('ddna')
+        fdna = Variable('fdna')
+        ldna = Parameter('ldna', value=max(dist_to_fit) + 20, min=max(dist_to_fit) + 1)
+        pdna = Parameter('pdna', value=1, min=0.1)
+        model = Model({fdna: pdna * (0.25 / ((1 - ddna / ldna) ** 2) - 0.25 + ddna / ldna)})
+        fit = Fit(model, ddna=dist_to_fit, fdna=forces_to_fit)
+        fit_result = fit.execute()
+        coefficients['ldna'] = (fit_result.value(ldna))
+        coefficients['pdna'] = (fit_result.value(pdna))
+        dist_dna = [solve_wlc(f, coefficients['pdna'], l=coefficients['ldna']) for f in forces_smooth]
+        dist_protein = [d0-d1 for d0, d1 in zip(dist_smooth, dist_dna) if d0 > ranges[1][0]]
+        forces_protein = [forces_smooth[_] for _ in range(len(forces_smooth)) if dist_smooth[_] > ranges[1][0]]
+        return ranges, dist_protein, forces_protein, coefficients
     else:
         raise NameError("Unknown linker for analysis. Known models are " + str(available_linkers) + '.')
 
 
-def fit_curve(ranges, dist, forces, coefficients, temperature=None, elastic_moduli_boudaries=(250, 400)):
+def fit_curve_dna(ranges, dist, forces):
+    low_force_cutoff = 0.1
+    dist_to_fit = [dist[_] for _ in range(len(dist)) if
+                   ranges[0][0] <= dist[_] <= ranges[0][1] and forces[_] > low_force_cutoff]
+    forces_to_fit = [forces[_] for _ in range(len(dist)) if
+                     ranges[0][0] <= dist[_] <= ranges[0][1] and forces[_] > low_force_cutoff]
+    ddna = Variable('ddna')
+    fdna = Variable('fdna')
+    ldna = Parameter('ldna', value=max(dist_to_fit) + 20, min=max(dist_to_fit) + 1)
+    pdna = Parameter('pdna', value=1, min=0.1)
+    model = Model({fdna: pdna * (0.25 / ((1 - ddna / ldna) ** 2) - 0.25 + ddna / ldna)})
+    fit = Fit(model, ddna=dist_to_fit, fdna=forces_to_fit)
+    fit_result = fit.execute()
+    coefficients = {'ldna': fit_result.value(ldna), 'pdna': fit_result.value(pdna)}
+
+    # dist_dna = [np.array([solve_wlc(f, coefficients['pdna'], l=coefficients['ldna']) for f in force_range])
+    #                 for force_range in forces_to_fit]
+    dist_dna_smooth = np.array([solve_wlc(f, coefficients['pdna'], l=coefficients['ldna']) for f in forces])
+    # plt.plot(forces, dist_dna_smooth)
+    # plt.plot(forces, dist)
+    dist_protein = [d0-d1 for d0, d1 in zip(dist, dist_dna_smooth) if d0 >= ranges[1][0]]
+    forces_protein = [forces[_] for _ in range(len(forces)) if dist[_] >= ranges[1][0]]
+    new_ranges = [[0,200], [400,700]]
+    dist_protein_to_fit = [np.array([dist_protein[_] for _ in range(len(dist_protein))
+                             if current_range[0] <= dist_protein[_] <= current_range[1] and
+                             forces_protein[_] > low_force_cutoff]) for current_range in new_ranges]
+    forces_protein_to_fit = [np.array([forces_protein[_] for _ in range(len(dist_protein))
+                             if current_range[0] <= dist_protein[_] <= current_range[1] and
+                               forces_protein[_] > low_force_cutoff]) for current_range in new_ranges]
+    coefficients = fit_last_part(dist_protein_to_fit[-1], forces_protein_to_fit[-1])
+    print(coefficients)
+    plt.plot(dist_protein, forces_protein)
+    plt.show()
+    return coefficients
+
+
+def fit_curve(ranges, dist, forces, temperature=None, elastic_moduli_boudaries=(250, 400)):
     low_force_cutoff = 0.1
     if temperature:
         temperature_factor = temperature * 0.0138
@@ -154,14 +225,14 @@ def fit_curve(ranges, dist, forces, coefficients, temperature=None, elastic_modu
     forces_to_fit = [np.array([forces[_] for _ in range(len(dist))
                              if current_range[0] <= dist[_] <= current_range[1] and
                                forces[_] > low_force_cutoff]) for current_range in ranges]
-
-    coefficients = fit_last_part(dist_to_fit[-1], forces_to_fit[-1], coefficients)
+    coefficients = fit_last_part(dist_to_fit[-1], forces_to_fit[-1])
 
     # the model for symfit
     dist_variables = []
     forces_variables = []
     lengths = []
     persistence_protein = Parameter('pp', value=0.3, min=0)  # , min=3, max=10)
+    constant = Parameter('c', value=coefficients['clast'])
     model_dict = {}
 
     for k in range(len(ranges)):
@@ -170,7 +241,7 @@ def fit_curve(ranges, dist, forces, coefficients, temperature=None, elastic_modu
         lengths.append(Parameter('Lp' + str(k), value=max(dist_to_fit[k])+20, min=max(dist_to_fit[k])+1,
                        max=coefficients['llast']))
         model_dict[forces_variables[k]] = persistence_protein * (
-                    0.25 / ((1 - dist_variables[k] / lengths[k]) ** 2) - 0.25 + dist_variables[k]/lengths[k])
+                    0.25 / ((1 - dist_variables[k] / lengths[k]) ** 2) - 0.25 + dist_variables[k]/lengths[k]) + constant
 
     model = Model(model_dict)
     arguments = {}
@@ -185,6 +256,7 @@ def fit_curve(ranges, dist, forces, coefficients, temperature=None, elastic_modu
     coefficients['L'] = [fit_result.value(L) for L in lengths]
     coefficients['pProtein/KbT'] = fit_result.value(persistence_protein)
     coefficients['pProtein'] = temperature_factor / fit_result.value(persistence_protein)
+    coefficients['c'] = fit_result.value(constant)
     return coefficients
 
 
@@ -335,7 +407,7 @@ def plot_coefficients(dist_total, forces_total, ranges_total, coefficients_total
             axes[row, col].set_title('Histogram')
             axes[row, col].set_xlabel('Countour length gain [A]')
             axes[row, col].set_ylabel('Probability')
-            all_coefficients = [coefficient - r['L'][0] for r in coefficients_total for coefficient in r['L'][1:]]
+            all_coefficients = [coefficient for r in coefficients_total for coefficient in r['L']]
             coefficients_clusters = cluster_coefficients(all_coefficients, maxgap=cluster_max_gap)
             min_l = min(all_coefficients)
             max_l = max(all_coefficients)
@@ -345,7 +417,7 @@ def plot_coefficients(dist_total, forces_total, ranges_total, coefficients_total
                 n, bins, patches = axes[row, col].hist(coefficients_clusters[r], density=True,
                                                        facecolor=colors[r % len(colors)], alpha=0.5)
                 (mu, sigma) = norm.fit(coefficients_clusters[r])
-                residues = int(round(mu/residues_distance, 0))
+                residues = int(round(mu/residues_distance, 0)) + 1
                 results.append([round(mu, 3), residues])
                 label = str(round(mu, 3)) + ' (' + str(residues) + ' AA)'
                 axes[row, col].plot(x, norm.pdf(x, mu, sigma), colors[r % len(colors)][0] + '--', label=label)
@@ -364,8 +436,8 @@ def plot_coefficients(dist_total, forces_total, ranges_total, coefficients_total
             axes[row, col].plot(np.array(dist), np.array(forces))
             for l in range(len(coefficients['L'])):
                 length = coefficients['L'][l]
-                residues = int(round(length / residues_distance, 0))
-                label = str(round(length, 3)) + ' (' + str(residues) + 'AA)'
+                residues = int(round(length / residues_distance, 0)) + 1
+                label = str(round(length, 3)) + ' (' + str(residues) + ' AA)'
                 d_plot = np.linspace(min(dist), coefficients['L'][l]-1)
                 forces_plot = calculate_protein_force(d_plot, coefficients['L'][l], coefficients['pProtein/KbT'])
                 axes[row, col].plot(d_plot, forces_plot, label=label)
