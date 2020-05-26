@@ -1,5 +1,6 @@
 import matplotlib
 import matplotlib.pyplot as plt
+import matplotlib.colors as mcolors
 import numpy as np
 from symfit import Fit, Model, sqrt, Parameter, Variable, exp
 from scipy.stats import norm
@@ -7,6 +8,15 @@ from scipy.optimize import curve_fit
 
 # available models for curve fitting
 available_linkers = ['none', 'harmonic', 'dna']
+colors = [mcolors.CSS4_COLORS['red'],
+          mcolors.CSS4_COLORS['green'],
+          mcolors.CSS4_COLORS['blue'],
+          mcolors.CSS4_COLORS['yellow'],
+          mcolors.CSS4_COLORS['cyan'],
+          mcolors.CSS4_COLORS['magenta'],
+          mcolors.CSS4_COLORS['orange'],
+          mcolors.CSS4_COLORS['purple'],
+          mcolors.CSS4_COLORS['lime']]
 
 
 def extract_curves(name, data_path, data_file_prefix, data_file_suffix, unit='A'):
@@ -94,17 +104,16 @@ def find_ranges(dist, forces, gap=10, high_force_cutoff=5):
 def fit_last_part(dist, forces):
     dlast = Variable('dlast')
     flast = Variable('flast')
-    clast = Parameter('clast')
     llast = Parameter('llast', value=max(dist) + 20, min=max(dist) + 1)
     plast = Parameter('plast', value=1, min=0.1)
-    model = Model({flast: plast * (0.25 / ((1 - dlast / llast) ** 2) - 0.25 + dlast / llast) + clast})
+    model = Model({flast: plast * (0.25 / ((1 - dlast / llast) ** 2) - 0.25 + dlast / llast)})
     fit = Fit(model, dlast=dist, flast=forces)
     fit_result = fit.execute()
-    coefficients = {'llast': fit_result.value(llast), 'plast': fit_result.value(plast), 'clast': fit_result.value(clast)}
+    coefficients = {'llast': fit_result.value(llast), 'plast': fit_result.value(plast)}
     return coefficients
 
 
-def solve_wlc(f, p, l=None, d=None):
+def solve_wlc(f, p, l=None, x=None):
     b = -2.25 - f/p
     c = 1.5 + 2*f/p
     d = - f/p
@@ -116,8 +125,8 @@ def solve_wlc(f, p, l=None, d=None):
             break
     if l:
         return l*result
-    elif d:
-        return d/result
+    elif x:
+        return x/result
     else:
         return 0
 
@@ -225,6 +234,7 @@ def fit_curve(ranges, dist, forces, temperature=None, elastic_moduli_boudaries=(
     forces_to_fit = [np.array([forces[_] for _ in range(len(dist))
                              if current_range[0] <= dist[_] <= current_range[1] and
                                forces[_] > low_force_cutoff]) for current_range in ranges]
+
     coefficients = fit_last_part(dist_to_fit[-1], forces_to_fit[-1])
 
     # the model for symfit
@@ -232,7 +242,6 @@ def fit_curve(ranges, dist, forces, temperature=None, elastic_moduli_boudaries=(
     forces_variables = []
     lengths = []
     persistence_protein = Parameter('pp', value=0.3, min=0)  # , min=3, max=10)
-    constant = Parameter('c', value=coefficients['clast'])
     model_dict = {}
 
     for k in range(len(ranges)):
@@ -241,7 +250,7 @@ def fit_curve(ranges, dist, forces, temperature=None, elastic_moduli_boudaries=(
         lengths.append(Parameter('Lp' + str(k), value=max(dist_to_fit[k])+20, min=max(dist_to_fit[k])+1,
                        max=coefficients['llast']))
         model_dict[forces_variables[k]] = persistence_protein * (
-                    0.25 / ((1 - dist_variables[k] / lengths[k]) ** 2) - 0.25 + dist_variables[k]/lengths[k]) + constant
+                    0.25 / ((1 - dist_variables[k] / lengths[k]) ** 2) - 0.25 + dist_variables[k]/lengths[k])
 
     model = Model(model_dict)
     arguments = {}
@@ -256,7 +265,6 @@ def fit_curve(ranges, dist, forces, temperature=None, elastic_moduli_boudaries=(
     coefficients['L'] = [fit_result.value(L) for L in lengths]
     coefficients['pProtein/KbT'] = fit_result.value(persistence_protein)
     coefficients['pProtein'] = temperature_factor / fit_result.value(persistence_protein)
-    coefficients['c'] = fit_result.value(constant)
     return coefficients
 
 
@@ -264,57 +272,6 @@ def find_rupture_forces(dist, forces, ranges):
     rupture_forces = [max([forces[_] for _ in range(len(dist))
                            if current_range[0] < dist[_] < current_range[1]]) for current_range in ranges]
     return rupture_forces
-
-
-def find_total_stretching(coefficients, show_plot):
-    lengths = [max(coeficient_set['L'][1:]) for coeficient_set in coefficients]
-    (mu, sigma) = norm.fit(lengths)
-    n, bins, patches = plt.hist(lengths, density=True, facecolor='green', alpha=0.75)
-    x = np.linspace(min(lengths), max(lengths), 100)
-    plt.plot(x, norm.pdf(x, mu, sigma), 'r--', linewidth=2)
-
-    # plot
-    plt.xlabel('Lenghts [nm]')
-    plt.ylabel('Probability')
-    plt.title(r'$\mathrm{Histogram\ of\ protein\ lengths:}\ \mu=%.3f,\ \sigma=%.3f$' % (mu, sigma))
-    plt.grid(True)
-    if show_plot:
-        plt.show()
-        plt.close('all')
-    else:
-        plt.savefig('total_length_histogram.png')
-    return round(mu, 3)
-
-
-def make_contour_gain_histo(coefficients, show_plot):
-    to_plot = []
-    colors = ['red', 'green', 'blue', 'yellow', 'cyan', 'magenta']
-    for coefficient_line in coefficients:
-        data = coefficient_line['L']
-        for n in range(1, len(data)):
-            if len(to_plot) < n:
-                to_plot.append([])
-            if n == 1:
-                to_plot[n-1].append(data[n])
-            else:
-                to_plot[n-1].append(data[n]-data[n-1])
-    results = []
-    for k in range(len(to_plot)):
-        n, bins, patches = plt.hist(to_plot[k], density=True, facecolor=colors[k % len(colors)], alpha=0.5)
-        (mu, sigma) = norm.fit(to_plot[k])
-        results.append(round(mu, 3))
-        x = np.linspace(min(to_plot[k]), max(to_plot[k]), 100)
-        plt.plot(x, norm.pdf(x, mu, sigma), colors[k % len(colors)][0] + '--', linewidth=2)
-    plt.xlabel('Countour length gain [nm]')
-    plt.ylabel('Probability')
-    plt.title('Histogram of contour length gain')
-    plt.grid(True)
-    if show_plot:
-        plt.show()
-        plt.close('all')
-    else:
-        plt.savefig('contour_length_gain_histogram.png')
-    return results
 
 
 def make_force_histogram(forces, show_plot, cutoff=0):
@@ -333,50 +290,21 @@ def make_force_histogram(forces, show_plot, cutoff=0):
     return n, bins
 
 
-def transform(d, f, length, pdna, pp, stiff):
-    result = (d - length * (1-1/np.sqrt(pdna*f) + f/stiff)) / (1 - 1/np.sqrt(pp*f))
-    return result
-
-
-def transform_coordinates(dist, forces, coefficients):
+def transform_coordinates(dist, forces, ranges, coefficients, low_force_cutoff=0.1):
     result = []
-    length = coefficients['L'][0]
-    pdna = coefficients['pDNA/KbT'],
-    pp = coefficients['pProtein/KbT']
-    stiff = coefficients['K']
-    for d, f in zip(dist, forces):
-        result.append((transform(d, f, length, pdna, pp, stiff),f))
+    p = coefficients['pProtein/KbT']
+    for r in range(len(ranges)):
+        current_range = ranges[r]
+        dist_part = [dist[_] for _ in range(len(dist)) if current_range[0] <= dist[_] <= current_range[1]
+                     and forces[_] > low_force_cutoff]
+        forces_part = [forces[_] for _ in range(len(dist)) if current_range[0] <= dist[_] <= current_range[1]
+                     and forces[_] > low_force_cutoff]
+        result += [solve_wlc(forces_part[_], p, x=dist_part[_]) for _ in range(len(dist_part))]
     return result
-
-
-def plot_transformed_coordinates(contour_lengths, show_plot):
-    n, bins, patches = plt.hist(contour_lengths, density=True, facecolor='blue', alpha=0.5)
-    plt.xlabel('Contour length [nm]')
-    plt.ylabel('Probability')
-    plt.title('Histogram of contour lengths')
-    plt.grid(True)
-    if show_plot:
-        plt.show()
-        plt.close('all')
-    else:
-        plt.savefig('contour_length_histogram.png')
-    return n, bins
 
 
 def calculate_protein_force(d, L, p):
     return p * (0.25/((1-d/L)**2) - 0.25 + d/L)
-
-
-def calculate_dna(F, L, K, p):
-    return L * (1 - np.sqrt(p/F) + F/K)
-
-
-def calculate_protein(F, L, p):
-    return L * (1 - np.sqrt(p/F))
-
-
-def calculate_total(F, Ld, K, pd, Lp, pp):
-    return calculate_dna(F, Ld, K, pd) + calculate_protein(F, Lp, pp)
 
 
 def cluster_coefficients(coefficients, maxgap=15):
@@ -394,56 +322,107 @@ def cluster_coefficients(coefficients, maxgap=15):
     return clusters
 
 
-def plot_coefficients(dist_total, forces_total, ranges_total, coefficients_total, name, linker='None', show_plots=False,
-                      columns=4, cluster_max_gap=15, residues_distance=3.88):
-    rows = int(np.ceil(float(len(ranges_total))/columns))
-    fig, axes = plt.subplots(rows, columns, dpi=600, figsize=(5*int(columns), 5*int(rows)))
-    colors = ['red', 'green', 'blue', 'yellow', 'cyan', 'magenta']
+def make_histograms(coefficients_total, contour_lengths, rupture_forces, name, residues_distance=3.88, cluster_max_gap=15,
+                    show_plots=False):
+    fig, axes = plt.subplots(2, 2, dpi=600, figsize=(10, 10))
     results = []
-    for k in range(len(ranges_total) + 1):
+
+    # contour length histogram
+    axes[0,0].set_title('Contour length histogram')
+    axes[0,0].set_xlabel('Countour length [A]')
+    axes[0,0].set_ylabel('Probability')
+    all_coefficients = [coefficient for r in coefficients_total for coefficient in r['L']]
+    coefficients_clusters = cluster_coefficients(all_coefficients, maxgap=cluster_max_gap)
+    min_l = min(all_coefficients)
+    max_l = max(all_coefficients)
+    axes[0,0].set_xlim(min_l, max_l)
+    x = np.linspace(min_l, max_l, 100)
+    for r in range(len(coefficients_clusters)-1):
+        n, bins, patches = axes[0,0].hist(coefficients_clusters[r], density=True,
+                                               facecolor=colors[r % len(colors)], alpha=0.5)
+        (mu, sigma) = norm.fit(coefficients_clusters[r])
+        residues = int(round(mu / residues_distance, 0)) + 1
+        results.append([round(mu, 3), residues])
+        label = str(round(mu, 3)) + ' (' + str(residues) + ' AA)'
+        axes[0, 0].plot(x, norm.pdf(x, mu, sigma), colors[r % len(colors)][0] + '--', label=label)
+    n, bins, patches = axes[0,0].hist(coefficients_clusters[-1], density=True, facecolor='k', alpha=0.5)
+    axes[0, 0].legend()
+
+    # forces histogram
+    axes[1, 0].set_title('Rupture forces histogram')
+    axes[1, 0].set_xlabel('Rupture force [pN]')
+    axes[1, 0].set_ylabel('Probability')
+    n, bins, patches = axes[1, 0].hist(rupture_forces, density=True, alpha=0.5)
+    # (mu, sigma) = norm.fit(coefficients_clusters[r])
+    # axes[0, 0].plot(x, norm.pdf(x, mu, sigma), colors[r % len(colors)][0] + '--', label=label)
+    # axes[1, 0].legend()
+
+    # transformed contour length histogram
+    axes[0, 1].set_title('Transformed contour length histogram')
+    axes[0, 1].set_xlabel('Contour length [pN]')
+    axes[0, 1].set_ylabel('Probability')
+    length_clusters = cluster_coefficients(contour_lengths, maxgap=1)
+    min_l = min(contour_lengths)
+    max_l = max(contour_lengths)
+    axes[0, 0].set_xlim(min_l, max_l)
+    x = np.linspace(min_l, max_l, 100)
+    for r in range(len(length_clusters)-1):
+        n, bins, patches = axes[0, 1].hist(length_clusters[r], density=True,
+                                           facecolor=colors[r % len(colors)], alpha=0.5)
+        (mu, sigma) = norm.fit(length_clusters[r])
+        residues = int(round(mu / residues_distance, 0)) + 1
+        results.append([round(mu, 3), residues])
+        label = str(round(mu, 3)) + ' (' + str(residues) + ' AA)'
+        axes[0, 1].plot(x, norm.pdf(x, mu, sigma), colors[r % len(colors)][0] + '--', label=label)
+    if len(length_clusters[-1]) > 4:
+        n, bins, patches = axes[0, 0].hist(length_clusters[-1], density=True, facecolor='k', alpha=0.5)
+    axes[0, 1].legend()
+
+    # Dudko analysis
+    axes[1, 1].set_title('Dudko analysis')
+    axes[1, 1].set_xlabel('Rupture force [pN]')
+    axes[1, 1].set_ylabel('Loading rate')
+
+    # axes[1, 1].legend()
+
+
+    fig.tight_layout()
+    if show_plots:
+        plt.show()
+    else:
+        print("Saving histograms figure to " + name + '_histograms.png')
+        plt.savefig(name + '_histograms.png')
+    return results
+
+
+def make_partial_plots(dist_total, forces_total, ranges_total, coefficients_total, name, linker='None', show_plots=False,
+                      columns=4, residues_distance=3.88):
+    rows = max(int(np.ceil(float(len(ranges_total))/columns)), 2)
+    fig, axes = plt.subplots(rows, columns, dpi=600, figsize=(5*int(columns), 5*int(rows)))
+    results = []
+    for k in range(len(ranges_total)):
         row = int(k/4)
         col = k % 4
-        if k == 0:
-            axes[row, col].set_title('Histogram')
-            axes[row, col].set_xlabel('Countour length gain [A]')
-            axes[row, col].set_ylabel('Probability')
-            all_coefficients = [coefficient for r in coefficients_total for coefficient in r['L']]
-            coefficients_clusters = cluster_coefficients(all_coefficients, maxgap=cluster_max_gap)
-            min_l = min(all_coefficients)
-            max_l = max(all_coefficients)
-            axes[row, col].set_xlim(min_l, max_l)
-            x = np.linspace(min_l, max_l, 100)
-            for r in range(len(coefficients_clusters)-1):
-                n, bins, patches = axes[row, col].hist(coefficients_clusters[r], density=True,
-                                                       facecolor=colors[r % len(colors)], alpha=0.5)
-                (mu, sigma) = norm.fit(coefficients_clusters[r])
-                residues = int(round(mu/residues_distance, 0)) + 1
-                results.append([round(mu, 3), residues])
-                label = str(round(mu, 3)) + ' (' + str(residues) + ' AA)'
-                axes[row, col].plot(x, norm.pdf(x, mu, sigma), colors[r % len(colors)][0] + '--', label=label)
-            n, bins, patches = axes[row, col].hist(coefficients_clusters[-1], bins=np.arange(min_l, max_l+5, 5),
-                                                   density=True, facecolor='k', alpha=0.5)
-        else:
-            dist = dist_total[k-1]
-            forces = forces_total[k-1]
-            ranges = ranges_total[k-1]
-            coefficients = coefficients_total[k-1]
-            axes[row, col].set_xlim(min(dist), max(dist))
-            axes[row, col].set_ylim(0, max(forces))
-            axes[row, col].set_title(name + '_' + str(k))
-            axes[row, col].set_xlabel('Extension [A]')
-            axes[row, col].set_ylabel('Force [pN]')
-            axes[row, col].plot(np.array(dist), np.array(forces))
-            for l in range(len(coefficients['L'])):
-                length = coefficients['L'][l]
-                residues = int(round(length / residues_distance, 0)) + 1
-                label = str(round(length, 3)) + ' (' + str(residues) + ' AA)'
-                d_plot = np.linspace(min(dist), coefficients['L'][l]-1)
-                forces_plot = calculate_protein_force(d_plot, coefficients['L'][l], coefficients['pProtein/KbT'])
-                axes[row, col].plot(d_plot, forces_plot, label=label)
-            for r in ranges:
-                axes[row, col].axvline(x=r[0], linestyle='--', color='#808080', linewidth=0.5)
-                axes[row, col].axvline(x=r[1], linestyle='--', color='#808080', linewidth=0.5)
+        dist = dist_total[k]
+        forces = forces_total[k]
+        ranges = ranges_total[k]
+        coefficients = coefficients_total[k]
+        axes[row, col].set_xlim(min(dist), max(dist))
+        axes[row, col].set_ylim(0, max(forces))
+        axes[row, col].set_title(name + '_' + str(k))
+        axes[row, col].set_xlabel('Extension [A]')
+        axes[row, col].set_ylabel('Force [pN]')
+        axes[row, col].plot(np.array(dist), np.array(forces))
+        for l in range(len(coefficients['L'])):
+            length = coefficients['L'][l]
+            residues = int(round(length / residues_distance, 0)) + 1
+            label = str(round(length, 3)) + ' (' + str(residues) + ' AA)'
+            d_plot = np.linspace(min(dist), coefficients['L'][l]-1)
+            forces_plot = calculate_protein_force(d_plot, coefficients['L'][l], coefficients['pProtein/KbT'])
+            axes[row, col].plot(d_plot, forces_plot, label=label)
+        for r in ranges:
+            axes[row, col].axvline(x=r[0], linestyle='--', color='#808080', linewidth=0.5)
+            axes[row, col].axvline(x=r[1], linestyle='--', color='#808080', linewidth=0.5)
         axes[row, col].legend()
     fig.tight_layout()
     if show_plots:
