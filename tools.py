@@ -268,26 +268,15 @@ def fit_curve(ranges, dist, forces, temperature=None, elastic_moduli_boudaries=(
     return coefficients
 
 
-def find_rupture_forces(dist, forces, ranges):
-    rupture_forces = [max([forces[_] for _ in range(len(dist))
-                           if current_range[0] < dist[_] < current_range[1]]) for current_range in ranges]
+def find_rupture_forces(dist, forces, ranges, coefficients):
+    lengths = coefficients['L']
+    rupture_forces = {}
+    for r in range(len(ranges)):
+        current_range = ranges[r]
+        length = lengths[r]
+        rupture_force = max([forces[_] for _ in range(len(dist)) if current_range[0] < dist[_] < current_range[1]])
+        rupture_forces[length] = rupture_force
     return rupture_forces
-
-
-def make_force_histogram(forces, show_plot, cutoff=0):
-    if cutoff > 0:
-        forces = [f for f in forces if f <= cutoff]
-    n, bins, patches = plt.hist(forces, density=True, facecolor='blue', alpha=0.5)
-    plt.xlabel('Rupture forces [pN]')
-    plt.ylabel('Probability')
-    plt.title('Histogram of rupture forces')
-    plt.grid(True)
-    if show_plot:
-        plt.show()
-        plt.close('all')
-    else:
-        plt.savefig('rupture_forces_histogram.png')
-    return n, bins
 
 
 def transform_coordinates(dist, forces, ranges, coefficients, low_force_cutoff=0.1):
@@ -307,7 +296,7 @@ def calculate_protein_force(d, L, p):
     return p * (0.25/((1-d/L)**2) - 0.25 + d/L)
 
 
-def cluster_coefficients(coefficients, maxgap=15):
+def cluster_coefficients(coefficients, maxgap=15, minnumber=4, minspan=-1):
     coefficients.sort()
     clusters = [[coefficients[0]]]
     for x in coefficients[1:]:
@@ -315,7 +304,8 @@ def cluster_coefficients(coefficients, maxgap=15):
             clusters[-1].append(x)
         else:
             clusters.append([x])
-    singles = [k for k in range(len(clusters)) if len(clusters[k]) <= 4]
+    singles = [k for k in range(len(clusters)) if len(clusters[k]) <= minnumber or
+               (max(clusters[k])-min(clusters[k])) < minspan]
     clusters.append([loc for k in singles for loc in clusters[k]])
     for k in list(reversed(singles)):
         clusters.pop(k)
@@ -325,57 +315,75 @@ def cluster_coefficients(coefficients, maxgap=15):
 def make_histograms(coefficients_total, contour_lengths, rupture_forces, name, residues_distance=3.88, cluster_max_gap=15,
                     show_plots=False):
     fig, axes = plt.subplots(2, 2, dpi=600, figsize=(10, 10))
-    results = []
+    results = {}
 
     # contour length histogram
-    axes[0,0].set_title('Contour length histogram')
-    axes[0,0].set_xlabel('Countour length [A]')
-    axes[0,0].set_ylabel('Probability')
+    axes[0, 0].set_title('Contour length histogram')
+    axes[0, 0].set_xlabel('Countour length [A]')
+    axes[0, 0].set_ylabel('Probability')
     all_coefficients = [coefficient for r in coefficients_total for coefficient in r['L']]
     coefficients_clusters = cluster_coefficients(all_coefficients, maxgap=cluster_max_gap)
     min_l = min(all_coefficients)
     max_l = max(all_coefficients)
-    axes[0,0].set_xlim(min_l, max_l)
+    axes[0, 0].set_xlim(min_l, max_l)
     x = np.linspace(min_l, max_l, 100)
+    results['contour_length_histo'] = []
     for r in range(len(coefficients_clusters)-1):
-        n, bins, patches = axes[0,0].hist(coefficients_clusters[r], density=True,
-                                               facecolor=colors[r % len(colors)], alpha=0.5)
+        n, bins, patches = axes[0, 0].hist(coefficients_clusters[r], density=True, facecolor=colors[r % len(colors)],
+                                           alpha=0.5)
         (mu, sigma) = norm.fit(coefficients_clusters[r])
         residues = int(round(mu / residues_distance, 0)) + 1
-        results.append([round(mu, 3), residues])
+        results['contour_length_histo'].append([round(mu, 3), round(sigma, 3), residues])
         label = str(round(mu, 3)) + ' (' + str(residues) + ' AA)'
-        axes[0, 0].plot(x, norm.pdf(x, mu, sigma), colors[r % len(colors)][0] + '--', label=label)
-    n, bins, patches = axes[0,0].hist(coefficients_clusters[-1], density=True, facecolor='k', alpha=0.5)
+        axes[0, 0].plot(x, norm.pdf(x, mu, sigma), colors[r % len(colors)], linestyle='--', label=label)
+    n, bins, patches = axes[0, 0].hist(coefficients_clusters[-1], bins=np.arange(min_l, max_l + 5, 5),
+                                           density=True, facecolor='k', alpha=0.5)
     axes[0, 0].legend()
 
     # forces histogram
     axes[1, 0].set_title('Rupture forces histogram')
     axes[1, 0].set_xlabel('Rupture force [pN]')
     axes[1, 0].set_ylabel('Probability')
-    n, bins, patches = axes[1, 0].hist(rupture_forces, density=True, alpha=0.5)
-    # (mu, sigma) = norm.fit(coefficients_clusters[r])
-    # axes[0, 0].plot(x, norm.pdf(x, mu, sigma), colors[r % len(colors)][0] + '--', label=label)
-    # axes[1, 0].legend()
+    min_f = min(list(rupture_forces.values()))
+    max_f = max(list(rupture_forces.values()))
+    axes[1, 0].set_xlim(min_f, max_f)
+    x = np.linspace(min_f, max_f, 100)
+    results['rupture_forces'] = []
+    dudko_analysis = []
+    for r in range(len(coefficients_clusters)-1):
+        force_cluster = [rupture_forces[coefficient] for coefficient in coefficients_clusters[r]]
+        n, bins, patches = axes[1, 0].hist(force_cluster, density=True, facecolor=colors[r % len(colors)], alpha=0.5)
+        dudko_analysis.append([n, bins])
+        (mu, sigma) = norm.fit(force_cluster)
+        results['rupture_forces'].append([round(mu, 3), round(sigma, 3)])
+        label = str(round(mu, 3)) + ' (' + str(results['contour_length_histo'][r][0]) + ')'
+        axes[1, 0].plot(x, norm.pdf(x, mu, sigma), colors[r % len(colors)], linestyle='--', label=label)
+    force_cluster = [rupture_forces[coefficient] for coefficient in coefficients_clusters[-1]]
+    n, bins, patches = axes[1, 0].hist(force_cluster, bins=np.arange(min_l, max_l + 5, 5),
+                                           density=True, facecolor='k', alpha=0.5)
+    axes[1, 0].legend()
 
     # transformed contour length histogram
     axes[0, 1].set_title('Transformed contour length histogram')
     axes[0, 1].set_xlabel('Contour length [pN]')
     axes[0, 1].set_ylabel('Probability')
-    length_clusters = cluster_coefficients(contour_lengths, maxgap=1)
-    min_l = min(contour_lengths)
-    max_l = max(contour_lengths)
-    axes[0, 0].set_xlim(min_l, max_l)
+    length_clusters = cluster_coefficients(contour_lengths, maxgap=1, minspan=10)
+    min_l = min([length for cluster in length_clusters[:-1] for length in cluster])
+    max_l = max([length for cluster in length_clusters[:-1] for length in cluster])
+    axes[0, 1].set_xlim(min_l, max_l)
     x = np.linspace(min_l, max_l, 100)
+    results['transformed'] = []
     for r in range(len(length_clusters)-1):
         n, bins, patches = axes[0, 1].hist(length_clusters[r], density=True,
                                            facecolor=colors[r % len(colors)], alpha=0.5)
         (mu, sigma) = norm.fit(length_clusters[r])
         residues = int(round(mu / residues_distance, 0)) + 1
-        results.append([round(mu, 3), residues])
+        results['transformed'].append([round(mu, 3), round(sigma, 3), residues])
         label = str(round(mu, 3)) + ' (' + str(residues) + ' AA)'
-        axes[0, 1].plot(x, norm.pdf(x, mu, sigma), colors[r % len(colors)][0] + '--', label=label)
+        axes[0, 1].plot(x, norm.pdf(x, mu, sigma), colors[r % len(colors)], linestyle='--', label=label)
     if len(length_clusters[-1]) > 4:
-        n, bins, patches = axes[0, 0].hist(length_clusters[-1], density=True, facecolor='k', alpha=0.5)
+        n, bins, patches = axes[0, 0].hist(length_clusters[-1], bins=np.arange(min_l, max_l + 5, 5),
+                                           density=True, facecolor='k', alpha=0.5)
     axes[0, 1].legend()
 
     # Dudko analysis
@@ -409,7 +417,7 @@ def make_partial_plots(dist_total, forces_total, ranges_total, coefficients_tota
         coefficients = coefficients_total[k]
         axes[row, col].set_xlim(min(dist), max(dist))
         axes[row, col].set_ylim(0, max(forces))
-        axes[row, col].set_title(name + '_' + str(k))
+        axes[row, col].set_title(name + '_' + str(k+1))
         axes[row, col].set_xlabel('Extension [A]')
         axes[row, col].set_ylabel('Force [pN]')
         axes[row, col].plot(np.array(dist), np.array(forces))
@@ -479,5 +487,63 @@ def extract_life_times(force_counts, force_bins, aver_dist, aver_forecs, extensi
     return xd, g, v, tau
 
 
-def save_data(contour_length_gain):
+def save_data(name, details, ranges, coefficients, rupture_forces, contour_length_gain, histograms):
+    fname = name + '_results'
+    result = []
+    # intro
+    result.append('Analyzed file: ' + name)
+    result.append('Number of residues: ' + str(details['residues']))
+    result.append('Distance between the termini: ' + str(details['distance']) + 'A')
+    result.append('Linker to tweezers: ' + str(details['linker']))
+    result.append('Unit of distance data: ' + str(details['unit']))
+    result.append('Source of the data: ' + details['source'])
+    result.append('----')
+
+    # parameters
+    result.append('Parameters used for the calculation:')
+    result.append('----')
+
+    # ranges
+    result.append('Found ' + str(len(ranges)) + ' traces.')
+    result.append('The ranges between the jumps are:')
+    for k in range(len(ranges)):
+        result.append(str(k+1) + '\t' + ';'.join([str(round(x, 3)) + '-' + str(round(y, 3)) for x, y in ranges[k]]))
+    result.append('----')
+
+    # coefficients
+    result.append('Coefficients obtained:')
+    result.append('trace\tcoefficient\tvalue')
+    for k in range(len(coefficients)):
+        for key in coefficients[k].keys():
+            result.append(str(k) + '\t' + key + ':\t' + str(coefficients[k][key]))
+    result.append('----')
+
+    # rupture forces
+    result.append('Rupture forces:')
+    result.append('contour length\tvalue')
+    for key in rupture_forces.keys():
+        result.append(str(key) + '\t' + str(rupture_forces[key]))
+    result.append('----')
+
+    # histogram analysis
+    result.append('The contour lengths found by fitting histograms:')
+    for length in histograms['contour_length_histo']:
+        result.append('length: ' + str(length[0]) + '\tsigma: ' + str(length[1]) + '\t' + str(length[2]) + ' residues')
+    result.append('----')
+    result.append('Rupture forces histogram:')
+    for k in range(len(histograms['rupture_forces'])):
+        value = histograms['rupture_forces'][k]
+        length = histograms['contour_length_histo'][k][0]
+        result.append('force: ' + str(value[0]) + '\tsigma: ' + str(value[1]) + '\tlength: ' + str(length))
+    result.append('----')
+
+
+    # saving to file
+    with open(fname, 'w') as myfile:
+        myfile.write('\n'.join(result))
+    print('The results saved to ' + fname)
     return
+
+
+def merge_dicts(dict1, dict2):
+    return {**dict1, **dict2}

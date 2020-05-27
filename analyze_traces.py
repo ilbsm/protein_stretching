@@ -60,38 +60,36 @@ columns = 4                                                         # number of 
 
 def analyze_case(structure_name):
     coefficients = []
-    rupture_forces = []
+    rupture_forces = {}
     k = 1
     contour_lengths = []
     ranges_total = []
     dist_total, forces_total = extract_curves(structure_name, data_path, data_file_prefix, data_file_suffix,
                                               unit=data_files[structure_name]['unit'])
+    print('Found ' + str(len(dist_total)) + ' traces to analyze. Analyzing:')
     for dist, forces in zip(dist_total, forces_total):
         print(str(k) + '/' + str(len(dist_total)))
         ranges, dist_smooth, forces_smooth = find_ranges(dist, forces, gap=minimal_stretch_distance,
                                                          high_force_cutoff=high_force_cutoff)
         ranges_total.append(ranges)
-        print(ranges)
         if data_files[structure_name]['linker'] == 'dna':
             coefficients_trace = fit_curve_dna(ranges, dist_smooth, forces_smooth)
         else:
             coefficients_trace = fit_curve(ranges, dist_smooth, forces_smooth)
         coefficients.append(coefficients_trace)
-        print(coefficients[-1])
         contour_lengths += transform_coordinates(dist, forces, ranges, coefficients[-1])
-        rupture_forces += find_rupture_forces(dist, forces, ranges)
+        rupture_forces = merge_dicts(rupture_forces, find_rupture_forces(dist, forces, ranges, coefficients[-1]))
         # energies = find_energies(dist, forces, coefficients[-1])
         k += 1
-        break
-    contour_length_gain = make_partial_plots(dist_total, forces_total, ranges_total, coefficients, name,
-                           linker=data_files[structure_name]['linker'], show_plots=False, columns=columns,
-                                            residues_distance=residues_distance[data_files[structure_name]['source']])
+    # contour_length_gain = make_partial_plots(dist_total, forces_total, ranges_total, coefficients, name,
+    #                        linker=data_files[structure_name]['linker'], show_plots=False, columns=columns,
+    #                                         residues_distance=residues_distance[data_files[structure_name]['source']])
     histograms = make_histograms(coefficients, contour_lengths, rupture_forces, name, show_plots=False,
                                  residues_distance=residues_distance[data_files[structure_name]['source']])
     # aver_dist, aver_forces = find_averages(dist_total, forces_total)
     # xd, g, v, tau = extract_life_times(force_counts, force_bins, aver_dist, aver_forces, extension_speed, show_plots)
 
-    # save_data(name, contour_length_gain, histograms)
+    # save_data(name, data_files[name], ranges_total, coefficients, rupture_forces, contour_length_gain, histograms)
     return
 
 
