@@ -27,7 +27,7 @@ def extract_curves(name, data_path, data_file_prefix, data_file_suffix, unit='A'
         # reading values
         values = []
         for line in myfile.readlines():
-            if 'd' not in line and 'D' not in line:
+            if 'd' not in line and 'D' not in line and 'TIME' not in line:
                 values.append(line.strip().split(';'))
     # extracting each trace
     beg = len(values[0])%2
@@ -111,6 +111,39 @@ def fit_last_part(dist, forces):
     fit_result = fit.execute()
     coefficients = {'llast': fit_result.value(llast), 'plast': fit_result.value(plast)}
     return coefficients
+
+
+def fit_dudko(forces, times):
+    force = Variable('force')
+    t = Variable('t')
+    gamma = Parameter('gamma', min=0.00001, value=0.1, max=1/max(forces)-0.00001)
+    g = Parameter('g', min=0.00001, value=10)
+    t0 = Parameter('t0', min=0.00001, value=10)
+    # x = Parameter('x', min=0.1, value=1)
+    result = {}
+
+    # v = 1/2
+    model = Model({t: t0 * (1-gamma*force)**(-1) * exp(-g * (1 - (1-gamma*force)**2))})
+    fit = Fit(model, t=times, force=forces)
+    fit_result = fit.execute()
+    result['1/2'] = {'t0': fit_result.value(t0), 'x': 2*fit_result.value(gamma)*fit_result.value(g),
+                     'g': fit_result.value(g)}
+
+    # v = 2/3
+    model = Model({t: t0 * (1 - gamma * force) ** (-1/2) * exp(-g * (1 - (1 - gamma * force) ** (3/2)))})
+    fit = Fit(model, t=times, force=forces)
+    fit_result = fit.execute()
+    result['2/3'] = {'t0': fit_result.value(t0), 'x': (3/2) * fit_result.value(gamma) * fit_result.value(g),
+                     'g': fit_result.value(g)}
+
+    # v = 1
+    model = Model({t: t0 * exp(-g * (1 - (1 - gamma * force)))})
+    fit = Fit(model, t=times, force=forces)
+    fit_result = fit.execute()
+    result['1'] = {'t0': fit_result.value(t0), 'x': fit_result.value(gamma) * fit_result.value(g),
+                   'g': fit_result.value(g)}
+
+    return result
 
 
 def solve_wlc(f, p, l=None, x=None):
@@ -207,7 +240,7 @@ def fit_curve_dna(ranges, dist, forces):
     # plt.plot(forces, dist)
     dist_protein = [d0-d1 for d0, d1 in zip(dist, dist_dna_smooth) if d0 >= ranges[1][0]]
     forces_protein = [forces[_] for _ in range(len(forces)) if dist[_] >= ranges[1][0]]
-    new_ranges = [[0,200], [400,700]]
+    new_ranges = [[0, 200], [400, 700]]
     dist_protein_to_fit = [np.array([dist_protein[_] for _ in range(len(dist_protein))
                              if current_range[0] <= dist_protein[_] <= current_range[1] and
                              forces_protein[_] > low_force_cutoff]) for current_range in new_ranges]
@@ -221,7 +254,80 @@ def fit_curve_dna(ranges, dist, forces):
     return coefficients
 
 
-def fit_curve(ranges, dist, forces, temperature=None, elastic_moduli_boudaries=(250, 400)):
+def fit_curve(ranges, dist, forces, linker, temperature=None, elastic_moduli_boudaries=(250, 400)):
+    if linker == 'dna':
+        return fit_curve_dna(ranges, dist, forces, temperature=temperature)
+    elif linker == 'none':
+        return fit_curve_protein(ranges, dist, forces, temperature=temperature)
+    else:
+        raise NameError("Unknown linker for analysis. Known models are " + str(available_linkers) + '.')
+
+
+def fit_curve_dna(ranges, dist, forces, temperature=None):
+    low_force_cutoff = 0.1
+    if temperature:
+        temperature_factor = temperature * 0.0138
+    else:
+        temperature_factor = 4.114
+
+    dist_dna = np.array([dist[_] for _ in range(len(dist))
+                             if ranges[0][0] <= dist[_] <= ranges[0][1] and forces[_] > low_force_cutoff])
+    forces_dna = np.array([forces[_] for _ in range(len(dist))
+                             if ranges[0][0] <= dist[_] <= ranges[0][1] and forces[_] > low_force_cutoff])
+
+    coefficients_tmp = fit_last_part(dist_dna, forces_dna)
+    coefficients = {'LDNA': coefficients_tmp['llast'], 'pDNA/KbT': coefficients_tmp['plast'],
+                    'pDNA': temperature_factor/coefficients_tmp['plast']}
+
+    dist_to_fit = []
+    forces_to_fit = []
+
+    for k in range(1, len(ranges)):
+        current_range = ranges[k]
+        forces_to_fit.append(np.array([forces[_] for _ in range(len(dist))
+                                   if current_range[0] <= dist[_] <= current_range[1] and
+                                   forces[_] > low_force_cutoff]))
+        dist_dna = solve_wlc(forces_to_fit, coefficients['pDNA/KbT'], coefficients['LDNA'])
+        dist_to_fit.append(np.array([forces[_] for _ in range(len(dist))
+                                   if current_range[0] <= dist[_] <= current_range[1] and
+                                   forces[_] > low_force_cutoff]) - dist_dna)
+
+    coefficients_tmp = fit_last_part(dist_to_fit[-1], forces_to_fit[-1])
+    coefficients['llast'] = coefficients_tmp['llast']
+    coefficients['plast'] = coefficients_tmp['plast']
+
+    # the model for symfit
+    dist_variables = []
+    forces_variables = []
+    lengths = []
+    persistence_protein = Parameter('pp', value=0.3, min=0.001)  # , min=3, max=10)
+    model_dict = {}
+
+    for k in range(1, len(ranges)):
+        dist_variables.append(Variable('d' + str(k)))
+        forces_variables.append(Variable('F' + str(k)))
+        lengths.append(Parameter('Lp' + str(k), value=max(dist_to_fit) + 20, min=max(dist_to_fit) + 1,
+                                 max=coefficients['llast']))
+        model_dict[forces_variables[k]] = persistence_protein * (
+                0.25 / ((1 - dist_variables[k] / lengths[k]) ** 2) - 0.25 + dist_variables[k] / lengths[k])
+
+    model = Model(model_dict)
+    arguments = {}
+    for k in range(1, len(ranges)):
+        arguments['d' + str(k)] = dist_to_fit[k]
+        arguments['F' + str(k)] = forces_to_fit[k]
+
+    fit = Fit(model, **arguments)
+    fit_result = fit.execute()
+
+    # extracting coefficients
+    coefficients['L'] = [fit_result.value(L) for L in lengths]
+    coefficients['pProtein/KbT'] = fit_result.value(persistence_protein)
+    coefficients['pProtein'] = temperature_factor / fit_result.value(persistence_protein)
+    return coefficients
+
+
+def fit_curve_protein(ranges, dist, forces, temperature=None):
     low_force_cutoff = 0.1
     if temperature:
         temperature_factor = temperature * 0.0138
@@ -241,7 +347,7 @@ def fit_curve(ranges, dist, forces, temperature=None, elastic_moduli_boudaries=(
     dist_variables = []
     forces_variables = []
     lengths = []
-    persistence_protein = Parameter('pp', value=0.3, min=0)  # , min=3, max=10)
+    persistence_protein = Parameter('pp', value=0.3, min=0.001)  # , min=3, max=10)
     model_dict = {}
 
     for k in range(len(ranges)):
@@ -274,7 +380,10 @@ def find_rupture_forces(dist, forces, ranges, coefficients):
     for r in range(len(ranges)):
         current_range = ranges[r]
         length = lengths[r]
-        rupture_force = max([forces[_] for _ in range(len(dist)) if current_range[0] < dist[_] < current_range[1]])
+        try:
+            rupture_force = max([forces[_] for _ in range(len(dist)) if current_range[0] < dist[_] < current_range[1]])
+        except ValueError:
+            rupture_force = -1
         rupture_forces[length] = rupture_force
     return rupture_forces
 
@@ -312,10 +421,19 @@ def cluster_coefficients(coefficients, maxgap=15, minnumber=4, minspan=-1):
     return clusters
 
 
+def force_load(f, p, l, v, k=0):
+    force_part = (2*p*l * (1+p*f))/(3 + 5*p*f + 8*(p*f)**5/2)
+    if k != 0:
+        force_part += 1/k
+    return v/force_part
+
+
 def make_histograms(coefficients_total, contour_lengths, rupture_forces, name, residues_distance=3.88, cluster_max_gap=15,
-                    show_plots=False):
+                    speed=0.001, show_plots=False):
     fig, axes = plt.subplots(2, 2, dpi=600, figsize=(10, 10))
     results = {}
+    dudko_analysis = {}
+    persistence = sum([coefficients_total[k]['pProtein/KbT'] for k in range(len(coefficients_total))])/len(coefficients_total)
 
     # contour length histogram
     axes[0, 0].set_title('Contour length histogram')
@@ -336,6 +454,7 @@ def make_histograms(coefficients_total, contour_lengths, rupture_forces, name, r
         results['contour_length_histo'].append([round(mu, 3), round(sigma, 3), residues])
         label = str(round(mu, 3)) + ' (' + str(residues) + ' AA)'
         axes[0, 0].plot(x, norm.pdf(x, mu, sigma), colors[r % len(colors)], linestyle='--', label=label)
+        dudko_analysis[r] = {'mu': mu}
     n, bins, patches = axes[0, 0].hist(coefficients_clusters[-1], bins=np.arange(min_l, max_l + 5, 5),
                                            density=True, facecolor='k', alpha=0.5)
     axes[0, 0].legend()
@@ -349,14 +468,14 @@ def make_histograms(coefficients_total, contour_lengths, rupture_forces, name, r
     axes[1, 0].set_xlim(min_f, max_f)
     x = np.linspace(min_f, max_f, 100)
     results['rupture_forces'] = []
-    dudko_analysis = []
     for r in range(len(coefficients_clusters)-1):
         force_cluster = [rupture_forces[coefficient] for coefficient in coefficients_clusters[r]]
         n, bins, patches = axes[1, 0].hist(force_cluster, density=True, facecolor=colors[r % len(colors)], alpha=0.5)
-        dudko_analysis.append([n, bins])
+        dudko_analysis[r]['n'] = n
+        dudko_analysis[r]['bins'] = bins
         (mu, sigma) = norm.fit(force_cluster)
         results['rupture_forces'].append([round(mu, 3), round(sigma, 3)])
-        label = str(round(mu, 3)) + ' (' + str(results['contour_length_histo'][r][0]) + ')'
+        label = str(round(mu, 3)) + ' (L=' + str(results['contour_length_histo'][r][0]) + ')'
         axes[1, 0].plot(x, norm.pdf(x, mu, sigma), colors[r % len(colors)], linestyle='--', label=label)
     force_cluster = [rupture_forces[coefficient] for coefficient in coefficients_clusters[-1]]
     n, bins, patches = axes[1, 0].hist(force_cluster, bins=np.arange(min_l, max_l + 5, 5),
@@ -367,33 +486,51 @@ def make_histograms(coefficients_total, contour_lengths, rupture_forces, name, r
     axes[0, 1].set_title('Transformed contour length histogram')
     axes[0, 1].set_xlabel('Contour length [pN]')
     axes[0, 1].set_ylabel('Probability')
-    length_clusters = cluster_coefficients(contour_lengths, maxgap=1, minspan=10)
-    min_l = min([length for cluster in length_clusters[:-1] for length in cluster])
-    max_l = max([length for cluster in length_clusters[:-1] for length in cluster])
+    fit_ranges = find_hist_ranges(contour_lengths)
+    min_l = min(contour_lengths)
+    max_l = max(contour_lengths)
     axes[0, 1].set_xlim(min_l, max_l)
-    x = np.linspace(min_l, max_l, 100)
     results['transformed'] = []
-    for r in range(len(length_clusters)-1):
-        n, bins, patches = axes[0, 1].hist(length_clusters[r], density=True,
+    for r in range(len(fit_ranges)):
+        x = np.linspace(fit_ranges[r][0], fit_ranges[r][1], 100)
+        data_to_fit = [value for value in contour_lengths if fit_ranges[r][0] <= value <= fit_ranges[r][1]]
+        n, bins, patches = axes[0, 1].hist(data_to_fit, density=True,
                                            facecolor=colors[r % len(colors)], alpha=0.5)
-        (mu, sigma) = norm.fit(length_clusters[r])
+        (mu, sigma) = norm.fit(fit_ranges[r])
         residues = int(round(mu / residues_distance, 0)) + 1
         results['transformed'].append([round(mu, 3), round(sigma, 3), residues])
         label = str(round(mu, 3)) + ' (' + str(residues) + ' AA)'
         axes[0, 1].plot(x, norm.pdf(x, mu, sigma), colors[r % len(colors)], linestyle='--', label=label)
-    if len(length_clusters[-1]) > 4:
-        n, bins, patches = axes[0, 0].hist(length_clusters[-1], bins=np.arange(min_l, max_l + 5, 5),
-                                           density=True, facecolor='k', alpha=0.5)
     axes[0, 1].legend()
 
     # Dudko analysis
     axes[1, 1].set_title('Dudko analysis')
     axes[1, 1].set_xlabel('Rupture force [pN]')
-    axes[1, 1].set_ylabel('Loading rate')
-
-    # axes[1, 1].legend()
-
-
+    axes[1, 1].set_ylabel('Rupture time [s]')
+    axes[1, 1].set_xlim(min_f, max_f)
+    dudko_result = []
+    for r in dudko_analysis.keys():
+        l = dudko_analysis[r]['mu']
+        heights = np.array(dudko_analysis[r]['n'])
+        heights_div = np.array([heights[x] for x in range(len(heights)) if heights[x] != 0])
+        bins = dudko_analysis[r]['bins']
+        df = bins[1] - bins[0]
+        plt_range = [k for k in range(1, len(bins)) if heights[k - 1] != 0]
+        x = np.array([bins[0] + (k - 1 / 2) * df for k in plt_range])
+        load = force_load(x, persistence, l, speed)
+        area = np.array(
+            [heights[k - 1] / 2 + sum([heights[i - 1] for i in range(k + 1, len(bins))]) for k in plt_range])
+        y = (area * df) / (load * heights_div)
+        label = 'L=' + str(round(l, 3))
+        dudko_result.append(fit_dudko(x, y))
+        x_smooth = np.linspace(min(x), max(x))
+        t0 = dudko_result[-1]['1/2']['t0']
+        gamma = dudko_result[-1]['1/2']['x'] / (2 * dudko_result[-1]['1/2']['g'])
+        g = dudko_result[-1]['1/2']['g']
+        y_smooth = t0 * (1 - gamma * x_smooth) ** (-1) * np.exp(-g * (1 - (1 - gamma * x_smooth) ** 2))
+        axes[1, 1].plot(x, y, 'o', color=colors[r % len(colors)], label=label)
+        axes[1, 1].plot(x_smooth, y_smooth, '-', color=colors[r % len(colors)])
+    axes[1, 1].legend()
     fig.tight_layout()
     if show_plots:
         plt.show()
@@ -543,6 +680,31 @@ def save_data(name, details, ranges, coefficients, rupture_forces, contour_lengt
         myfile.write('\n'.join(result))
     print('The results saved to ' + fname)
     return
+
+
+def find_hist_ranges(data):
+    n, bins, patches = plt.hist(data, bins=200, density=True, alpha=0.0)
+    xs = []
+    for k in range(len(bins) - 1):
+        xs.append((bins[k] + bins[k + 1]) / 2)
+
+    diff_x = np.diff(xs)
+    diff_n = np.diff(n)
+
+    to_cluster = []
+    for x, y in zip(xs[:-1], diff_n / diff_x):
+        if abs(y) < 0.00001:
+            to_cluster.append(x)
+
+    clusters = cluster_coefficients(to_cluster, minnumber=2)
+    fit_ranges = [[min(bins)]]
+    for k in range(len(clusters) - 1):
+        cluster = clusters[k]
+        pos = (max(cluster) + min(cluster)) / 2
+        fit_ranges[-1].append(pos)
+        fit_ranges.append([pos])
+    fit_ranges.pop(-1)
+    return fit_ranges
 
 
 def merge_dicts(dict1, dict2):

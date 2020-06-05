@@ -30,17 +30,29 @@ data_files = {
     # 'TrmD': {'residues': 240, 'distance': 4.4743, 'linker': 'dna', 'source': 'experiment', 'unit': 'nm'},
     # 'Tm1570': {'residues': 193, 'distance': 0.9901, 'linker': 'dna', 'source': 'experiment', 'unit': 'nm'},
     # 'fuzja': {'residues': 432, 'distance': 6.0558, 'linker': 'dna', 'source': 'experiment', 'unit': 'nm'},
-    # 'CieplakT04': {'residues': 248, 'distance': 52.412, 'linker': 'none', 'unit': 'A', 'source': 'theory'},
-    # 'CieplakT05': {'residues': 248, 'distance': 52.412, 'linker': 'none', 'unit': 'A', 'source': 'theory'},
-    # 'CieplakT06': {'residues': 248, 'distance': 52.412, 'linker': 'none', 'unit': 'A', 'source': 'theory'},
-    # 'CieplakT05_spring': {'residues': 248, 'distance': 52.412, 'linker': 'none', 'unit': 'A', 'source': 'theory'},
-    # 'smogT04': {'residues': 248, 'distance': 52.412, 'linker': 'none', 'unit': 'A', 'source': 'theory'},
-    # 'smogT05': {'residues': 248, 'distance': 52.412, 'linker': 'none', 'unit': 'A', 'source': 'theory'},
-    # 'smogT06': {'residues': 248, 'distance': 52.412, 'linker': 'none', 'unit': 'A', 'source': 'theory'},
-    'smogT05_spring': {'residues': 248, 'distance': 52.412, 'linker': 'none', 'unit': 'A', 'source': 'theory'},
-    # 'CaT04': {'residues': 248, 'distance': 52.412, 'linker': 'none', 'unit': 'A', 'source': 'theory'},
-    # 'CaT05': {'residues': 248, 'distance': 52.412, 'linker': 'none', 'unit': 'A', 'source': 'theory'},
-    # 'CaT06': {'residues': 248, 'distance': 52.412, 'linker': 'none', 'unit': 'A', 'source': 'theory'}
+    # 'trmd_CieplakT04': {'residues': 240, 'distance': 44.743, 'linker': 'none', 'unit': 'A', 'source': 'theory', 'speed': 0.001},
+    # 'trmd_CieplakT05': {'residues': 240, 'distance': 44.743, 'linker': 'none', 'unit': 'A', 'source': 'theory', 'speed': 0.001},
+    # 'trmd_CieplakT06': {'residues': 240, 'distance': 44.743, 'linker': 'none', 'unit': 'A', 'source': 'theory', 'speed': 0.001},
+    # 'trmd_CieplakT05_spring': {'residues': 240, 'distance': 44.743, 'linker': 'none', 'unit': 'A', 'source': 'theory', 'speed': 0.001},
+    # 'trmd_smogT04': {'residues': 240, 'distance': 44.743, 'linker': 'none', 'unit': 'A', 'source': 'theory', 'speed': 0.001},
+    # 'trmd_smogT05': {'residues': 240, 'distance': 44.743, 'linker': 'none', 'unit': 'A', 'source': 'theory', 'speed': 0.001},
+    'trmd_smogT06': {'residues': 240, 'distance': 44.743, 'linker': 'none', 'unit': 'A', 'source': 'theory', 'speed': 0.001},
+    # 'trmd_smogT05_spring': {'residues': 240, 'distance': 44.743, 'linker': 'none', 'unit': 'A', 'source': 'theory'},
+    # 'trmd_CaT04': {'residues': 240, 'distance': 44.743, 'linker': 'none', 'unit': 'A', 'source': 'theory', 'speed': 0.001},
+    # 'trmd_CaT05': {'residues': 240, 'distance': 44.743, 'linker': 'none', 'unit': 'A', 'source': 'theory', 'speed': 0.001},
+    # 'trmd_CaT06': {'residues': 240, 'distance': 44.743, 'linker': 'none', 'unit': 'A', 'source': 'theory', 'speed': 0.001},
+    # '5wyr_CieplakT04': {'residues': 248, 'distance': 51.034, 'linker': 'none', 'unit': 'A', 'source': 'theory', 'speed': 0.001},
+    # '5wyr_CieplakT05': {'residues': 248, 'distance': 51.034, 'linker': 'none', 'unit': 'A', 'source': 'theory', 'speed': 0.001},
+    # '5wyr_CieplakT06': {'residues': 248, 'distance': 51.034, 'linker': 'none', 'unit': 'A', 'source': 'theory', 'speed': 0.001},
+    # '5wyr_CieplakT05_spring': {'residues': 248, 'distance': 51.034, 'linker': 'none', 'unit': 'A', 'source': 'theory', 'speed': 0.001},
+    # '5wyr_smogT04': {'residues': 248, 'distance': 51.034, 'linker': 'none', 'unit': 'A', 'source': 'theory', 'speed': 0.001},
+    # '5wyr_smogT05': {'residues': 248, 'distance': 51.034, 'linker': 'none', 'unit': 'A', 'source': 'theory', 'speed': 0.001},
+    # '5wyr_smogT06': {'residues': 248, 'distance': 51.034, 'linker': 'none', 'unit': 'A', 'source': 'theory', 'speed': 0.001},
+    # '5wyr_smogT05_spring': {'residues': 248, 'distance': 51.034, 'linker': 'none', 'unit': 'A', 'source': 'theory', 'speed': 0.001},
+    # '5wyr_CaT04': {'residues': 248, 'distance': 51.034, 'linker': 'none', 'unit': 'A', 'source': 'theory', 'speed': 0.001},
+    # '5wyr_CaT05': {'residues': 248, 'distance': 51.034, 'linker': 'none', 'unit': 'A', 'source': 'theory', 'speed': 0.001},
+    # '5wyr_CaT06': {'residues': 248, 'distance': 51.034, 'linker': 'none', 'unit': 'A', 'source': 'theory', 'speed': 0.001},
+    # 'AA_trmd': {'residues': 248, 'distance': 52.412, 'linker': 'none', 'unit': 'A', 'source': 'theory', 'speed': 0.001}
 }
 data_file_prefix = 'raw_data_'                                      # the prefix for the core of the file name
 data_file_suffix = '.csv'                                           # the suffix for the core of the file name
@@ -72,24 +84,19 @@ def analyze_case(structure_name):
         ranges, dist_smooth, forces_smooth = find_ranges(dist, forces, gap=minimal_stretch_distance,
                                                          high_force_cutoff=high_force_cutoff)
         ranges_total.append(ranges)
-        if data_files[structure_name]['linker'] == 'dna':
-            coefficients_trace = fit_curve_dna(ranges, dist_smooth, forces_smooth)
-        else:
-            coefficients_trace = fit_curve(ranges, dist_smooth, forces_smooth)
+        coefficients_trace = fit_curve(ranges, dist_smooth, forces_smooth, data_files[structure_name]['linker'])
         coefficients.append(coefficients_trace)
-        contour_lengths += transform_coordinates(dist, forces, ranges, coefficients[-1])
+        contour_lengths += transform_coordinates(dist, forces, ranges, coefficients[-1], data_files[structure_name]['linker'])
         rupture_forces = merge_dicts(rupture_forces, find_rupture_forces(dist, forces, ranges, coefficients[-1]))
         # energies = find_energies(dist, forces, coefficients[-1])
         k += 1
-    # contour_length_gain = make_partial_plots(dist_total, forces_total, ranges_total, coefficients, name,
-    #                        linker=data_files[structure_name]['linker'], show_plots=False, columns=columns,
-    #                                         residues_distance=residues_distance[data_files[structure_name]['source']])
+    contour_length_gain = make_partial_plots(dist_total, forces_total, ranges_total, coefficients, name,
+                           linker=data_files[structure_name]['linker'], show_plots=False, columns=columns,
+                                            residues_distance=residues_distance[data_files[structure_name]['source']])
     histograms = make_histograms(coefficients, contour_lengths, rupture_forces, name, show_plots=False,
-                                 residues_distance=residues_distance[data_files[structure_name]['source']])
-    # aver_dist, aver_forces = find_averages(dist_total, forces_total)
-    # xd, g, v, tau = extract_life_times(force_counts, force_bins, aver_dist, aver_forces, extension_speed, show_plots)
-
-    # save_data(name, data_files[name], ranges_total, coefficients, rupture_forces, contour_length_gain, histograms)
+                                 residues_distance=residues_distance[data_files[structure_name]['source']],
+                                 speed=data_files[structure_name]['speed'])
+    save_data(name, data_files[name], ranges_total, coefficients, rupture_forces, contour_length_gain, histograms)
     return
 
 
