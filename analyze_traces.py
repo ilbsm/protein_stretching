@@ -1,4 +1,4 @@
-from tools import *
+from structure import Structure
 
 
 ''' 
@@ -24,82 +24,56 @@ p.dabrowski@cent.uw.edu.pl
 '''
 
 ''' Parameters '''
-data_path = '/Users/pawel/Documents/Projekty/2020 - Rozciaganie/data/'   # directory with the data
 # dictionary with cores of file names as keys and a tuple with (number of residues between the attachment of DNA, distance in nm, number of residues in linker between domains)
-data_files = {
-    # 'TrmD': {'residues': 240, 'distance': 4.4743, 'linker': 'dna', 'source': 'experiment', 'unit': 'nm'},
-    # 'Tm1570': {'residues': 193, 'distance': 0.9901, 'linker': 'dna', 'source': 'experiment', 'unit': 'nm'},
-    # 'fuzja': {'residues': 432, 'distance': 6.0558, 'linker': 'dna', 'source': 'experiment', 'unit': 'nm'},
-    # 'trmd_CieplakT04': {'residues': 240, 'distance': 44.743, 'linker': 'none', 'unit': 'A', 'source': 'theory', 'speed': 0.001},
-    # 'trmd_CieplakT05': {'residues': 240, 'distance': 44.743, 'linker': 'none', 'unit': 'A', 'source': 'theory', 'speed': 0.001},
-    # 'trmd_CieplakT06': {'residues': 240, 'distance': 44.743, 'linker': 'none', 'unit': 'A', 'source': 'theory', 'speed': 0.001},
-    # 'trmd_CieplakT05_spring': {'residues': 240, 'distance': 44.743, 'linker': 'none', 'unit': 'A', 'source': 'theory', 'speed': 0.001},
-    # 'trmd_smogT04': {'residues': 240, 'distance': 44.743, 'linker': 'none', 'unit': 'A', 'source': 'theory', 'speed': 0.001},
-    # 'trmd_smogT05': {'residues': 240, 'distance': 44.743, 'linker': 'none', 'unit': 'A', 'source': 'theory', 'speed': 0.001},
-    'trmd_smogT06': {'residues': 240, 'distance': 44.743, 'linker': 'none', 'unit': 'A', 'source': 'theory', 'speed': 0.001},
-    # 'trmd_smogT05_spring': {'residues': 240, 'distance': 44.743, 'linker': 'none', 'unit': 'A', 'source': 'theory'},
-    # 'trmd_CaT04': {'residues': 240, 'distance': 44.743, 'linker': 'none', 'unit': 'A', 'source': 'theory', 'speed': 0.001},
-    # 'trmd_CaT05': {'residues': 240, 'distance': 44.743, 'linker': 'none', 'unit': 'A', 'source': 'theory', 'speed': 0.001},
-    # 'trmd_CaT06': {'residues': 240, 'distance': 44.743, 'linker': 'none', 'unit': 'A', 'source': 'theory', 'speed': 0.001},
-    # '5wyr_CieplakT04': {'residues': 248, 'distance': 51.034, 'linker': 'none', 'unit': 'A', 'source': 'theory', 'speed': 0.001},
-    # '5wyr_CieplakT05': {'residues': 248, 'distance': 51.034, 'linker': 'none', 'unit': 'A', 'source': 'theory', 'speed': 0.001},
-    # '5wyr_CieplakT06': {'residues': 248, 'distance': 51.034, 'linker': 'none', 'unit': 'A', 'source': 'theory', 'speed': 0.001},
-    # '5wyr_CieplakT05_spring': {'residues': 248, 'distance': 51.034, 'linker': 'none', 'unit': 'A', 'source': 'theory', 'speed': 0.001},
-    # '5wyr_smogT04': {'residues': 248, 'distance': 51.034, 'linker': 'none', 'unit': 'A', 'source': 'theory', 'speed': 0.001},
-    # '5wyr_smogT05': {'residues': 248, 'distance': 51.034, 'linker': 'none', 'unit': 'A', 'source': 'theory', 'speed': 0.001},
-    # '5wyr_smogT06': {'residues': 248, 'distance': 51.034, 'linker': 'none', 'unit': 'A', 'source': 'theory', 'speed': 0.001},
-    # '5wyr_smogT05_spring': {'residues': 248, 'distance': 51.034, 'linker': 'none', 'unit': 'A', 'source': 'theory', 'speed': 0.001},
-    # '5wyr_CaT04': {'residues': 248, 'distance': 51.034, 'linker': 'none', 'unit': 'A', 'source': 'theory', 'speed': 0.001},
-    # '5wyr_CaT05': {'residues': 248, 'distance': 51.034, 'linker': 'none', 'unit': 'A', 'source': 'theory', 'speed': 0.001},
-    # '5wyr_CaT06': {'residues': 248, 'distance': 51.034, 'linker': 'none', 'unit': 'A', 'source': 'theory', 'speed': 0.001},
-    # 'AA_trmd': {'residues': 248, 'distance': 52.412, 'linker': 'none', 'unit': 'A', 'source': 'theory', 'speed': 0.001}
+data_files = [
+    # {'name': 'TrmD', 'residues': 240, 'distance': 4.4743, 'linker': 'dna', 'source': 'experiment', 'unit': 'nm', 'speed': 1},
+    # {'name': 'Tm1570', 'residues': 193, 'distance': 0.9901, 'linker': 'dna', 'source': 'experiment', 'unit': 'nm', 'speed': 1},
+    # {'name': 'fuzja', 'residues': 432, 'distance': 6.0558, 'linker': 'dna', 'source': 'experiment', 'unit': 'nm', 'speed': 1},
+    # {'name': 'trmd_CieplakT04', 'residues': 240, 'distance': 44.743, 'linker': 'none', 'unit': 'A', 'source': 'theory', 'speed': 0.001},
+    # {'name': 'trmd_CieplakT05', 'residues': 240, 'distance': 44.743, 'linker': 'none', 'unit': 'A', 'source': 'theory', 'speed': 0.001},
+    # {'name': 'trmd_CieplakT06', 'residues': 240, 'distance': 44.743, 'linker': 'none', 'unit': 'A', 'source': 'theory', 'speed': 0.001},
+    # {'name': 'trmd_CieplakT05_spring', 'residues': 240, 'distance': 44.743, 'linker': 'none', 'unit': 'A', 'source': 'theory', 'speed': 0.001},
+    # {'name': 'trmd_smogT04', 'residues': 240, 'distance': 44.743, 'linker': 'none', 'unit': 'A', 'source': 'theory', 'speed': 0.001},
+    # {'name': 'trmd_smogT05', 'residues': 240, 'distance': 44.743, 'linker': 'none', 'unit': 'A', 'source': 'theory', 'speed': 0.001},
+    # {'name': 'trmd_smogT06', 'residues': 240, 'distance': 44.743, 'linker': 'none', 'unit': 'A', 'source': 'theory', 'speed': 0.001},
+    # {'name': 'trmd_smogT05_spring', 'residues': 240, 'distance': 44.743, 'linker': 'none', 'unit': 'A', 'source': 'theory'},
+    # {'name': 'trmd_CaT04', 'residues': 240, 'distance': 44.743, 'linker': 'none', 'unit': 'A', 'source': 'theory', 'speed': 0.001},
+    # {'name': 'trmd_CaT05', 'residues': 240, 'distance': 44.743, 'linker': 'none', 'unit': 'A', 'source': 'theory', 'speed': 0.001},
+    # {'name': 'trmd_CaT06', 'residues': 240, 'distance': 44.743, 'linker': 'none', 'unit': 'A', 'source': 'theory', 'speed': 0.001},
+    # {'name': '5wyr_CieplakT04', 'residues': 248, 'distance': 51.034, 'linker': 'none', 'unit': 'A', 'source': 'theory', 'speed': 0.001},
+    {'name': '5wyr_CieplakT05', 'residues': 248, 'distance': 51.034, 'linker': 'none', 'unit': 'A', 'source': 'theory', 'speed': 0.001},
+    # {'name': '5wyr_CieplakT06', 'residues': 248, 'distance': 51.034, 'linker': 'none', 'unit': 'A', 'source': 'theory', 'speed': 0.001},
+    # {'name': '5wyr_CieplakT05_spring', 'residues': 248, 'distance': 51.034, 'linker': 'none', 'unit': 'A', 'source': 'theory', 'speed': 0.001},
+    # {'name': '5wyr_smogT04', 'residues': 248, 'distance': 51.034, 'linker': 'none', 'unit': 'A', 'source': 'theory', 'speed': 0.001},
+    # {'name': '5wyr_smogT05', 'residues': 248, 'distance': 51.034, 'linker': 'none', 'unit': 'A', 'source': 'theory', 'speed': 0.001},
+    # {'name': '5wyr_smogT06', 'residues': 248, 'distance': 51.034, 'linker': 'none', 'unit': 'A', 'source': 'theory', 'speed': 0.001},
+    # {'name': '5wyr_smogT05_spring', 'residues': 248, 'distance': 51.034, 'linker': 'none', 'unit': 'A', 'source': 'theory', 'speed': 0.001},
+    # {'name': '5wyr_CaT04', 'residues': 248, 'distance': 51.034, 'linker': 'none', 'unit': 'A', 'source': 'theory', 'speed': 0.001},
+    # {'name': '5wyr_CaT05', 'residues': 248, 'distance': 51.034, 'linker': 'none', 'unit': 'A', 'source': 'theory', 'speed': 0.001},
+    # {'name': '5wyr_CaT06', 'residues': 248, 'distance': 51.034, 'linker': 'none', 'unit': 'A', 'source': 'theory', 'speed': 0.001},
+    # {'name': 'AA_trmd', 'residues': 248, 'distance': 52.412, 'linker': 'none', 'unit': 'A', 'source': 'theory', 'speed': 0.001}
+]
+parameters = {
+'data_path': '/Users/pawel/Documents/Projekty/2020 - Rozciaganie/data/',   # directory with the data
+'data_file_prefix': 'raw_data_',                                      # the prefix for the core of the file name
+'data_file_suffix': '.csv',                                           # the suffix for the core of the file name
+'residues_distance': {'experiment': 3.65, 'theory': 3.86},            # distance between residues in stretched chain in A
+'gap_size': 0.2,                                                      # the minimal gap between distances during jump
+'minimal_stretch_distance': 10,                                       # minimal distance between jumps
+'break_size': 3,                                                      # the minimal distance between the fitted parts
+'high_force_cutoff': {'theory': 1, 'experiment': 5},                  # the cutoff delimiting the high force regime
+'low_force_cutoff': 0.1,
+'max_force_rupture': 42,                                              # the maximal force at which rupture may happen
+'cluster_max_gap': 15,
+'extension_speed': 200,                                               # speed of extension in nm/s
+'force_decrease': 0.15,                                               # decrease of smoothed force trace during rupture
+'high_force': 1,                                                      # the force cut of the backgroud
+'columns': 4,                                                         # number of columns of plots in mutliplots
 }
-data_file_prefix = 'raw_data_'                                      # the prefix for the core of the file name
-data_file_suffix = '.csv'                                           # the suffix for the core of the file name
-residues_distance = {'experiment': 3.65, 'theory': 3.86}            # distance between residues in stretched chain in A
-gap_size = 0.2                                                      # the minimal gap between distances during jump
-minimal_stretch_distance = 10                                       # minimal distance between jumps
-break_size = 3                                                      # the minimal distance between the fitted parts
-high_force_cutoff = 1                                               # the cutoff delimiting the high force regime
-max_force_rupture = 42                                              # the maximal force at which rupture may happen
-show_plots = True                                                   # boolean, if the plots are to be shown or saved
-extension_speed = 200                                               # speed of extension in nm/s
-force_decrease = 0.15                                               # decrease of smoothed force trace during rupture
-high_force = 1                                                      # the force cut of the backgroud
-columns = 4                                                         # number of columns of plots in mutliplots
 ''' End of parameters '''
 
 
-def analyze_case(structure_name):
-    coefficients = []
-    rupture_forces = {}
-    k = 1
-    contour_lengths = []
-    ranges_total = []
-    dist_total, forces_total = extract_curves(structure_name, data_path, data_file_prefix, data_file_suffix,
-                                              unit=data_files[structure_name]['unit'])
-    print('Found ' + str(len(dist_total)) + ' traces to analyze. Analyzing:')
-    for dist, forces in zip(dist_total, forces_total):
-        print(str(k) + '/' + str(len(dist_total)))
-        ranges, dist_smooth, forces_smooth = find_ranges(dist, forces, gap=minimal_stretch_distance,
-                                                         high_force_cutoff=high_force_cutoff)
-        ranges_total.append(ranges)
-        coefficients_trace = fit_curve(ranges, dist_smooth, forces_smooth, data_files[structure_name]['linker'])
-        coefficients.append(coefficients_trace)
-        contour_lengths += transform_coordinates(dist, forces, ranges, coefficients[-1], data_files[structure_name]['linker'])
-        rupture_forces = merge_dicts(rupture_forces, find_rupture_forces(dist, forces, ranges, coefficients[-1]))
-        # energies = find_energies(dist, forces, coefficients[-1])
-        k += 1
-    contour_length_gain = make_partial_plots(dist_total, forces_total, ranges_total, coefficients, name,
-                           linker=data_files[structure_name]['linker'], show_plots=False, columns=columns,
-                                            residues_distance=residues_distance[data_files[structure_name]['source']])
-    histograms = make_histograms(coefficients, contour_lengths, rupture_forces, name, show_plots=False,
-                                 residues_distance=residues_distance[data_files[structure_name]['source']],
-                                 speed=data_files[structure_name]['speed'])
-    save_data(name, data_files[name], ranges_total, coefficients, rupture_forces, contour_length_gain, histograms)
-    return
-
-
 ''' Main part '''
-for name in data_files.keys():
-    analyze_case(name)
+for case in data_files:
+    experiment = Structure(case, parameters)
+    experiment.analyze(debug=True)
