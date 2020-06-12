@@ -24,7 +24,6 @@ p.dabrowski@cent.uw.edu.pl
 '''
 
 ''' Parameters '''
-# dictionary with cores of file names as keys and a tuple with (number of residues between the attachment of DNA, distance in nm, number of residues in linker between domains)
 data_files = [
     # {'name': 'TrmD', 'residues': 240, 'distance': 4.4743, 'linker': 'dna', 'source': 'experiment', 'unit': 'nm', 'speed': 1},
     # {'name': 'Tm1570', 'residues': 193, 'distance': 0.9901, 'linker': 'dna', 'source': 'experiment', 'unit': 'nm', 'speed': 1},
@@ -58,16 +57,11 @@ parameters = {
 'data_file_prefix': 'raw_data_',                                      # the prefix for the core of the file name
 'data_file_suffix': '.csv',                                           # the suffix for the core of the file name
 'residues_distance': {'experiment': 3.65, 'theory': 3.86},            # distance between residues in stretched chain in A
-'gap_size': 0.2,                                                      # the minimal gap between distances during jump
 'minimal_stretch_distance': 10,                                       # minimal distance between jumps
-'break_size': 3,                                                      # the minimal distance between the fitted parts
 'high_force_cutoff': {'theory': 1, 'experiment': 5},                  # the cutoff delimiting the high force regime
 'low_force_cutoff': 0.1,
 'max_force_rupture': 42,                                              # the maximal force at which rupture may happen
 'cluster_max_gap': 15,
-'extension_speed': 200,                                               # speed of extension in nm/s
-'force_decrease': 0.15,                                               # decrease of smoothed force trace during rupture
-'high_force': 1,                                                      # the force cut of the backgroud
 'columns': 4,                                                         # number of columns of plots in mutliplots
 }
 ''' End of parameters '''
