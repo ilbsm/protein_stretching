@@ -8,10 +8,10 @@ parameters = {
     'number': 20,                           # number of spectra to simulate
     'force_variance': 1,                  # the variance of blur of applied force
     'dist_variance': 1,                   # the variance of blur of measured extension
-    'persistence': 10,                      # protein persistence length/kbT
-    'length': 200,                          # protein contour length
-    'length_dna': 1000,                     # DNA linker contour length
-    'persistence_dna': 1,                 # DNA persistence length/kbT
+    'persistence': 5.88,                      # protein persistence length/kbT
+    'length': 80,                          # protein contour length
+    'length_dna': 360,                     # DNA linker contour length
+    'persistence_dna': 0.16,                 # DNA persistence length/kbT
     'add_dna': True,                        # if to add the DNA linker
     'low_force_cutoff': 1                 # the cutoff of reliable force detection
 }
@@ -117,14 +117,16 @@ for trace in data:
     x1 += [invert_wlc_np(f, parameters['persistence']) for d, f in trace if f > parameters['low_force_cutoff']]
     x2 += [invert_wlc_np(f, parameters['persistence_dna']) for d, f in trace if f > parameters['low_force_cutoff']]
     res += [d for d, f in trace if f > parameters['low_force_cutoff']]
-# plt.hist(np.array(res)/(0.2*np.array(x1)+np.array(x2)), bins=200, density=True)
-# plt.hist(np.array(x1), bins=200, density=True, label='x1')
-# plt.hist(np.array(x2), bins=200, density=True, label='x2')
-plt.hist(0.2*np.array(x1)+np.array(x2), bins=200, density=True)
-plt.hist(np.array(x2), bins=200, density=True)
-plt.hist(0.2*np.array(x1), bins=200, density=True)
+values = res/(np.array(x1)+4.5*np.array(x2))
+n, bins, patches = plt.hist(values, bins=200, density=True)
+f_space = np.linspace(min(bins), max(bins))
+mu, gamma = cauchy.fit(values)
+plt.plot(f_space, cauchy.pdf(f_space, mu, gamma), label=str(round(mu, 3)))
+test_statistic = cauchy.rvs(mu, gamma, len(res))
+pvalue = ks_2samp(values, test_statistic).pvalue
 plt.legend()
 plt.show()
+print(pvalue)
 # result = find_parameters(data)
 
 

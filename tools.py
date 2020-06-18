@@ -20,18 +20,22 @@ def merge_dicts(dict1, dict2):
     return {**dict1, **dict2}
 
 
-def invert_wlc_np(f, p):
+def invert_wlc_np(f, p, k=None):
     if f == 0:
         return 0
-    coefs = [1, -(2.25 + f / p), (1.5 + 2 * f / p), -f / p]
+    if not k:
+        coefs = [1, -(2.25 + f / p), (1.5 + 2 * f / p), -f / p]
+    else:
+        coefs = [1,
+                 -(2.25 + f * (3/k + 1/p)),
+                 (3/k**2 + 2/(k*p)) * f**2 + (4.5/k + 2/p) * f + 1.5,
+                 -f * ((1/k**3 + 1/(p*k**2)) * f**2 + (2.25/k**2 + 2/(k*p)) * f + (1.5/k + 1/p))]
     result = np.roots(coefs)
     result = np.real(result[np.isreal(result)])
-    result = result[result < 1]
     result = result[result > 0]
-    if len(result) == 1:
-        return result[0]
-    else:
-        return 0
+    if not k:
+        result = result[result < 1]
+    return min(result)
 
 
 def calc_forward_wlc(d_array, length, pprot):
@@ -145,13 +149,16 @@ def cluster_coefficients(coefficients, maxgap=15, minnumber=4, minspan=-1):
 
 
 def find_hist_ranges(data):
+    # TODO sprawdzic, czy wszystko jest dobrze z indeksami i dlugosciami list
     n, bins, patches = plt.hist(data, bins=200, density=False)
+    plt.close()
+
     xs = []
     for k in range(len(bins) - 1):
         xs.append((bins[k] + bins[k + 1]) / 2)
 
     x_smooth, n_smooth = running_average(xs, n, window=5)
-    plt.plot(x_smooth, n_smooth)
+    # plt.plot(x_smooth, n_smooth)
 
     diff_x = np.diff(x_smooth)
     diff_n = np.diff(n_smooth)
@@ -159,19 +166,23 @@ def find_hist_ranges(data):
     n_bis = np.diff(diff_n) / diff_x[1:]
 
     to_cluster = []
-    for k in range(len(n_deriv)):
-        if abs(n_deriv[k]) < 3 and n_bis[k] > 0:
+    for k in range(len(n_bis)):
+        if abs(n_deriv[k]) < 30 and n_bis[k] > 0:                        # not dna n_deriv < 3
             to_cluster.append(x_smooth[k + 1])
 
-    clusters = cluster_coefficients(to_cluster, minnumber=0, maxgap=20)
+    clusters = cluster_coefficients(to_cluster, minnumber=0, maxgap=5)  # not dna maxgap=20
     fit_ranges = [[min(bins)]]
-    for k in range(len(clusters) - 1):
+    for k in range(1, len(clusters) - 1):
         cluster = clusters[k]
         pos = (max(cluster) + min(cluster)) / 2
         fit_ranges[-1].append(pos)
         fit_ranges.append([pos])
     fit_ranges[-1].append(max(bins))
     return fit_ranges
+
+
+def find_close_forces(value, forces):
+    return
 
 
 def find_area(n, bins):
@@ -186,35 +197,37 @@ def force_load(f, p, l, v, k=0):
     return v/force_part
 
 
-def fit_dudko(forces, times):
+def fit_dudko(forces, times, v):
     force = Variable('force')
     t = Variable('t')
     gamma = Parameter('gamma', min=0.00001, value=0.1, max=1/max(forces)-0.00001)
     g = Parameter('g', min=0.00001, value=10)
     t0 = Parameter('t0', min=0.00001, value=10)
     # x = Parameter('x', min=0.1, value=1)
-    result = {}
 
     # v = 1/2
-    model = Model({t: t0 * (1-gamma*force)**(-1) * exp(-g * (1 - (1-gamma*force)**2))})
-    fit = Fit(model, t=times, force=forces)
-    fit_result = fit.execute()
-    result['1/2'] = {'t0': fit_result.value(t0), 'x': 2*fit_result.value(gamma)*fit_result.value(g),
-                     'g': fit_result.value(g)}
+    if v == 1/2:
+        model = Model({t: t0 * (1-gamma*force)**(-1) * exp(-g * (1 - (1-gamma*force)**2))})
+        fit = Fit(model, t=times, force=forces)
+        fit_result = fit.execute()
+        result = {'t0': fit_result.value(t0), 'x': 2*fit_result.value(gamma)*fit_result.value(g),
+                         'g': fit_result.value(g)}
 
     # v = 2/3
-    model = Model({t: t0 * (1 - gamma * force) ** (-1/2) * exp(-g * (1 - (1 - gamma * force) ** (3/2)))})
-    fit = Fit(model, t=times, force=forces)
-    fit_result = fit.execute()
-    result['2/3'] = {'t0': fit_result.value(t0), 'x': (3/2) * fit_result.value(gamma) * fit_result.value(g),
-                     'g': fit_result.value(g)}
+    if v == 2/3:
+        model = Model({t: t0 * (1 - gamma * force) ** (-1/2) * exp(-g * (1 - (1 - gamma * force) ** (3/2)))})
+        fit = Fit(model, t=times, force=forces)
+        fit_result = fit.execute()
+        result = {'t0': fit_result.value(t0), 'x': (3/2) * fit_result.value(gamma) * fit_result.value(g),
+                         'g': fit_result.value(g)}
 
     # v = 1
-    model = Model({t: t0 * exp(-g * (1 - (1 - gamma * force)))})
-    fit = Fit(model, t=times, force=forces)
-    fit_result = fit.execute()
-    result['1'] = {'t0': fit_result.value(t0), 'x': fit_result.value(gamma) * fit_result.value(g),
-                   'g': fit_result.value(g)}
+    if v == 1:
+        model = Model({t: t0 * exp(-g * (1 - (1 - gamma * force)))})
+        fit = Fit(model, t=times, force=forces)
+        fit_result = fit.execute()
+        result = {'t0': fit_result.value(t0), 'x': fit_result.value(gamma) * fit_result.value(g),
+                       'g': fit_result.value(g)}
 
     return result
 

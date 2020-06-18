@@ -25,7 +25,7 @@ p.dabrowski@cent.uw.edu.pl
 
 ''' Parameters '''
 data_files = [
-    # {'name': 'TrmD', 'residues': 240, 'distance': 4.4743, 'linker': 'dna', 'source': 'experiment', 'unit': 'nm', 'speed': 1},
+    {'name': 'TrmD', 'residues': 240, 'distance': 4.4743, 'linker': 'dna', 'source': 'experiment', 'unit': 'nm', 'speed': 1},
     # {'name': 'Tm1570', 'residues': 193, 'distance': 0.9901, 'linker': 'dna', 'source': 'experiment', 'unit': 'nm', 'speed': 1},
     # {'name': 'fuzja', 'residues': 432, 'distance': 6.0558, 'linker': 'dna', 'source': 'experiment', 'unit': 'nm', 'speed': 1},
     # {'name': 'trmd_CieplakT04', 'residues': 240, 'distance': 44.743, 'linker': 'none', 'unit': 'A', 'source': 'theory', 'speed': 0.001},
@@ -40,7 +40,7 @@ data_files = [
     # {'name': 'trmd_CaT05', 'residues': 240, 'distance': 44.743, 'linker': 'none', 'unit': 'A', 'source': 'theory', 'speed': 0.001},
     # {'name': 'trmd_CaT06', 'residues': 240, 'distance': 44.743, 'linker': 'none', 'unit': 'A', 'source': 'theory', 'speed': 0.001},
     # {'name': '5wyr_CieplakT04', 'residues': 248, 'distance': 51.034, 'linker': 'none', 'unit': 'A', 'source': 'theory', 'speed': 0.001},
-    {'name': '5wyr_CieplakT05', 'residues': 248, 'distance': 51.034, 'linker': 'none', 'unit': 'A', 'source': 'theory', 'speed': 0.001},
+    # {'name': '5wyr_CieplakT05', 'residues': 248, 'distance': 51.034, 'linker': 'none', 'unit': 'A', 'source': 'theory', 'speed': 0.001},
     # {'name': '5wyr_CieplakT06', 'residues': 248, 'distance': 51.034, 'linker': 'none', 'unit': 'A', 'source': 'theory', 'speed': 0.001},
     # {'name': '5wyr_CieplakT05_spring', 'residues': 248, 'distance': 51.034, 'linker': 'none', 'unit': 'A', 'source': 'theory', 'speed': 0.001},
     # {'name': '5wyr_smogT04', 'residues': 248, 'distance': 51.034, 'linker': 'none', 'unit': 'A', 'source': 'theory', 'speed': 0.001},
@@ -59,15 +59,18 @@ parameters = {
 'residues_distance': {'experiment': 3.65, 'theory': 3.86},            # distance between residues in stretched chain in A
 'minimal_stretch_distance': 10,                                       # minimal distance between jumps
 'high_force_cutoff': {'theory': 1, 'experiment': 5},                  # the cutoff delimiting the high force regime
-'low_force_cutoff': 0.1,
+'low_force_cutoff': {'theory': 0.1, 'experiment': 5},
 'max_force_rupture': 42,                                              # the maximal force at which rupture may happen
 'cluster_max_gap': 15,
 'columns': 4,                                                         # number of columns of plots in mutliplots
+'debug': True,
+'initial_guess': {'pprot': 5.88, 'pdna': 0.16, 'K': 310, 'ldna': 345}
 }
 ''' End of parameters '''
 
 
 ''' Main part '''
-for case in data_files:
-    experiment = Structure(case, parameters)
-    experiment.analyze(debug=True)
+if __name__ == "__main__":
+    for info in data_files:
+        experiment = Structure(info, parameters, cases=[0])
+        experiment.analyze()

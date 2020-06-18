@@ -2,16 +2,21 @@
 
 from tools import *
 from datetime import datetime
+from scipy.stats import cauchy, ks_2samp
 from matplotlib import pyplot as plt
 
 
 class Curve:
-    def __init__(self, dist, forces, info, parameters, debug=False):
+    def __init__(self, number, dist, forces, info, parameters, debug=False):
+        self.number = number
         self.dist = dist
         self.forces = forces
         self.info = info
         self.parameters = parameters
         self.debug = debug
+        self.dist_prot = []
+        self.dist_dna = []
+        self.xprot = []
 
         # smooth traces
         self.dist_smooth = []
@@ -23,9 +28,12 @@ class Curve:
 
         # the ranges
         self.ranges = []
+        self.hist_ranges = []
 
         # fitting
         self.coefficients = {}
+        self.xdna = []
+        self.xprot = []
 
         # rupture_forces
         self.rupture_forces = {}
@@ -35,8 +43,9 @@ class Curve:
         self._generate_smooths()
         self._generate_derivative()
         self._generate_ranges()
-        self.fit()
-        self.find_rupture_forces()
+        self.fit_contour_lengths()
+        # self.fit()
+        # self.find_rupture_forces()
         self.find_energies()
         return
 
@@ -160,18 +169,68 @@ class Curve:
         self.coefficients['lengths'] = [fit_result.value(L) for L in lengths]
         return
 
+    def _fit_cl_dna_experiment(self):
+        pprot = self.parameters['initial_guess']['pprot']
+        pdna = self.parameters['initial_guess']['pdna']
+        elast = self.parameters['initial_guess']['K']
+        ldna = self.parameters['initial_guess']['ldna']
+
+        xdna = np.array([invert_wlc_np(f, pdna, elast) for f in self.forces])
+        self.xprot = np.array([invert_wlc_np(f, pprot) for f in self.forces])
+
+        self.dist_dna = ldna * xdna
+        self.dist_prot = self.dist - self.dist_dna
+
+        hist_values = self.dist_prot / self.xprot
+        self.hist_ranges = find_hist_ranges(hist_values)
+        parameters = []
+        for current_range in self.hist_ranges:
+            values = [v for v in hist_values if current_range[0] <= v <= current_range[1]]
+            mu, gamma = cauchy.fit(values)
+            test_statistic = cauchy.rvs(mu, gamma, len(values))
+            parameters.append([mu, gamma, ks_2samp(values, test_statistic).pvalue])
+        coefficients = {'pprot': pprot, 'pdna': pdna, 'ldna': ldna, 'K': elast, 'lengths': parameters}
+        return coefficients
+
+    def _fit_cl_dna_theory(self):
+        coefficients = {}
+        return coefficients
+
+    def _fit_cl_none_experiment(self):
+        coefficients = {}
+        return coefficients
+
+    def _fit_cl_none_theory(self):
+        coefficients = {}
+        return coefficients
+
+    def fit_contour_lengths(self):
+        if self.info['linker'] == 'dna' and self.info['source'] == 'experiment':
+            coefficients = self._fit_cl_dna_experiment()
+        elif self.info['linker'] == 'dna' and self.info['source'] == 'theory':
+            coefficients = self._fit_cl_dna_theory()
+        elif self.info['linker'] == 'none' and self.info['source'] == 'experiment':
+            coefficients = self._fit_cl_none_experiment()
+        elif self.info['linker'] == 'none' and self.info['source'] == 'theory':
+            coefficients = self._fit_cl_none_theory()
+        else:
+            raise ValueError("Unknown combination of data source and linker. \n"
+                             "Got data source " + self.info['source'] + " and linker " + self.info['linker'])
+        self.coefficients = coefficients
+        return
+
     def find_rupture_forces(self):
         if self.debug:
             print("\t-> " + str(datetime.now().time()) + " Finding rupture forces.")
-        # for r in range(len(self.ranges)):
-        #     current_range = self.ranges[r]
-        #     length = self.coefficients['L'][r]
-        #     try:
-        #         force = max([self.forces[_] for _ in range(len(self.dist))
-        #                  if current_range[0] <= self.dist[_] <= current_range[1]])
-        #     except ValueError:
-        #         force = -1
-        #     self.rupture_forces[length] = force
+        for r in range(len(self.ranges)):
+            current_range = self.ranges[r]
+            length = self.coefficients['L'][r]
+            try:
+                force = max([self.forces[_] for _ in range(len(self.dist))
+                         if current_range[0] <= self.dist[_] <= current_range[1]])
+            except ValueError:
+                force = -1
+            self.rupture_forces[force] = length
         return
 
     def find_energies(self):
@@ -203,6 +262,61 @@ class Curve:
             label = 'Fit L=' + str(round(length, 3))   # + ' (' + str(residues) + ' AA)'
 
             position.plot(d_plot, f_plot, label=label, color=colors[len_nr % len(colors)])
+
+        position.legend()
+        return
+
+    def plot_histogram(self, position=None):
+        position.set_title('Contour length histogram (trace ' + str(self.number + 1))
+        position.set_xlabel('Extension [nm]')
+        position.set_ylabel('Counts [pN]')
+        hist_values = np.array(self.dist_prot) / np.array(self.xprot)
+        lspace = np.linspace(self.hist_ranges[0][0], self.hist_ranges[-1][1])
+        for r in range(len(self.hist_ranges)):
+            current_range = self.hist_ranges[r]
+            mu = self.coefficients['lengths'][r][0]
+            gamma = self.coefficients['lengths'][r][1]
+            values = [v for v in hist_values if current_range[0] <= v <= current_range[1]]
+            residues = int(mu / 0.365)
+            label = "L= " + str(round(mu, 3)) + ' (' + str(residues) + ' AA)'
+            n, bins, patches = position.hist(values, bins=200)
+            area = find_area(n, bins)
+            position.plot(lspace, area * cauchy.pdf(lspace, mu, gamma), linestyle='--', label=label)
+        position.legend()
+        return
+
+    def plot_fits(self, position=None):
+        position.set_title('Trace fits (trace ' + str(self.number + 1))
+        position.set_xlim(min(self.dist), max(self.dist))
+        position.set_ylim(0, max(self.forces))
+        position.set_xlabel('Extension [nm]')
+        position.set_ylabel('Force [pN]')
+        position.plot(np.array(self.dist), np.array(self.forces), label='Original data')
+        position.plot(np.array(self.dist_smooth), np.array(self.forces_smooth), label='Smoothed data')
+
+        pprot = self.coefficients['pprot']
+        pdna = self.coefficients['pdna']
+        elast = self.coefficients['K']
+        ldna = self.coefficients['ldna']
+
+        for r in range(len(self.ranges)):
+            x0, x1 = self.ranges[r]
+            position.hlines(max(self.forces) / 2, x0 + 2, x1 - 2, color=colors[r % len(colors)], alpha=0.5)
+            position.axvline(x=x0, linestyle='--', color='#808080', linewidth=0.5)
+            position.axvline(x=x1, linestyle='--', color='#808080', linewidth=0.5)
+
+        f_plot = np.linspace(0.1, max(self.forces))
+        d_dna = ldna * np.array([invert_wlc_np(f, pdna, elast) for f in f_plot])
+        xprot = np.array([invert_wlc_np(f, pprot) for f in f_plot])
+
+        for len_nr in range(len(self.coefficients['lengths'])):
+            lprot = self.coefficients['lengths'][len_nr][0]
+            residues = int(lprot / 0.365)
+            d_prot = lprot * xprot
+            d_plot = d_dna + d_prot
+            label = 'Fit L=' + str(round(lprot, 3)) + ' (' + str(residues) + ' AA)'
+
+            position.plot(d_plot, f_plot, label=label)
 
         position.legend()
         return
