@@ -1,4 +1,4 @@
-from structure import Structure
+from stretchme.structure import Structure
 
 
 ''' 
@@ -25,9 +25,9 @@ p.dabrowski@cent.uw.edu.pl
 
 ''' Parameters '''
 data_files = [
-    {'name': 'TrmD', 'residues': 240, 'distance': 4.4743, 'linker': 'dna', 'source': 'experiment', 'unit': 'nm', 'speed': 1},
-    # {'name': 'Tm1570', 'residues': 193, 'distance': 0.9901, 'linker': 'dna', 'source': 'experiment', 'unit': 'nm', 'speed': 1},
-    # {'name': 'fuzja', 'residues': 432, 'distance': 6.0558, 'linker': 'dna', 'source': 'experiment', 'unit': 'nm', 'speed': 1},
+    # {'name': 'TrmD', 'residues': 240, 'distance': 4.4743, 'linker': 'dna', 'source': 'experiment', 'unit': 'nm', 'speed': 1},     #Lmax = 87.6, L_31 = 82
+    # {'name': 'Tm1570', 'residues': 193, 'distance': 0.9901, 'linker': 'dna', 'source': 'experiment', 'unit': 'nm', 'speed': 1},   #Lmax = 70.4, L_31 = 65, problem z trace >= 11
+    {'name': 'fuzja', 'residues': 432, 'distance': 6.0558, 'linker': 'dna', 'source': 'experiment', 'unit': 'nm', 'speed': 1},      #Lmax = 157.7, L 31#31 = 147, problem z trace 10
     # {'name': 'trmd_CieplakT04', 'residues': 240, 'distance': 44.743, 'linker': 'none', 'unit': 'A', 'source': 'theory', 'speed': 0.001},
     # {'name': 'trmd_CieplakT05', 'residues': 240, 'distance': 44.743, 'linker': 'none', 'unit': 'A', 'source': 'theory', 'speed': 0.001},
     # {'name': 'trmd_CieplakT06', 'residues': 240, 'distance': 44.743, 'linker': 'none', 'unit': 'A', 'source': 'theory', 'speed': 0.001},
@@ -72,5 +72,5 @@ parameters = {
 ''' Main part '''
 if __name__ == "__main__":
     for info in data_files:
-        experiment = Structure(info, parameters, cases=[0])
+        experiment = Structure(info, parameters, cases=[0,1,2,3,4,5,6,7,8,9,11,12,13,14,15,16,17])
         experiment.analyze()

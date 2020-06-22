@@ -1,7 +1,7 @@
 import numpy as np
 from matplotlib import pyplot as plt
-from tools import invert_wlc_np
-from scipy.stats import norm, cauchy, describe, skew, kurtosis, sem, ks_2samp
+from stretchme.tools import invert_wlc_np
+from scipy.stats import cauchy, ks_2samp
 
 parameters = {
     'force_range': [1, 40],                 # the range of stretching forces
