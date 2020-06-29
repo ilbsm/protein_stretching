@@ -1,47 +1,236 @@
 from .stretching_tools import *
+from .default_parameters import default_parameters
 from .trace import Trace
-from datetime import datetime
+from matplotlib import pyplot as plt
+import logging
+import os
+from io import StringIO
 
 
 class Structure:
-    def __init__(self, filename, cases, parameters, name=None, debug=False):
-        if debug:
-            print("Analyzing\t" + filename + "\nCases:\t" + str(cases) + "\nParameters:\t" + str(parameters))
-        self.data = read_data(filename, cases, sheet_name=parameters['sheet_name'], separator=parameters['separator'])
-        self.parameters = parameters
-        self.debug = debug
-        self.traces = []
-        self.init_time = datetime.now().time()
-        if name:
-            self.name = name
-        else:
-            self.name = filename.split('/')[-1].split('.')[0]
+    def __init__(self, filename=None, cases=None, columns=None, parameters={}, name=None, debug=False):
+        self.orig_input = filename
+        # setting the name
+        self._set_name(filename, name)
 
-        if self.debug:
-            print(str(datetime.now().time()) + "\t Found " + str(int(len(list(self.data))/2)) + " traces to analyze.")
-        for number in list(set([name.strip('d_F') for name in list(self.data)])):
-            self.traces.append(Trace(number, self.data.loc[:, ['d_' + number, 'F_' + number]],
-                                     parameters=self.parameters, debug=self.debug))
+        # initializing log file if debug
+        self.logger = None
+        if debug:
+            logging.basicConfig(filename=self.name + '.log', filemode='w', level=logging.DEBUG,
+                                format='%(asctime)s %(message)s')
+            self.logger = logging.getLogger()
+            self.logger.debug('Initializing the "Structure" class with name: ' + str(self.name))
+
+        # setting parameters
+        self._set_parameters(parameters)
+
+        # reading the data (setting the traces)
+        self.traces = []
+        self._read_data(filename, cases, columns)
         return
 
+    def _read_data(self, filename, cases=None, columns=None, **kwargs):
+        # TODO clean up
+        if 'separator' in kwargs.keys():
+            separator = kwargs['separator']
+        else:
+            separator = self.parameters['separator']
+        if 'sheet_name' in kwargs.keys():
+            sheet_name = kwargs['sheet_name']
+        else:
+            sheet_name = self.parameters['sheet_name']
+        if not filename:
+            if self.logger:
+                self.logger.debug("Initializing empty class. Hope you'll add some traces to analyze.")
+            return
+
+        # if there is a file to read
+        if self.logger:
+            self.logger.info('Reading ' + filename + ' cases ' + str(cases) + ' columns ' + str(columns) + str(kwargs))
+        if '.xls' in filename:
+            data = pd.read_excel(filename, sheet_name=sheet_name)
+        else:   # the .csv-like case
+            if '.csv' not in filename:
+                if self.logger:
+                    self.logger.warning("Treating the input file as .csv file, although it does not have such extension.")
+            with open(filename, 'r') as myfile:
+                content = myfile.read().split("#")[1].strip()
+            if separator != ' ':
+                data = pd.read_csv(StringIO(content), sep=separator, escapechar='#')
+            else:
+                data = pd.read_csv(StringIO(content), delim_whitespace=True, escapechar='#')
+        data.dropna(axis='columns', how='all', inplace=True)
+        headers = list(data)
+        if columns:
+            if isinstance(columns[0], int) and isinstance(columns[0], int) \
+                    and (columns[0] not in headers or columns[1] not in headers):
+                trace_data = data[[headers[columns[0]], headers[columns[1]]]]
+                new_headers = {headers[columns[0]]: 'd', headers[columns[1]]: 'F'}
+            elif columns[0] in headers and columns[1] in headers:
+                trace_data = data[columns]
+                new_headers = {columns[0]: 'd', columns[1]: 'F'}
+            else:
+                raise NotImplementedError("Could not understand the columns to be read.")
+
+            trace_name = len(self.traces)
+            trace_data = trace_data.rename(columns=new_headers)
+            if 'unit' in kwargs.keys() and kwargs['unit'] == 'A':
+                trace_data['d'] = trace_data['d'] / 10
+            self.traces.append(Trace(trace_name, trace_data, filename, logger=self.logger,
+                                     parameters=self._set_trace_parameters(kwargs)))
+        else:
+            for k in range(0, len(headers), 2):
+                # TODO take care of "index list out of range here, if the data are given in wrong format"
+                trace_data = data[[headers[k], headers[k + 1]]]
+                new_headers = {headers[k]: 'd', headers[k + 1]: 'F'}
+                trace_data = trace_data.rename(columns=new_headers)
+                if headers[k][0] == 'd':
+                    trace_name = headers[k].strip('dF_ ')
+                else:
+                    trace_name = len(self.traces)
+                if 'unit' in kwargs.keys() and kwargs['unit'] == 'A':
+                    trace_data['d'] = trace_data['d'] / 10
+                if cases and trace_name in cases:
+                    self.traces.append(Trace(trace_name, trace_data, filename, logger=self.logger,
+                                     parameters=self._prepare_trace_parameters(kwargs)))
+        return
+
+    def add_trace(self, filename, cases=None, columns=None, **kwargs):
+        self._read_data(filename, cases, columns, **kwargs)
+        return
+
+    # setting parameters
+    def _set_name(self, filename, name):
+        if name:
+            self.name = name
+        elif filename:
+            self.name = os.path.splitext(os.path.basename(filename))[0]
+        else:
+            self.name = 'Experiment'
+        return 0
+
+    def _set_parameters(self, parameters):
+        self.parameters = default_parameters
+        for key in parameters.keys():
+            self.parameters[key] = parameters[key]
+        if self.logger:
+            self.logger.debug("Parameters:\t" + str(parameters))
+        return
+
+    def _set_trace_parameters(self, additional={}):
+        # TODO clean up
+        parameters = {}
+        for key in ['residues', 'distance', 'linker', 'source', 'speed', 'residues_distance',
+                    'minimal_stretch_distance', 'max_cluster_gap', 'initial_guess']:
+            parameters[key] = self.parameters[key]
+            if key in additional.keys():
+                parameters[key] = additional[key]
+        for key in ['high_force_cutoff', 'low_force_cutoff', 'max_rupture_force']:
+            if key in additional.keys():
+                parameters[key] = additional[key]
+            elif key in self.parameters.keys() and isinstance(self.parameters[key], str):
+                parameters[key] = self.parameters[key]
+            elif key in self.parameters.keys() and isinstance(self.parameters[key], dict):
+                parameters[key] = self.parameters[key][parameters['source']]
+            else:
+                parameters[key] = default_parameters[key][parameters['source']]
+        return parameters
+
+    def set_residues(self, value):
+        self.parameters['residues'] = value
+        return
+
+    def set_distance(self, value):
+        self.parameters['distance'] = value
+        return
+
+    def set_linker(self, value):
+        self.parameters['linker'] = value
+        return
+
+    def set_source(self, value):
+        self.parameters['source'] = value
+        return
+
+    def set_unit(self, value):
+        self.parameters['unit'] = value
+        return
+
+    def set_speed(self, value):
+        self.parameters['speed'] = value
+        return
+
+    def set_residues_distance(self, value):
+        self.parameters['residues_distance'] = value
+        return
+
+    def set_minimal_stretch_distance(self, value):
+        self.parameters['minimal_stretch_distance'] = value
+        return
+
+    def set_max_cluster_gap(self, value):
+        self.parameters['max_cluster_gap'] = value
+        return
+
+    def set_plot_columns(self, value):
+        self.parameters['plot_columns'] = value
+        return
+
+    def set_high_force_cutoff(self, value):
+        self.parameters['high_force_cutoff'] = value
+        return
+
+    def set_low_force_cutoff(self, value):
+        self.parameters['low_force_cutoff'] = value
+        return
+
+    def set_max_rupture_force(self, value):
+        self.parameters['max_rupture_force'] = value
+        return
+
+    def set_initial_guess(self, value):
+        self.parameters['initial_guess'] = value
+        return
+
+    # analyzing
     def _find_constants(self):
         return
 
+    def _find_paths(self):
+        return
+
+    def analyze(self):
+        if self.logger:
+            self.logger.info("Starting analysis of the experiment.")
+        for t in self.traces:
+            t.analyze()
+        self._find_constants()
+        self._find_paths()
+        self.make_plots()
+        self.save_data()
+        return
+
+    # plotting
+    def make_plots(self):
+        self._make_partial_plots()
+        self._make_histograms()
+        return
+
     def _make_partial_plots(self):
-        if self.debug:
-            print(str(datetime.now().time()) + " Making plots of individual fits.")
+        if self.logger:
+            print("Making plots of individual fits.")
         number = len(self.traces)       # number of traces to plot
-        columns = self.parameters['columns']
+        columns = self.parameters['plot_columns']
         rows = max(int(np.ceil(float(2*number) / columns)), 2)
         fig, axes = plt.subplots(rows, columns, dpi=600, figsize=(5*int(columns), 5*int(rows)))
         max_contour_length = max([t.max_contour_length for t in self.traces])
         if max_contour_length <= 0:
             max_contour_length = None
         for k in range(0, number):
-            self.traces[k].plot_histogram(position=axes[int(2*k/4), (2*k) % 4], max_contour_length=max_contour_length)
-            self.traces[k].plot_fits(position=axes[int((2*k+1)/4), (2*k+1) % 4])
+            self.traces[k]._plot_histogram(position=axes[int(2*k/4), (2*k) % 4], max_contour_length=max_contour_length)
+            self.traces[k]._plot_fits(position=axes[int((2*k+1)/4), (2*k+1) % 4])
         fig.tight_layout()
-        if self.debug:
+        if self.logger:
             print("Saving contour lengths figure to " + self.name + '_contour_lengths.png')
         plt.savefig(self.name + '_contour_lengths.png')
         return
@@ -50,7 +239,7 @@ class Structure:
         position.set_xlabel('Fitted contour length')
         position.set_ylabel('Occurences')
         position.set_title('Histogram of fitted contour lengths')
-        lengths = [parameter[0] for c in self.curves for parameter in c.coefficients['lengths']]
+        lengths = [parameter[0] for t in self.traces for parameter in t.coefficients['lengths']]
         position.hist(lengths, bins=50)
         return
 
@@ -113,8 +302,8 @@ class Structure:
         return
 
     def _make_histograms(self):
-        if self.debug:
-            print(str(datetime.now().time()) + " Making histograms.")
+        if self.logger:
+            print(" Making histograms.")
         fig, axes = plt.subplots(2, 2, dpi=600, figsize=(10, 10))
 
         # the histogram of contour plots from individual traces
@@ -130,26 +319,75 @@ class Structure:
         self._plot_dudko_analysis(axes[1, 1])
 
         fig.tight_layout()
-        if self.debug:
+        if self.logger:
             print("Saving histograms figure to " + self.name + '_histograms.png')
         plt.savefig(self.name + '_histograms.png')
         return
 
-    def make_plots(self):
-        self._make_partial_plots()
-        self._make_histograms()
-        return
-
+    # printing the data
     def save_data(self):
-        return
-
-    def add_trace(self, filename):
-        return
-
-    def analyze(self):
+        if self.logger:
+            print("Saving output to " + self.name + '.log')
+        result = []
         for t in self.traces:
-            t.analyze()
-        self._find_constants()
-        self.make_plots()
-        self.save_data()
+            result.append(t.name)
+            result.append(str(t.coefficients))
+        with open(self.name + '.log', 'w') as ofile:
+            ofile.write('\n'.join(result))
+        # result = []
+        # separator = '################\n'
+        #
+        # # general info
+        # result.append('General info:')
+        # result.append('Name:\t\t\t' + self.info['name'])
+        # result.append('Residues:\t\t\t' + str(self.info['residues']))
+        # result.append('End-to-end distance:\t' + str(self.info['distance']))
+        # result.append('Linker:\t\t\t' + str(self.info['linker']))
+        # result.append('Unit:\t\t\t' + str(self.info['unit']))
+        # result.append('Data source:\t\t' + str(self.info['source']))
+        # result.append('Pulling speed:\t\t\t' + str(self.info['speed']))
+        # result.append(separator)
+        #
+        # # parameters
+        # result.append('Calculation parameters:')
+        # result.append('Data path:\t\t' + str(self.parameters['data_path']))
+        # result.append('Data file prefix:\t\t' + str(self.parameters['data_file_prefix']))
+        # result.append('Data file suffix:\t\t' + str(self.parameters['data_file_suffix']))
+        # result.append('Residue-residue distance:\t' + str(self.parameters['residues_distance']))
+        # result.append('Minimal distance between jumps:\t\t' + str(self.parameters['minimal_stretch_distance']))
+        # result.append('Low force cutoff:\t\t' + str(self.parameters['low_force_cutoff']))
+        # result.append('High force cutoff:\t\t' + str(self.parameters['high_force_cutoff']))
+        # result.append('Minimal gap between peaks in cluster:\t\t' + str(self.parameters['cluster_max_gap']))
+        # result.append('Number of columns in individual plots:\t\t' + str(self.parameters['columns']))
+        # result.append(separator)
+        #
+        # # summary of individual curve
+        # result.append('Summary of individual curves')
+        # for k in range(len(self.curves)):
+        #     result.append(str(k) + '/' + str(len(self.curves)))
+        #     result.append(self.curves[k].summary())
+        # result.append(separator)
+        #
+        # # summary of the cumulative statistics
+        # result.append('Summary of the cummulative statistics')
+        # result.append('pProt:\t\t' + str(self.pprot))
+        # result.append('Contour length\tgamma\tks pValue')
+        # for mu, gamma, pvalue in self.lengths:
+        #     result.append(str(mu) + '\t\t' + str(gamma) + '\t' + str(pvalue))
+        # result.append('Contour length histogram delimiting regions:')
+        # result.append(str(self.hist_ranges))
+        #
+        # fname = self.info['name'] + '_results'
+        # with open(fname, 'w') as myfile:
+        #     myfile.write('\n'.join(result))
         return
+
+    def get_info(self):
+        info = []
+        info.append('Experiment name ' + str(self.name))
+        info.append('Experiment source file ' + str(self.orig_input))
+        info.append('Number of traces: ' + str(len(self.traces)))
+        info.append('Details of traces: ' + str(len(self.traces)))
+        for t in self.traces:
+            info.append(t.get_info())
+        return '\n'.join(info)

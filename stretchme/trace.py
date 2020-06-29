@@ -1,141 +1,157 @@
 from datetime import datetime
-from scipy.stats import cauchy, ks_2samp
+from scipy.stats import cauchy, ks_2samp, norm
 from .stretching_tools import *
 import pandas as pd
+from sklearn.neighbors import KernelDensity
+from sklearn.mixture import GaussianMixture
+from matplotlib import pyplot as plt
+from scipy.signal import argrelextrema
 
 
 class Trace:
-    def __init__(self, number, data, parameters=None, debug=False):
-        headers = {'d_' + str(number): 'd', 'F_' + str(number): 'F'}
-        self.name = number
-        self.parameters = parameters
-        self.debug = debug
+    def __init__(self, name, data, orig_input, logger=None, parameters=None):
+        self.name = name
+        self.orig_input = orig_input
+        self.logger = logger
 
-        self.data = data.rename(columns=headers)
+        # setting the trace parameters
+        self.parameters = parameters
+
+        # filling the data
+        self.data = data
         self.data = self.data[self.data['F'] > self.parameters['low_force_cutoff']].sort_values(by='d')
+        self.logger.info("Trace name " + str(name) + " got and parsed the data.")
 
         self.smoothed = pd.DataFrame()
-        self.derivatives = pd.DataFrame()
 
         self.ranges = []
-        self.hist_ranges = []
-        self.max_contour_length = 0
         self.coefficients = {}
         self.rupture_forces = {}
         return
 
+    # generating
     def _generate_smooths(self):
-        if self.debug:
-            print("\t-> " + str(datetime.now().time()) + "\t Generating smooth trace...")
+        if self.logger:
+            self.logger.info("Generating smooth trace...")
         f_smooth = []
         d_smooth = []
 
         # averaging over the interval
-        d_range = np.linspace(min(self.data['d']), max(self.data['d']), 101)
+        d_range = np.linspace(min(self.data['d']), max(self.data['d']), 1001)
         for k in range(len(d_range)-1):
             d_min = d_range[k]
             d_max = d_range[k+1]
             forces_interval = self.data[self.data['d'].between(d_min, d_max, inclusive=True)]['F']
             if len(forces_interval) > 0:
                 d_smooth.append(d_min)
-                f_smooth.append(sum(forces_interval) / len(forces_interval))
+                f_smooth.append(forces_interval.mean())
 
+        # running average
         d_smooth, f_smooth = running_average(d_smooth, f_smooth)
         self.smoothed = pd.DataFrame({'d': d_smooth, 'F': f_smooth})
         return
 
-    def _generate_derivative(self):
-        if self.debug:
-            print("\t-> " + str(datetime.now().time()) + "\t Generating trace derivatives...")
-        d_diff, f_diff = find_derivative(self.smoothed['d'], self.smoothed['F'])
-        self.derivatives = pd.DataFrame({'d': d_diff, 'F': f_diff})
+    def _parse_cl_histogram(self, boundary_value=0.001):
+        # finding the number of components
+        x = np.expand_dims(self.data['hist_values'], 1)
+        kde = KernelDensity().fit(x)
+        estimator = np.linspace(min(self.data['hist_values']), max(self.data['hist_values']), 1001)
+        kde_est = np.exp(kde.score_samples(estimator.reshape(-1, 1)))
+        maximas = [estimator[_] for _ in argrelextrema(kde_est, np.greater)[0] if kde_est[_] > boundary_value]
+
+        # finding the range
+        # TODO clean it up
+        min_boundary = max([estimator[_] for _ in range(len(estimator)) if kde_est[_] < boundary_value and estimator[_] < maximas[0]])
+        max_boundary = min([estimator[_] for _ in range(len(estimator)) if kde_est[_] < boundary_value and estimator[_] > maximas[-1]])
+
+        # fitting Gaussians
+        x = np.expand_dims(self.data['hist_values'][self.data['hist_values'].between(min_boundary, max_boundary)], 1)
+        gmm = GaussianMixture(n_components=len(maximas))  # gmm for two components
+        gmm.fit(x)
+
+        # finding parameters
+        means = [x[0] for x in gmm.means_]
+        widths = [x[0][0] for x in gmm.covariances_]
+        heights = [np.exp(gmm.score_samples(np.array(u).reshape(-1, 1))) for u in means]
+        boundaries = min_boundary + maximas + max_boundary
+
+        self.ranges = [[boundaries[k], boundaries[k + 1]] for k in range(len(boundaries) - 1)]
+        self.coefficients['l_prot'] = [{'mean': means[k], 'width': widths[k], 'height': heights[k]}
+                                       for k in range(len(means))]
         return
 
-    def _generate_ranges(self):
-        if self.debug:
-            print("\t-> " + str(datetime.now().time()) + "\t Generating trace ranges...")
-        ranges = []
-        current_range = [self.derivatives['d'][0]]
-        neg_diff = -1
-        force_cutoff = self.parameters['high_force_cutoff']
-        for d in range(len(self.derivatives['d'])):
-            if self.derivatives['F'][d] < 0:
-                if neg_diff < 0:
-                    neg_diff = d
-                # if the window of negative derivative is at least equal 'minimal_stretch_distance' parameter,
-                # we finish the current range
-                if neg_diff > 0 and self.derivatives['d'][d] - self.derivatives['d'][neg_diff] >= \
-                        self.parameters['minimal_stretch_distance'] and len(current_range) == 1 \
-                        and self.smoothed['F'][d] >= force_cutoff:
-                    current_range.append(self.derivatives['d'][neg_diff])
-                    ranges.append(current_range)
-                    current_range = []
-            # establishing new range beginning as the first point when derivative becomes again positive
-            if self.derivatives['F'][d] > 0:
-                if neg_diff > 0 and len(current_range) == 0:
-                    current_range.append(self.derivatives['d'][d])
-                neg_diff = -1
-        if len(current_range) == 1:
-            current_range.append(self.derivatives.tail(1)['d'].values[0])
-            ranges.append(current_range)
-        self.ranges = ranges
-        return
-
+    # fitting
     def _fit_cl_dna_experiment(self):
-        pprot = self.parameters['initial_guess']['pprot']
-        pdna = self.parameters['initial_guess']['pdna']
-        elast = self.parameters['initial_guess']['K']
-        ldna = self.parameters['initial_guess']['ldna']
+        self.coefficients['p_prot'] = self.parameters['initial_guess']['p_prot']
+        self.coefficients['p_dna'] = self.parameters['initial_guess']['p_dna']
+        self.coefficients['k_dna'] = self.parameters['initial_guess']['k_dna']
+        self.coefficients['k_prot'] = None
+        self.coefficients['l_dna'] = self.parameters['initial_guess']['l_dna']
 
-        self.data['x_dna'] = np.array([invert_wlc(f, pdna, elast) for f in self.data['F']])
-        self.data['x_prot'] = np.array([invert_wlc(f, pprot) for f in self.data['F']])
-        self.data['d_dna'] = ldna * self.data['x_dna']
-        self.data['d_prot'] = self.data['d'] - self.data['d_dna']
-        self.data['hist_values'] = self.data['d_prot'] / self.data['x_prot']
-        self.hist_ranges = find_hist_ranges(self.data['hist_values'])
-        self.max_contour_length = max(self.data['hist_values'])
-
-        parameters = []
-        for current_range in self.hist_ranges:
-            values = [v for v in self.data['hist_values'] if current_range[0] <= v <= current_range[1]]
-            mu, gamma = cauchy.fit(values)
-            test_statistic = cauchy.rvs(mu, gamma, len(values))
-            parameters.append([mu, gamma, ks_2samp(values, test_statistic).pvalue])
-        coefficients = {'pprot': pprot, 'pdna': pdna, 'ldna': ldna, 'K': elast, 'lengths': parameters}
-        return coefficients
+        self.data['x_dna'] = np.array([invert_wlc(f, self.coefficients['p_dna'], self.coefficients['k_dna'])
+                                       for f in self.data['F']])
+        self.data['d_dna'] = self.coefficients['l_dna'] * self.data['x_dna']
+        return
 
     def _fit_cl_dna_theory(self):
-        coefficients = {}
-        return coefficients
+        self.coefficients['p_prot'] = self.parameters['initial_guess']['p_prot']
+        self.coefficients['p_dna'] = self.parameters['initial_guess']['p_dna']
+        self.coefficients['k_dna'] = self.parameters['initial_guess']['k_dna']
+        self.coefficients['k_prot'] = self.parameters['initial_guess']['k_prot']
+        self.coefficients['l_dna'] = self.parameters['initial_guess']['l_dna']
+
+        self.data['x_dna'] = np.array([invert_wlc(f, self.coefficients['p_dna'], self.coefficients['k_dna'])
+                                       for f in self.data['F']])
+        self.data['d_dna'] = self.coefficients['l_dna'] * self.data['x_dna']
+        return
 
     def _fit_cl_none_experiment(self):
-        coefficients = {}
-        return coefficients
+        self.coefficients['p_prot'] = self.parameters['initial_guess']['p_prot']
+        self.coefficients['p_dna'] = None
+        self.coefficients['k_dna'] = None
+        self.coefficients['k_prot'] = None
+        self.coefficients['l_dna'] = None
+
+        self.data['x_dna'] = np.zeros(len(self.data))
+        self.data['d_dna'] = np.zeros(len(self.data))
+        return
 
     def _fit_cl_none_theory(self):
-        coefficients = {}
-        return coefficients
+        self.coefficients['p_prot'] = 0.7735670704545268
+        self.coefficients['p_dna'] = self.parameters['initial_guess']['p_dna']
+        self.coefficients['k_dna'] = self.parameters['initial_guess']['k_dna']
+        self.coefficients['k_prot'] = 200
+        self.coefficients['l_dna'] = self.parameters['initial_guess']['l_dna']
+
+        self.data['x_dna'] = np.zeros(len(self.data))
+        self.data['d_dna'] = np.zeros(len(self.data))
+        return
 
     def fit_contour_lengths(self):
-        if self.debug:
-            print("\t-> " + str(datetime.now().time()) + "\t Fitting contour lengths...")
+        if self.logger:
+            self.logger.info("Fitting contour lengths...")
         if self.parameters['linker'] == 'dna' and self.parameters['source'] == 'experiment':
-            coefficients = self._fit_cl_dna_experiment()
+            self._fit_cl_dna_experiment()
         elif self.parameters['linker'] == 'dna' and self.parameters['source'] == 'theory':
-            coefficients = self._fit_cl_dna_theory()
+            self._fit_cl_dna_theory()
         elif self.parameters['linker'] == 'none' and self.parameters['source'] == 'experiment':
-            coefficients = self._fit_cl_none_experiment()
+            self._fit_cl_none_experiment()
         elif self.parameters['linker'] == 'none' and self.parameters['source'] == 'theory':
-            coefficients = self._fit_cl_none_theory()
+            self._fit_cl_none_theory()
         else:
             raise ValueError("Unknown combination of data source and linker. \n"
                              "Got data source " + self.parameters['source'] + " and linker " +
                              self.parameters['linker'])
-        self.coefficients = coefficients
+
+        self.data['x_prot'] = np.array([invert_wlc(f, self.coefficients['p_prot'], self.coefficients['k_prot'])
+                                        for f in self.data['F']])
+        self.data['d_prot'] = self.data['d'] - self.data['d_dna']
+        self.data['hist_values'] = self.data['d_prot'] / self.data['x_prot']
+        self._parse_cl_histogram()
         return
 
     def find_rupture_forces(self):
-        if self.debug:
+        if self.logger:
             print("\t-> " + str(datetime.now().time()) + "\t Finding rupture forces...")
         # for r in range(len(self.ranges)):
         #     current_range = self.ranges[r]
@@ -149,33 +165,34 @@ class Trace:
         return
 
     def find_energies(self):
-        if self.debug:
+        if self.logger:
             print("\t-> " + str(datetime.now().time()) + "\t Finding energies...")
         return
 
     # Plotting #
-    def plot_histogram(self, position=None, max_contour_length=None):
+    def _plot_histogram(self, position=None, max_contour_length=None):
         position.set_title('Contour length histogram (trace ' + str(self.name) + ')')
         position.set_xlabel('Extension [nm]')
         position.set_ylabel('Counts')
         if max_contour_length:
             position.set_xlim(0, max_contour_length)
-        lspace = np.linspace(self.hist_ranges[0][0], self.hist_ranges[-1][1])
+        lspace = np.linspace(self.ranges[0][0], self.ranges[-1][1])
 
-        for r in range(len(self.hist_ranges)):
-            current_range = self.hist_ranges[r]
-            mu = self.coefficients['lengths'][r][0]
-            gamma = self.coefficients['lengths'][r][1]
+        for state in range(len(self.ranges)):
+            current_range = self.ranges[state]
+            mu = self.coefficients['l_prot'][state]['mean']
+            gamma = self.coefficients['l_prot'][state]['width']
             values = [v for v in self.data['hist_values'] if current_range[0] <= v <= current_range[1]]
-            residues = int(mu / 0.365)
+            residues = 1 + int(mu / self.parameters['residues_distance'])
             label = "L= " + str(round(mu, 3)) + ' (' + str(residues) + ' AA)'
-            n, bins, patches = position.hist(values, bins=200)
+            n, bins, patches = position.hist(values, bins=200, color=colors[state % len(colors)], alpha=0.5)
             area = find_area(n, bins)
-            position.plot(lspace, area * cauchy.pdf(lspace, mu, gamma), linestyle='--', label=label)
+            position.plot(lspace, area * norm.pdf(lspace, mu, gamma), linestyle='--', label=label,
+                          color=colors[state % len(colors)])
         position.legend()
         return
 
-    def plot_fits(self, position=None):
+    def _plot_fits(self, position=None):
         position.set_title('Trace fits (trace ' + str(self.name) + ')')
         position.set_xlim(min(self.data['d']), max(self.data['d']))
         position.set_ylim(0, max(self.data['F']))
@@ -184,45 +201,51 @@ class Trace:
         position.plot(self.data['d'], self.data['F'], label='Original data')
         position.plot(self.smoothed['d'], self.smoothed['F'], label='Smoothed data')
 
-        pprot = self.coefficients['pprot']
-        pdna = self.coefficients['pdna']
-        elast = self.coefficients['K']
-        ldna = self.coefficients['ldna']
-
-        for r in range(len(self.ranges)):
-            x0, x1 = self.ranges[r]
-            position.hlines(max(self.data['F']) / 2, x0 + 2, x1 - 2, color=colors[r % len(colors)], alpha=0.5)
-            position.axvline(x=x0, linestyle='--', color='#808080', linewidth=0.5)
-            position.axvline(x=x1, linestyle='--', color='#808080', linewidth=0.5)
+        p_prot = self.coefficients.get('p_prot', 0)
+        p_dna = self.coefficients.get('p_dna', 0)
+        k_dna = self.coefficients.get('k_dna', None)
+        k_prot = self.coefficients.get('k_prot', None)
+        l_dna = self.coefficients.get('l_dna', 0)
 
         f_plot = np.linspace(0.1, max(self.data['F']))
-        d_dna = ldna * np.array([invert_wlc(f, pdna, elast) for f in f_plot])
-        xprot = np.array([invert_wlc(f, pprot) for f in f_plot])
+        if p_dna > 0:
+            d_dna = l_dna * np.array([invert_wlc(f, p_dna, k_dna) for f in f_plot])
+        else:
+            d_dna = np.zeros(len(f_plot))
+        xprot = np.array([invert_wlc(f, p_prot, k_prot) for f in f_plot])
 
-        for len_nr in range(len(self.coefficients['lengths'])):
-            lprot = self.coefficients['lengths'][len_nr][0]
-            residues = int(lprot / 0.365)
+        for state in range(len(self.coefficients['lengths'])):
+            lprot = self.coefficients['l_prot'][state]['mean']
+            residues = 1 + int(lprot / self.parameters['residues_distance'])
             d_prot = lprot * xprot
             d_plot = d_dna + d_prot
             label = 'Fit L=' + str(round(lprot, 3)) + ' (' + str(residues) + ' AA)'
-
-            position.plot(d_plot, f_plot, label=label)
+            position.plot(d_plot, f_plot, label=label, color=colors[state % len(colors)])
+            x0, x1 = self.ranges[state]
+            position.hlines(max(self.data['F']) / 2, x0 + 2, x1 - 2, color=colors[state % len(colors)], alpha=0.5)
+            position.axvline(x=x0, linestyle='--', color='#808080', linewidth=0.5)
+            position.axvline(x=x1, linestyle='--', color='#808080', linewidth=0.5)
 
         position.legend()
         return
 
+    # analyzing
     def analyze(self):
-        if self.debug:
-            print(str(datetime.now().time()) + "\t Analyzing trace " + str(self.name))
+        if self.logger:
+            self.logger.info("Analyzing trace " + str(self.name))
         self._generate_smooths()
-        self._generate_derivative()
-        self._generate_ranges()
         self.fit_contour_lengths()
-        self.find_rupture_forces()
-        self.find_energies()
-        if self.debug:
+        # self.find_rupture_forces()
+        # self.find_energies()
+        if self.logger:
             print(str(datetime.now().time()) + "\t Finished trace " + str(self.name))
         return
 
     def summary(self):
         return
+
+    def get_info(self):
+        info = []
+        info.append("Trace name " + str(self.name))
+        info.append("Trace source file " + str(self.orig_input))
+        return '\n'.join(info)
