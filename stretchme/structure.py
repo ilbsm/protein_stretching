@@ -193,7 +193,21 @@ class Structure:
         return
 
     # analyzing
-    def _find_constants(self):
+    def _collect_coefficients(self):
+        self.coefficients = {}
+        self.coefficients['p_prot'] = np.mean(np.array([t.coefficients.get('p_prot', 0) for t in self.traces]))
+        self.coefficients['p_dna'] = np.mean(np.array([t.coefficients.get('p_dna', 0) for t in self.traces]))
+        self.coefficients['l_dna'] = np.mean(np.array([t.coefficients.get('l_dna', 0) for t in self.traces]))
+        k_prots = [t.coefficients.get('k_prot', None) for t in self.traces]
+        if None in k_prots:
+            self.coefficients['k_prot'] = None
+        else:
+            self.coefficients['k_prot'] = np.mean(np.array(k_prots))
+        k_dnas = [t.coefficients.get('k_dna', None) for t in self.traces]
+        if None in k_dnas:
+            self.coefficients['k_dna'] = None
+        else:
+            self.coefficients['k_dna'] = np.mean(np.array(k_dnas))
         return
 
     def _find_paths(self):
@@ -204,16 +218,16 @@ class Structure:
             self.logger.info("Starting analysis of the experiment.")
         for t in self.traces:
             t.analyze()
-        self._find_constants()
-        self._find_paths()
+        self._collect_coefficients()
         self.make_plots()
-        self.save_data()
+        self._find_paths()
+        # self.save_data()
         return
 
     # plotting
     def make_plots(self):
-        self._make_partial_plots()
         self._make_histograms()
+        self._make_partial_plots()
         return
 
     def _make_partial_plots(self):
@@ -221,14 +235,13 @@ class Structure:
             print("Making plots of individual fits.")
         number = len(self.traces)       # number of traces to plot
         columns = self.parameters['plot_columns']
-        rows = max(int(np.ceil(float(2*number) / columns)), 2)
-        fig, axes = plt.subplots(rows, columns, dpi=600, figsize=(5*int(columns), 5*int(rows)))
-        max_contour_length = max([t.max_contour_length for t in self.traces])
-        if max_contour_length <= 0:
-            max_contour_length = None
+        rows = max(int(np.ceil(float(number) / columns)), 2)
+        fig, axes = plt.subplots(rows, 2 * columns, dpi=600, figsize=(10*int(columns), 5*int(rows)))
+        max_contour_length = self.coefficients['boundaries'][1]
         for k in range(0, number):
-            self.traces[k]._plot_histogram(position=axes[int(2*k/4), (2*k) % 4], max_contour_length=max_contour_length)
-            self.traces[k]._plot_fits(position=axes[int((2*k+1)/4), (2*k+1) % 4])
+            self.traces[k]._plot_histogram(position=axes[int(k / columns), (2 * k) % (2 * columns)],
+                                           max_contour_length=max_contour_length)
+            self.traces[k]._plot_fits(position=axes[int(k / columns), ((2 * k) + 1) % (2 * columns)])
         fig.tight_layout()
         if self.logger:
             print("Saving contour lengths figure to " + self.name + '_contour_lengths.png')
@@ -243,33 +256,55 @@ class Structure:
         position.hist(lengths, bins=50)
         return
 
-    def _plot_total_contour_length_histo(self, position):
-        # lengths_range = np.linspace(min(self.contour_length), max(self.contour_length))
+    def _plot_total_contour_length_histo(self, position, boundary_value=0.001):
         position.set_xlabel('Contour length')
         position.set_ylabel('Occurences')
         position.set_title('Contour length histogram')
+
+        # collecting the data from all traces
         hist_values = []
         for t in self.traces:
             hist_values += list(t.data['hist_values'])
-        position.hist(hist_values, bins=200, density=True)
+
+        # plotting histogram
+        position.hist(hist_values, bins=500, density=True)
+
+        # decomposing histogram
+        parameters, boundaries = decompose_histogram(np.array(hist_values), boundary_value)
+        self.coefficients['l_prot'] = parameters
+        self.coefficients['boundaries'] = boundaries
+        position.set_xlim(0, boundaries[1])
+
+        # plotting decomposed histogram
+        l_space = np.linspace(0, boundaries[1], 1001)
+        plot_decomposed_histogram(position, self.coefficients['l_prot'], l_space, self.parameters['residues_distance'])
+
+        position.legend()
+        return
+
+    def _plot_overlaid_traces(self, position):
+        position.set_xlabel('Distension [nm]')
+        position.set_ylabel('Force [pN]')
+        position.set_title('All smoothed traces overlaid')
+        max_f = 0
+
+        # plotting overlaid smoothed traces
+        for k in range(len(self.traces)):
+            t = self.traces[k]
+            position.plot(t.smoothed['d'], t.smoothed['F'], color=get_gray_shade(k, len(self.traces)))
+            max_f = max(max_f, t.data['F'].max())
+
+        position.set_ylim(0, max_f)
+
+        # plotting fits
+        f_space = np.linspace(0.1, max_f)
+        plot_trace_fits(position, self.coefficients, f_space, self.parameters['residues_distance'])
         return
 
     def _plot_forces_histogram(self, position):
         position.set_xlabel('Force [pN]')
         position.set_ylabel('Occurences')
         position.set_title('Rupture force histogram')
-        # position.set_xlim(self.minf, self.maxf)
-        # fspace = np.linspace(self.minf, self.maxf, 100)
-        # for mu in self.lengths.keys():
-        #     forces = self.lengths[mu]['forces']
-        #     n, bins, patches = position.hist(forces, bins=len(forces)/4, density=True,
-        #                                      facecolor=self.lengths[mu]['color'], alpha=0.5)
-        #     mu, sigma = norm.fit(forces)
-        #     label = str(round(mu, 3))
-        #     position.plot(fspace, norm.pdf(fspace, mu, sigma), self.lengths[mu]['color'], linestyle='--', label=label)
-        #     self.lengths[mu]['hist_vals'] = n
-        #     self.lengths[mu]['hist_width'] = bins[1] - bins[0]
-        #     self.lengths[mu]['hist_beg'] = bins[0]
         return
 
     def _plot_dudko_analysis(self, position):
@@ -303,14 +338,14 @@ class Structure:
 
     def _make_histograms(self):
         if self.logger:
-            print(" Making histograms.")
+            print("Making histograms.")
         fig, axes = plt.subplots(2, 2, dpi=600, figsize=(10, 10))
 
-        # the histogram of contour plots from individual traces
-        self._plot_individual_contour_length_histo(axes[0, 0])
-
         # the total contour length histogram
-        self._plot_total_contour_length_histo(axes[0, 1])
+        self._plot_total_contour_length_histo(axes[0, 0])
+
+        # the overlaid smoothed traces
+        self._plot_overlaid_traces(axes[0, 1])
 
         # the rupture forces histogram
         self._plot_forces_histogram(axes[1, 0])
