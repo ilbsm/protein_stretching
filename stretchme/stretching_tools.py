@@ -5,28 +5,14 @@ import numpy as np
 from .default_parameters import default_parameters
 import matplotlib.colors as mcolors
 from scipy.optimize import curve_fit
+from scipy.special import erf
 from sklearn.mixture import GaussianMixture
 from sklearn.neighbors import KernelDensity
 from scipy.signal import argrelextrema
 from colorsys import hsv_to_rgb
 
-colors = [mcolors.CSS4_COLORS['red'],
-          mcolors.CSS4_COLORS['green'],
-          mcolors.CSS4_COLORS['blue'],
-          mcolors.CSS4_COLORS['yellow'],
-          mcolors.CSS4_COLORS['cyan'],
-          mcolors.CSS4_COLORS['orange'],
-          mcolors.CSS4_COLORS['purple'],
-          mcolors.CSS4_COLORS['lime'],
-          mcolors.CSS4_COLORS['magenta']]
 
-
-def find_derivative(x, y):
-    y_diff = np.diff(np.array(y)) / np.diff(np.array(x))
-    x_diff = np.array(x[:-1]) + np.diff(np.array(x)) / 2
-    return running_average(x_diff, y_diff)
-
-
+# preprocessing
 def pack_parameters(filename, sheet_name=0, residues=None, distance=None, linker=None, source=None, unit=None,
                     speed=None, residues_distance=0.365, minimal_stretch_distance=10, high_force_cutoff=None,
                     low_force_cutoff=None, max_rupture_force=None, max_cluster_gap=15, plot_columns=4,
@@ -68,23 +54,6 @@ def pack_parameters(filename, sheet_name=0, residues=None, distance=None, linker
     return parameters
 
 
-def cluster_coefficients(coefficients, maxgap=15, minnumber=4, minspan=-1):
-    coefficients.sort()
-    clusters = [[coefficients[0]]]
-    for x in coefficients[1:]:
-        if abs(x - clusters[-1][-1]) <= maxgap:
-            clusters[-1].append(x)
-        else:
-            clusters.append([x])
-    singles = [k for k in range(len(clusters)) if len(clusters[k]) <= minnumber or
-               (max(clusters[k]) - min(clusters[k])) < minspan]
-    if singles:
-        clusters.append([loc for k in singles for loc in clusters[k]])
-        for k in list(reversed(singles)):
-            clusters.pop(k)
-    return clusters
-
-
 def running_average(x, y, window=None):
     if not window:
         window = max(int(len(x) / 100), 8)
@@ -93,14 +62,23 @@ def running_average(x, y, window=None):
     return x_smooth, y_smooth
 
 
-def invert_wlc(f, p, k=None):
+# calculations
+def gauss(x, height, mean, width):
+    return height * np.exp(-((x - mean) ** 2) / (2 * width))
+
+
+def integrate_gauss(force, mean, width):
+    return 0.5 * (1 - erf((force-mean)/(np.sqrt(width * 2))))
+
+
+def invert_wlc(force, p, k=None):
     if not k:
-        coefs = [1, -(2.25 + f / p), (1.5 + 2 * f / p), -f / p]
+        coefs = [1, -(2.25 + force / p), (1.5 + 2 * force / p), -force / p]
     else:
         coefs = [1,
-                 -(2.25 + f * (3 / k + 1 / p)),
-                 (3 / k ** 2 + 2 / (k * p)) * f ** 2 + (4.5 / k + 2 / p) * f + 1.5,
-                 -f * ((1 / k ** 3 + 1 / (p * k ** 2)) * f ** 2 + (2.25 / k ** 2 + 2 / (k * p)) * f + (
+                 -(2.25 + force * (3 / k + 1 / p)),
+                 (3 / k ** 2 + 2 / (k * p)) * force ** 2 + (4.5 / k + 2 / p) * force + 1.5,
+                 -force * ((1 / k ** 3 + 1 / (p * k ** 2)) * force ** 2 + (2.25 / k ** 2 + 2 / (k * p)) * force + (
                              1.5 / k + 1 / p))]
     result = np.roots(coefs)
     result = np.real(result[np.isreal(result)])
@@ -110,16 +88,16 @@ def invert_wlc(f, p, k=None):
     return min(result)
 
 
-def wlc(d, l, p, k):
+def wlc(d, length, p, k):
     if not k:
-        if d < 0.99 * l:
-            return p * (0.25 / ((1 - d / l) ** 2) - 0.25 + d / l)
+        if d < 0.99 * length:
+            return p * (0.25 / ((1 - d / length) ** 2) - 0.25 + d / length)
         else:
             return 999
     else:
-        x = d/l
-        coefs = [-(1/k**3) - 1/(p*k**2),
-                 -(2.25/k**2) - 2/(k*p) + x * (3/k**2 + 2/(k*p)),
+        x = d/length
+        coefs = [-(1/k**3) - 1/(p * k**2),
+                 -(2.25/k**2) - 2/(k * p) + x * (3/k**2 + 2/(k * p)),
                  -(1.5/k) - 1/p + x * (4.5/k + 2/p) + x**2 * (-(3/k) - 1/p),
                  1.5 * x - 2.25 * x**2 + x**3]
         result = np.roots(coefs)
@@ -128,64 +106,88 @@ def wlc(d, l, p, k):
         return max(result)
 
 
-def find_area(n, bins):
-    width = bins[1] - bins[0]
-    return sum(n) * width
+def get_d_dna(p_dna, l_dna, k_dna, f_space):
+    if p_dna > 0:
+        return l_dna * np.array([invert_wlc(f, p_dna, k_dna) for f in f_space])
+    else:
+        return np.zeros(len(f_space))
 
 
-def implicite_elastic_wlc(data, l, k, p):
-    d = np.array(data['d'])
-    f = np.array(data['F'])
-    x = d / l
-    coefficients = [1,
-                    -f * (3 / k + 1 / p) - 9 / 4,
-                    f ** 2 * (3 / (k ** 2) + 2 / (k * p)) + f * (9 / (2 * k) + 2 / p) + 3 / 2,
-                    -f ** 3 * (1 / (k ** 3) + 1 / (p * k ** 2)) - f ** 2 * (9 / (4 * k ** 2) + 2 / (k * p)) - f * (
-                                3 / (2 * k) + 1 / p)]
-    return x ** 3 * coefficients[0] + x ** 2 * coefficients[1] + x * coefficients[2] + coefficients[3]
+def get_force_load(force, speed, l_prot, p_prot, k_prot=None):
+    numerator = 2 * (l_prot/p_prot) * (1 + force/p_prot)
+    denominator = 3 + 5 * force/p_prot + 8 * (force/p_prot)**(5/2)
+    factor = numerator/denominator
+    if k_prot:
+        factor += 1/k_prot
+    return speed/factor
 
 
-def implicite_elastic_wlc_amplitude(data, l, k, p):
-    return np.abs(implicite_elastic_wlc(data, l, k, p))
+def dhs_feat_05(force, x, t0, g):
+    return t0 / (1 - 0.5 * x/g * force) * np.exp(-g*(1-(1-0.5 * x/g * force)**2))
 
 
-def minimize_kp(df, length, init_k, init_p):
-    ydata = np.zeros(len(df))
-    popt, pcov = curve_fit(implicite_elastic_wlc_amplitude, df, ydata, bounds=(0, np.inf), p0=(length, init_k, init_p))
-    return popt, pcov
+def dhs_feat_066(force, x, t0, g):
+    return t0 / (1 - 2 * x/g * force/3)**(1/2) * np.exp(-g*(1-(1-2 * x/g * force/3)**(3/2)))
 
 
-def decompose_histogram(data, boundary_value):
-    # finding the number of components
-    x = np.expand_dims(data, 1)
-    kde = KernelDensity().fit(x)
-    estimator = np.linspace(min(data), max(data), 1001)
-    kde_est = np.exp(kde.score_samples(estimator.reshape(-1, 1)))
-    maximas = [estimator[_] for _ in argrelextrema(kde_est, np.greater)[0] if kde_est[_] > boundary_value]
-
-    # finding the range
-    # TODO clean it up
-    min_boundary = max(
-        [estimator[_] for _ in range(len(estimator)) if kde_est[_] < boundary_value and estimator[_] < maximas[0]])
-    max_boundary = min(
-        [estimator[_] for _ in range(len(estimator)) if kde_est[_] < boundary_value and estimator[_] > maximas[-1]])
-
-    # fitting Gaussians
-    x = np.expand_dims(data[(data > min_boundary) & (data < max_boundary)], 1)
-    gmm = GaussianMixture(n_components=len(maximas))  # gmm for two components
-    gmm.fit(x)
-    # finding parameters
-    parameters = pd.DataFrame({'means': np.array([x[0] for x in gmm.means_]),
-                               'widths': np.array([x[0][0] for x in gmm.covariances_]),
-                               'heights': np.array([np.exp(gmm.score_samples(np.array(u).reshape(-1, 1)))[0]
-                                                    for u in [x[0] for x in gmm.means_]])})
-    parameters = parameters.sort_values(by=['means'])
-    boundaries = [min_boundary, max_boundary]
-    return parameters, boundaries
+def dhs_feat_1(force, x, t0):
+    return t0 * np.exp(-x*force)
 
 
-def gauss(x, height, mean, width):
-    return height * np.exp(-((x - mean) ** 2) / (2 * width))
+def dhs_feat(f_space, lifetime):
+    coefficients = {}
+    # v = 1
+    p0 = (1, lifetime[0])
+    try:
+        popt, pcov = curve_fit(dhs_feat_1, f_space, lifetime, p0=p0)
+        coefficients['1'] = {'x': popt[0], 't0': popt[1], 'covariance': pcov}
+    except RuntimeError:
+        coefficients['1'] = None
+
+    # v = 2/3
+    # p0 = (0.1, lifetime[0], 10)
+    # try:
+    #     popt, pcov = curve_fit(dhs_feat_066, f_space, lifetime, p0=p0)
+    #     coefficients['2/3'] = {'x': popt[0], 't0': popt[1], 'g': popt[2], 'covariance': pcov}
+    # except RuntimeError:
+    #     coefficients['2/3'] = None
+
+    # v = 1/2
+    p0 = (1, lifetime[0], 1)
+    try:
+        popt, pcov = curve_fit(dhs_feat_05, f_space, lifetime, p0=p0)
+        coefficients['1/2'] = {'x': popt[0], 't0': popt[1], 'g': popt[2], 'covariance': pcov}
+    except RuntimeError:
+        coefficients['1/2'] = None
+
+    return coefficients
+
+
+# plotting and colors
+colors = [mcolors.CSS4_COLORS['red'],
+          mcolors.CSS4_COLORS['green'],
+          mcolors.CSS4_COLORS['blue'],
+          mcolors.CSS4_COLORS['yellow'],
+          mcolors.CSS4_COLORS['cyan'],
+          mcolors.CSS4_COLORS['orange'],
+          mcolors.CSS4_COLORS['purple'],
+          mcolors.CSS4_COLORS['lime'],
+          mcolors.CSS4_COLORS['magenta']]
+
+
+def get_gray_shade(k, max_value):
+    values = np.linspace(0, 0.75, max_value)
+    return hsv_to_rgb(0, 0, values[k])
+
+
+def get_color(k, max_value):
+    if k >= max_value:
+        raise ValueError("The number of color requested exceeded the total number of colors.")
+    if max_value > 9:
+        values = np.linspace(0, 0.66, max_value)
+        return hsv_to_rgb(values[k], 1, 1)
+    else:
+        return colors[k]
 
 
 def plot_decomposed_histogram(position, data, l_space, residue_distance):
@@ -217,20 +219,64 @@ def plot_trace_fits(position, coefficients, f_space, residue_distance):
     return
 
 
-def get_d_dna(p_dna, l_dna, k_dna, f_space):
-    if p_dna > 0:
-        return l_dna * np.array([invert_wlc(f, p_dna, k_dna) for f in f_space])
+# postprocessing
+def decompose_histogram(data, significance, states=None):
+    # finding the number of components
+    x = np.expand_dims(data, 1)
+    kde = KernelDensity().fit(x)
+    estimator = np.linspace(min(data), max(data), 1001)
+    kde_est = np.exp(kde.score_samples(estimator.reshape(-1, 1)))
+    maximas = [estimator[_] for _ in argrelextrema(kde_est, np.greater)[0] if kde_est[_] > significance]
+    if not states:
+        states = len(maximas)
+
+    # finding the range
+    # TODO clean it up
+    min_list = [estimator[_] for _ in range(len(estimator)) if kde_est[_] < significance and estimator[_] < maximas[0]]
+    max_list = [estimator[_] for _ in range(len(estimator)) if kde_est[_] < significance and estimator[_] > maximas[-1]]
+    if len(min_list) > 0:
+        min_boundary = max(min_list)
     else:
-        return np.zeros(len(f_space))
+        min_boundary = min(estimator)
+    if len(max_list) > 0:
+        max_boundary = min(max_list)
+    else:
+        max_boundary = max(estimator)
+
+    # fitting Gaussians
+    x = np.expand_dims(data[(data > min_boundary) & (data < max_boundary)], 1)
+    gmm = GaussianMixture(n_components=states)  # gmm for two components
+    gmm.fit(x)
+    # finding parameters
+    parameters = pd.DataFrame({'means': np.array([x[0] for x in gmm.means_]),
+                               'widths': np.array([x[0][0] for x in gmm.covariances_]),
+                               'heights': np.array([np.exp(gmm.score_samples(np.array(u).reshape(-1, 1)))[0]
+                                                    for u in [x[0] for x in gmm.means_]])})
+    parameters = parameters.sort_values(by=['means'])
+    boundaries = [min_boundary, max_boundary]
+    return parameters, boundaries
 
 
-def get_gray_shade(k, max_value):
-    values = np.linspace(0, 0.75, max_value)
-    return hsv_to_rgb(0, 0, values[k])
+def implicite_elastic_wlc(data, l, k, p):
+    d = np.array(data['d'])
+    f = np.array(data['F'])
+    x = d / l
+    coefficients = [1,
+                    -f * (3 / k + 1 / p) - 9 / 4,
+                    f ** 2 * (3 / (k ** 2) + 2 / (k * p)) + f * (9 / (2 * k) + 2 / p) + 3 / 2,
+                    -f ** 3 * (1 / (k ** 3) + 1 / (p * k ** 2)) - f ** 2 * (9 / (4 * k ** 2) + 2 / (k * p)) - f * (
+                                3 / (2 * k) + 1 / p)]
+    return x ** 3 * coefficients[0] + x ** 2 * coefficients[1] + x * coefficients[2] + coefficients[3]
 
 
-def get_color(k, max_value):
-    values = np.linspace(0, 0.66, max_value)
-    return hsv_to_rgb(values[k], 1, 1)
+def implicite_elastic_wlc_amplitude(data, l, k, p):
+    return np.abs(implicite_elastic_wlc(data, l, k, p))
+
+
+def minimize_kp(df, length, init_k, init_p):
+    ydata = np.zeros(len(df))
+    popt, pcov = curve_fit(implicite_elastic_wlc_amplitude, df, ydata, bounds=(0, np.inf), p0=(length, init_k, init_p))
+    return popt, pcov
+
 
 

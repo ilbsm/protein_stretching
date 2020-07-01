@@ -47,17 +47,90 @@ class Trace:
         self.smoothed = pd.DataFrame({'d': d_smooth, 'F': f_smooth})
         return
 
-    def _parse_cl_histogram(self, boundary_value=0.001):
-        parameters, boundaries = decompose_histogram(np.array(self.data['hist_values']), boundary_value)
+    def _parse_cl_histogram(self, significance=0.001):
+        parameters, boundaries = decompose_histogram(np.array(self.data['hist_values']), significance)
         self.boundaries = boundaries
         self.coefficients['l_prot'] = parameters
+        return
+
+    # setting
+    def set_residues(self, value):
+        self.parameters['residues'] = value
+        if self.logger:
+            self.logger.info("Set trace 'residues' value to " + str(value))
+        return
+
+    def set_distance(self, value):
+        self.parameters['distance'] = value
+        if self.logger:
+            self.logger.info("Set trace 'distance' value to " + str(value))
+        return
+
+    def set_linker(self, value):
+        self.parameters['linker'] = value
+        if self.logger:
+            self.logger.info("Set trace 'linker' value to " + str(value))
+        return
+
+    def set_source(self, value):
+        self.parameters['source'] = value
+        if self.logger:
+            self.logger.info("Set trace 'source' value to " + str(value))
+        return
+
+    def set_speed(self, value):
+        self.parameters['speed'] = value
+        if self.logger:
+            self.logger.info("Set trace 'speed' value to " + str(value))
+        return
+
+    def set_residues_distance(self, value):
+        self.parameters['residues_distance'] = value
+        if self.logger:
+            self.logger.info("Set trace 'residues_distance' value to " + str(value))
+        return
+
+    def set_minimal_stretch_distance(self, value):
+        self.parameters['minimal_stretch_distance'] = value
+        if self.logger:
+            self.logger.info("Set trace 'minimal_stretch_distance' value to " + str(value))
+        return
+
+    def set_high_force_cutoff(self, value):
+        self.parameters['high_force_cutoff'] = value
+        if self.logger:
+            self.logger.info("Set trace 'high_force_cutoff' value to " + str(value))
+        return
+
+    def set_low_force_cutoff(self, value):
+        self.parameters['low_force_cutoff'] = value
+        if self.logger:
+            self.logger.info("Set trace 'low_force_cutoff' value to " + str(value))
+        return
+
+    def set_max_rupture_force(self, value):
+        self.parameters['max_rupture_force'] = value
+        if self.logger:
+            self.logger.info("Set trace 'max_rupture_force' value to " + str(value))
+        return
+
+    def set_initial_guess(self, value):
+        self.parameters['initial_guess'] = value
+        if self.logger:
+            self.logger.info("Set trace 'initial_guess' value to " + str(value))
+        return
+
+    def set_states(self, value):
+        self.parameters['states'] = value
+        if self.logger:
+            self.logger.info("Set trace 'states' value to " + str(value))
         return
 
     # fitting
     def _fit_distances(self):
         for index, row in self.coefficients['l_prot'].iterrows():
             l_prot = row['means']
-            self.smoothed['fit_' + str(index)] = np.array([wlc(d, l_prot, self.coefficients.get('p_prot', 0),
+            self.smoothed['state_' + str(index)] = np.array([wlc(d, l_prot, self.coefficients.get('p_prot', 0),
                                             self.coefficients.get('k_prot', None)) for d in list(self.smoothed['d'])])
         return
 
@@ -135,11 +208,11 @@ class Trace:
         # the ranges are determined by the proximity of fitted curve to the smoothed data
         # TODO clean it up
         if self.logger:
-            print("Finding rupture forces...")
+            self.logger.info("Finding rupture forces...")
         last_end = 0
         forces = []
         for ind, row in self.coefficients['l_prot'].iterrows():
-            data_close = self.smoothed[abs(self.smoothed['F'] - self.smoothed['fit_' + str(ind)]) <= max_distance]
+            data_close = self.smoothed[abs(self.smoothed['F'] - self.smoothed['state_' + str(ind)]) <= max_distance]
             data_close = data_close[data_close['d'] > last_end]['d']
             beg = data_close.min()
             end = data_close.max()
@@ -151,7 +224,7 @@ class Trace:
 
     def find_energies(self):
         if self.logger:
-            print("\t-> " + str(datetime.now().time()) + "\t Finding energies...")
+            self.logger.info("Finding energies...")
         return
 
     # Plotting #
@@ -168,7 +241,7 @@ class Trace:
         l_space = np.linspace(0, max_contour_length)
 
         # whole histogram
-        position.hist(self.data['hist_values'], bins=500, density=True)
+        position.hist(self.data['hist_values'], bins=500, density=True, alpha=0.5)
 
         # decomposed histogram
         plot_decomposed_histogram(position, self.coefficients['l_prot'], l_space, self.parameters['residues_distance'])
@@ -203,11 +276,25 @@ class Trace:
         self.find_rupture_forces()
         # self.find_energies()
         if self.logger:
-            print(str(datetime.now().time()) + "\t Finished trace " + str(self.name))
+            self.logger.info("Finished trace " + str(self.name))
         return
 
     def summary(self):
-        return
+        result = []
+        separator = '####\n'
+        result.append(str(self.name))
+        result.append('->\tp_Prot:\t\t' + str(self.coefficients['p_prot']))
+        result.append('->\tp_DNA:\t\t' + str(self.coefficients['p_dna']))
+        result.append('->\tk_Prot:\t\t' + str(self.coefficients['k_prot']))
+        result.append('->\tk_DNA:\t\t' + str(self.coefficients['k_dna']))
+        result.append('->\tl_DNA:\t\t' + str(self.coefficients['l_dna']))
+        result.append('->\tContour length\tgamma\tsigma^2\trupture_force')
+        result.append('->\t' + self.coefficients['l_prot'].to_csv(sep='\t'))
+        result.append('->\tContour length boundaries')
+        result.append('->\t' + str(self.boundaries))
+        result.append(separator)
+
+        return '\n'.join(result)
 
     def get_info(self):
         info = []

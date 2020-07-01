@@ -8,7 +8,7 @@ from io import StringIO
 
 
 class Structure:
-    def __init__(self, filename=None, cases=None, columns=None, parameters={}, name=None, debug=False):
+    def __init__(self, filename=None, cases=None, columns=None, parameters={}, name=None, debug=False, **kwargs):
         self.orig_input = filename
         # setting the name
         self._set_name(filename, name)
@@ -22,7 +22,7 @@ class Structure:
             self.logger.debug('Initializing the "Structure" class with name: ' + str(self.name))
 
         # setting parameters
-        self._set_parameters(parameters)
+        self._set_parameters(parameters, **kwargs)
 
         # reading the data (setting the traces)
         self.traces = []
@@ -109,10 +109,12 @@ class Structure:
             self.name = 'Experiment'
         return 0
 
-    def _set_parameters(self, parameters):
+    def _set_parameters(self, parameters, **kwargs):
         self.parameters = default_parameters
         for key in parameters.keys():
             self.parameters[key] = parameters[key]
+        for key in kwargs:
+            self.parameters[key] = kwargs[key]
         if self.logger:
             self.logger.debug("Parameters:\t" + str(parameters))
         return
@@ -121,7 +123,7 @@ class Structure:
         # TODO clean up
         parameters = {}
         for key in ['residues', 'distance', 'linker', 'source', 'speed', 'residues_distance',
-                    'minimal_stretch_distance', 'max_cluster_gap', 'initial_guess']:
+                    'minimal_stretch_distance', 'initial_guess', 'states']:
             parameters[key] = self.parameters[key]
             if key in additional.keys():
                 parameters[key] = additional[key]
@@ -138,58 +140,86 @@ class Structure:
 
     def set_residues(self, value):
         self.parameters['residues'] = value
+        if self.logger:
+            self.logger.info("Set 'residues' value to " + str(value))
         return
 
     def set_distance(self, value):
         self.parameters['distance'] = value
+        if self.logger:
+            self.logger.info("Set 'distance' value to " + str(value))
         return
 
     def set_linker(self, value):
         self.parameters['linker'] = value
+        if self.logger:
+            self.logger.info("Set 'linker' value to " + str(value))
         return
 
     def set_source(self, value):
         self.parameters['source'] = value
+        if self.logger:
+            self.logger.info("Set 'source' value to " + str(value))
         return
 
     def set_unit(self, value):
         self.parameters['unit'] = value
+        if self.logger:
+            self.logger.info("Set 'unit' value to " + str(value))
         return
 
     def set_speed(self, value):
         self.parameters['speed'] = value
+        if self.logger:
+            self.logger.info("Set 'speed' value to " + str(value))
         return
 
     def set_residues_distance(self, value):
         self.parameters['residues_distance'] = value
+        if self.logger:
+            self.logger.info("Set 'residues_distance' value to " + str(value))
         return
 
     def set_minimal_stretch_distance(self, value):
         self.parameters['minimal_stretch_distance'] = value
-        return
-
-    def set_max_cluster_gap(self, value):
-        self.parameters['max_cluster_gap'] = value
+        if self.logger:
+            self.logger.info("Set 'minimal_stretch_distance' value to " + str(value))
         return
 
     def set_plot_columns(self, value):
         self.parameters['plot_columns'] = value
+        if self.logger:
+            self.logger.info("Set 'plot_columns' value to " + str(value))
         return
 
     def set_high_force_cutoff(self, value):
         self.parameters['high_force_cutoff'] = value
+        if self.logger:
+            self.logger.info("Set 'high_force_cutoff' value to " + str(value))
         return
 
     def set_low_force_cutoff(self, value):
         self.parameters['low_force_cutoff'] = value
+        if self.logger:
+            self.logger.info("Set 'low_force_cutoff' value to " + str(value))
         return
 
     def set_max_rupture_force(self, value):
         self.parameters['max_rupture_force'] = value
+        if self.logger:
+            self.logger.info("Set 'max_rupture_force' value to " + str(value))
         return
 
     def set_initial_guess(self, value):
         self.parameters['initial_guess'] = value
+        if self.logger:
+            self.logger.info("Set 'initial_guess' value to " + str(value))
+        return
+
+    def set_states(self, value):
+        self.parameters['states'] = value
+        if self.logger:
+            self.logger.info("Set 'states' value to " + str(value))
         return
 
     # analyzing
@@ -233,30 +263,29 @@ class Structure:
     def _make_partial_plots(self):
         if self.logger:
             print("Making plots of individual fits.")
-        number = len(self.traces)       # number of traces to plot
-        columns = self.parameters['plot_columns']
-        rows = max(int(np.ceil(float(number) / columns)), 2)
-        fig, axes = plt.subplots(rows, 2 * columns, dpi=600, figsize=(10*int(columns), 5*int(rows)))
-        max_contour_length = self.coefficients['boundaries'][1]
+        # setting the figure
+        number = len(self.traces)                                   # number of traces to plot
+        columns = self.parameters['plot_columns']                   # number of columns
+        rows = max(int(np.ceil(float(number) / columns)), 2)        # number of rows
+        fig = plt.subplots(dpi=600, figsize=(10*int(columns), 5*int(rows)))
+        axes = []
+        max_contour_length = self.coefficients['boundaries'][1]     # to align plots
+
+        # plotting each trace
         for k in range(0, number):
-            self.traces[k]._plot_histogram(position=axes[int(k / columns), (2 * k) % (2 * columns)],
-                                           max_contour_length=max_contour_length)
-            self.traces[k]._plot_fits(position=axes[int(k / columns), ((2 * k) + 1) % (2 * columns)])
-        fig.tight_layout()
+            axes.append(plt.subplot2grid((rows, 2 * columns), (int(k / columns), (2 * k) % (2 * columns))))
+            self.traces[k]._plot_histogram(position=axes[-1], max_contour_length=max_contour_length)
+            axes.append(plt.subplot2grid((rows, 2 * columns), (int(k / columns), ((2 * k) + 1) % (2 * columns))))
+            self.traces[k]._plot_fits(position=axes[-1])
+
+        plt.tight_layout()
+
         if self.logger:
             print("Saving contour lengths figure to " + self.name + '_contour_lengths.png')
         plt.savefig(self.name + '_contour_lengths.png')
         return
 
-    def _plot_individual_contour_length_histo(self, position):
-        position.set_xlabel('Fitted contour length')
-        position.set_ylabel('Occurences')
-        position.set_title('Histogram of fitted contour lengths')
-        lengths = [parameter[0] for t in self.traces for parameter in t.coefficients['lengths']]
-        position.hist(lengths, bins=50)
-        return
-
-    def _plot_total_contour_length_histo(self, position, boundary_value=0.001):
+    def _plot_total_contour_length_histo(self, position, significance=0.001):
         position.set_xlabel('Contour length')
         position.set_ylabel('Occurences')
         position.set_title('Contour length histogram')
@@ -267,10 +296,10 @@ class Structure:
             hist_values += list(t.data['hist_values'])
 
         # plotting histogram
-        position.hist(hist_values, bins=500, density=True)
+        position.hist(hist_values, bins=500, density=True, alpha=0.5)
 
         # decomposing histogram
-        parameters, boundaries = decompose_histogram(np.array(hist_values), boundary_value)
+        parameters, boundaries = decompose_histogram(np.array(hist_values), significance, self.parameters['states'])
         self.coefficients['l_prot'] = parameters
         self.coefficients['boundaries'] = boundaries
         position.set_xlim(0, boundaries[1])
@@ -299,122 +328,159 @@ class Structure:
         # plotting fits
         f_space = np.linspace(0.1, max_f)
         plot_trace_fits(position, self.coefficients, f_space, self.parameters['residues_distance'])
+
+        position.legend()
         return
 
-    def _plot_forces_histogram(self, position):
+    def _plot_forces_histogram(self, position, significance=0.001):
         position.set_xlabel('Force [pN]')
         position.set_ylabel('Occurences')
         position.set_title('Rupture force histogram')
+
+        # collecting forces with respective contour lengths
+        forces = pd.concat([t.coefficients['l_prot'][['means', 'rupture_forces']].dropna() for t in self.traces],
+                           ignore_index=True)
+        self.max_f = forces['rupture_forces'].max()
+        columns = ['l_prot', 'p_prot', 'k_prot', 'means', 'widths', 'heights', 'beg', 'end']
+        self.forces_cofficients = pd.DataFrame(columns=columns)
+        f_space = np.linspace(0, self.max_f)
+        states = []
+
+        # calculating the probability of force contour length coming from calculated contour length for whole experiment
+        for index, row in self.coefficients['l_prot'][['means', 'widths', 'heights']].iterrows():
+            mean, width, height = tuple(row.to_numpy())
+            forces['state_' + str(index)] = gauss(np.array(forces['means']), height, mean, width)
+            states.append('state_' + str(index))
+
+        # selecting the corresponding state
+        forces['state'] = forces[states].idxmax(axis=1)
+
+        # plotting the histogram and the fitted contour
+        for k in range(len(states)):
+            state = states[k]
+            data = np.array(forces[forces['state'] == state]['rupture_forces'].dropna())
+            parameters, boundaries = decompose_histogram(data, significance)
+            y_plot = np.zeros(len(f_space))
+            for index, row in parameters.iterrows():
+                y_plot += gauss(f_space, row['heights'], row['means'], row['widths'])
+            label = '; '.join([str(round(x, 3)) for x in list(parameters['means'].values)]) + ' pN'
+            position.hist(data, bins=20, color=get_color(k, len(states)), alpha=0.5, density=True, label=label)
+            position.plot(f_space, y_plot, linestyle='--', color=get_color(k, len(states)))
+
+            # preparing data for Dudko analysis
+            state_index = int(state.strip('state_'))
+            l_prot = self.coefficients['l_prot'].loc[state_index, 'means']
+            parameters['l_prot'] = np.array([l_prot for _ in range(len(parameters))])
+            parameters['p_prot'] = np.array([self.coefficients['p_prot'] for _ in range(len(parameters))])
+            parameters['k_prot'] = np.array([self.coefficients['k_prot'] for _ in range(len(parameters))])
+            parameters['beg'] = np.array([boundaries[0] for _ in range(len(parameters))])
+            parameters['end'] = np.array([boundaries[1] for _ in range(len(parameters))])
+            self.forces_cofficients = pd.concat([self.forces_cofficients, parameters], ignore_index=True)
+
+        position.legend()
         return
 
-    def _plot_dudko_analysis(self, position):
-        position.set_title('Dudko analysis')
+    def _plot_dhs_analysis(self, position):
+        self.dhs_results = {}
+        position.set_title('Dudko-Hummer-Szabo lifetime')
         position.set_xlabel('Rupture force [pN]')
-        position.set_ylabel('Rupture time [s]')
-        # position.set_xlim(self.minf, self.maxf)
-        # for mu in self.lengths:
-        #     self.dudko_parameters[mu] = []
-        #     heights = np.array(self.lengths[mu]['hist_vals'])
-        #     df = self.lengths[mu]['hist_width']
-        #     hist_beg = self.lengths[mu]['hist_beg']
-        #     heights_div = np.array([heights[k] for k in range(len(heights)) if heights[k] != 0])
-        #     x = np.array([hist_beg + (k - 1 / 2) * df for k in range(len(heights)) if heights[k] != 0])
-        #     x_smooth = np.linspace(min(x), max(x))
-        #     load = force_load(x, self.pprot, mu, self.parameters['speed'])
-        #     area = np.array([heights[k - 1] / 2 + sum([heights[i - 1] for i in range(k + 1, len(heights)+1)])
-        #                      for k in range(len(heights)) if heights[k] != 0])
-        #     y = (area * df) / (load * heights_div)
-        #     label = 'L=' + str(round(mu, 3))
-        #     for v in self.parameters['Dudko parameters']:
-        #         self.dudko_parameters[mu][v] = fit_dudko(x, y, v)
-        #         t0 = self.dudko_parameters[mu][v]['t0']
-        #         gamma = self.dudko_parameters[mu][v]['x'] / (2 * self.dudko_parameters[mu][v]['g'])
-        #         g = self.dudko_parameters[mu][v]['g']
-        #         y_smooth = t0 * (1 - gamma * x_smooth) ** (-1) * np.exp(-g * (1 - (1 - gamma * x_smooth) ** 2))
-        #         position.plot(x, y, 'o', color=self.lengths[mu]['color'], label=label)
-        #         position.plot(x_smooth, y_smooth, '-', color=self.lengths[mu]['color'])
-        # position.legend()
+        position.set_ylabel('State lifetime [s]')
+        position.set_yscale('log')
+        if not self.parameters['speed']:
+            self.parameters['speed'] = 1
+            if self.logger:
+                self.logger.info("Unknown extension speed. Set extension speed to 1. "
+                                 "You may set the speed using Experiment.set_speed() function")
+
+        k = 0
+        columns = ['l_prot', 'p_prot', 'k_prot', 'means', 'widths', 'heights', 'beg', 'end']
+        for index, row in self.forces_cofficients[columns].iterrows():
+            l_prot, p_prot, k_prot, mean, width, height, beg, end = tuple(row.to_numpy())
+            f_space = np.linspace(beg, end, 100)
+
+            force_load = get_force_load(f_space, self.parameters['speed'], l_prot, p_prot, k_prot)
+            probability = gauss(f_space, height, mean, width)
+            denominator = probability * force_load
+            nominator = integrate_gauss(f_space, mean, width)
+
+            # calculating the lifetime and fitting it
+            lifetime = nominator / denominator
+
+            f_space = f_space[lifetime < 10000]
+            lifetime = lifetime[lifetime < 10000]
+            parameters = dhs_feat(f_space, lifetime)
+            self.dhs_results[(round(float(row['l_prot']), 3), round(float(row['means']), 3))] = parameters
+            label = 'l_prot=' + str(round(float(row['l_prot']), 3)) + '; force=' + str(round(float(row['means']), 3))
+            position.plot(f_space, lifetime, label=label, color=get_color(k, len(self.forces_cofficients)))
+            k += 1
+
+        position.legend()
         return
 
     def _make_histograms(self):
         if self.logger:
-            print("Making histograms.")
+            self.logger.info("Making histograms.")
         fig, axes = plt.subplots(2, 2, dpi=600, figsize=(10, 10))
 
-        # the total contour length histogram
-        self._plot_total_contour_length_histo(axes[0, 0])
-
-        # the overlaid smoothed traces
-        self._plot_overlaid_traces(axes[0, 1])
-
-        # the rupture forces histogram
-        self._plot_forces_histogram(axes[1, 0])
-
-        # Dudko analysis
-        self._plot_dudko_analysis(axes[1, 1])
+        self._plot_total_contour_length_histo(axes[0, 0])   # the total contour length histogram
+        self._plot_overlaid_traces(axes[0, 1])              # the overlaid smoothed traces
+        self._plot_forces_histogram(axes[1, 0])             # the rupture forces histogram
+        self._plot_dhs_analysis(axes[1, 1])               # Dudko analysis
 
         fig.tight_layout()
         if self.logger:
-            print("Saving histograms figure to " + self.name + '_histograms.png')
+            self.logger.info("Saving histograms figure to " + self.name + '_histograms.png')
         plt.savefig(self.name + '_histograms.png')
         return
 
     # printing the data
     def save_data(self):
+        oname = str(self.name) + '_results'
+        separator = '################\n'
+
         if self.logger:
-            print("Saving output to " + self.name + '.log')
+            self.logger.info("Saving output to " + oname)
         result = []
+
+        # general info
+        result.append('General info:')
+        result.append('Name:\t\t\t' + str(self.name))
+        result.append('Residues:\t\t\t' + str(self.parameters['residues']))
+        result.append('Linker:\t\t\t' + str(self.parameters['linker']))
+        result.append('Unit:\t\t\t' + str(self.parameters['unit']))
+        result.append('Data source:\t\t' + str(self.parameters['source']))
+        result.append('Pulling speed:\t\t\t' + str(self.parameters['speed']))
+        result.append(separator)
+
+        # summary of individual curve
+        result.append('Summary of individual curves')
         for t in self.traces:
-            result.append(t.name)
-            result.append(str(t.coefficients))
-        with open(self.name + '.log', 'w') as ofile:
+            result.append(t.summary())
+        result.append(separator)
+
+        # summary of the cumulative statistics
+        result.append('Summary of the cumulative statistics')
+        result.append('p_Prot:\t\t' + str(self.coefficients['p_prot']))
+        result.append('p_DNA:\t\t' + str(self.coefficients['p_dna']))
+        result.append('k_Prot:\t\t' + str(self.coefficients['k_prot']))
+        result.append('k_DNA:\t\t' + str(self.coefficients['k_dna']))
+        result.append('l_DNA:\t\t' + str(self.coefficients['l_dna']))
+        result.append('Contour length\tgamma\tsigma^2')
+        result.append(self.coefficients['l_prot'].to_csv(sep='\t'))
+        result.append('Contour length boundaries')
+        result.append(str(self.coefficients['boundaries']))
+        result.append(separator)
+
+        # Dudko-Hummer-Szabo analysis
+        result.append('Dudko-Hummer-Szabo analysis')
+        result.append(self.forces_cofficients.to_csv(sep='\t'))
+        for key in self.dhs_results.keys():
+            for v in self.dhs_results[key].keys():
+                result.append(str(key) + '\t' + str(v) + '\t' + str(self.dhs_results[key][v]))
+        result.append(separator)
+
+        with open(oname, 'w') as ofile:
             ofile.write('\n'.join(result))
-        # result = []
-        # separator = '################\n'
-        #
-        # # general info
-        # result.append('General info:')
-        # result.append('Name:\t\t\t' + self.info['name'])
-        # result.append('Residues:\t\t\t' + str(self.info['residues']))
-        # result.append('End-to-end distance:\t' + str(self.info['distance']))
-        # result.append('Linker:\t\t\t' + str(self.info['linker']))
-        # result.append('Unit:\t\t\t' + str(self.info['unit']))
-        # result.append('Data source:\t\t' + str(self.info['source']))
-        # result.append('Pulling speed:\t\t\t' + str(self.info['speed']))
-        # result.append(separator)
-        #
-        # # parameters
-        # result.append('Calculation parameters:')
-        # result.append('Data path:\t\t' + str(self.parameters['data_path']))
-        # result.append('Data file prefix:\t\t' + str(self.parameters['data_file_prefix']))
-        # result.append('Data file suffix:\t\t' + str(self.parameters['data_file_suffix']))
-        # result.append('Residue-residue distance:\t' + str(self.parameters['residues_distance']))
-        # result.append('Minimal distance between jumps:\t\t' + str(self.parameters['minimal_stretch_distance']))
-        # result.append('Low force cutoff:\t\t' + str(self.parameters['low_force_cutoff']))
-        # result.append('High force cutoff:\t\t' + str(self.parameters['high_force_cutoff']))
-        # result.append('Minimal gap between peaks in cluster:\t\t' + str(self.parameters['cluster_max_gap']))
-        # result.append('Number of columns in individual plots:\t\t' + str(self.parameters['columns']))
-        # result.append(separator)
-        #
-        # # summary of individual curve
-        # result.append('Summary of individual curves')
-        # for k in range(len(self.curves)):
-        #     result.append(str(k) + '/' + str(len(self.curves)))
-        #     result.append(self.curves[k].summary())
-        # result.append(separator)
-        #
-        # # summary of the cumulative statistics
-        # result.append('Summary of the cummulative statistics')
-        # result.append('pProt:\t\t' + str(self.pprot))
-        # result.append('Contour length\tgamma\tks pValue')
-        # for mu, gamma, pvalue in self.lengths:
-        #     result.append(str(mu) + '\t\t' + str(gamma) + '\t' + str(pvalue))
-        # result.append('Contour length histogram delimiting regions:')
-        # result.append(str(self.hist_ranges))
-        #
-        # fname = self.info['name'] + '_results'
-        # with open(fname, 'w') as myfile:
-        #     myfile.write('\n'.join(result))
         return
 
     def get_info(self):
