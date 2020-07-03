@@ -147,6 +147,7 @@ class Trace:
         return
 
     def _fit_cl_dna_theory(self):
+        # TODO finish it
         self.coefficients['p_prot'] = self.parameters['initial_guess']['p_prot']
         self.coefficients['p_dna'] = self.parameters['initial_guess']['p_dna']
         self.coefficients['k_dna'] = self.parameters['initial_guess']['k_dna']
@@ -159,6 +160,7 @@ class Trace:
         return
 
     def _fit_cl_none_experiment(self):
+        # TODO finish it
         self.coefficients['p_prot'] = self.parameters['initial_guess']['p_prot']
         self.coefficients['p_dna'] = 0
         self.coefficients['k_dna'] = None
@@ -170,14 +172,16 @@ class Trace:
         return
 
     def _fit_cl_none_theory(self):
-        self.coefficients['p_prot'] = 0.7735670704545268
-        self.coefficients['p_dna'] = self.parameters['initial_guess']['p_dna']
-        self.coefficients['k_prot'] = 200
         self.coefficients['k_dna'] = None
         self.coefficients['l_dna'] = 0
-
+        self.coefficients['p_dna'] = 0
         self.data['x_dna'] = np.zeros(len(self.data))
         self.data['d_dna'] = np.zeros(len(self.data))
+
+
+        p_prot = self.parameters['initial_guess']['p_prot']
+        k_prot = self.parameters['initial_guess']['k_prot']
+        self.coefficients['p_prot'], self.coefficients['k_prot'] = minimize_pk(self.data[['d', 'F']], self.smoothed, p_prot, k_prot)
         return
 
     def fit_contour_lengths(self):
@@ -269,6 +273,7 @@ class Trace:
 
     # analyzing
     def analyze(self):
+        print("Analyzing " + str(self.name))
         if self.logger:
             self.logger.info("Analyzing trace " + str(self.name))
         self._generate_smooths()

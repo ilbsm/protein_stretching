@@ -10,6 +10,8 @@ from sklearn.mixture import GaussianMixture
 from sklearn.neighbors import KernelDensity
 from scipy.signal import argrelextrema
 from colorsys import hsv_to_rgb
+from matplotlib import pyplot as plt
+from mpl_toolkits import mplot3d
 
 
 # preprocessing
@@ -71,6 +73,10 @@ def integrate_gauss(force, mean, width):
     return 0.5 * (1 - erf((force-mean)/(np.sqrt(width * 2))))
 
 
+def invert_wlc_np(forces, p, k=None):
+    return np.array([invert_wlc(f, p, k) for f in forces])
+
+
 def invert_wlc(force, p, k=None):
     if not k:
         coefs = [1, -(2.25 + force / p), (1.5 + 2 * force / p), -force / p]
@@ -96,14 +102,22 @@ def wlc(d, length, p, k):
             return 999
     else:
         x = d/length
-        coefs = [-(1/k**3) - 1/(p * k**2),
-                 -(2.25/k**2) - 2/(k * p) + x * (3/k**2 + 2/(k * p)),
-                 -(1.5/k) - 1/p + x * (4.5/k + 2/p) + x**2 * (-(3/k) - 1/p),
-                 1.5 * x - 2.25 * x**2 + x**3]
-        result = np.roots(coefs)
-        result = np.real(result[np.isreal(result)])
-        result = result[result > 0]
-        return max(result)
+        return reduced_wlc(x, p, k)
+
+
+def reduced_wlc(x, p, k):
+    coefs = [-(1/k**3) - 1/(p * k**2),
+             -(2.25/k**2) - 2/(k * p) + x * (3/k**2 + 2/(k * p)),
+             -(1.5/k) - 1/p + x * (4.5/k + 2/p) + x**2 * (-(3/k) - 1/p),
+             1.5 * x - 2.25 * x**2 + x**3]
+    result = np.roots(coefs)
+    result = np.real(result[np.isreal(result)])
+    result = result[result > 0]
+    return max(result)
+
+
+def reduced_wlc_np(x, p, k):
+    return np.array([reduced_wlc(point, p, k) for point in x])
 
 
 def get_d_dna(p_dna, l_dna, k_dna, f_space):
@@ -136,15 +150,15 @@ def dhs_feat_1(force, x, t0):
 
 def dhs_feat(f_space, lifetime):
     coefficients = {}
-    # v = 1
-    p0 = (1, lifetime[0])
-    try:
-        popt, pcov = curve_fit(dhs_feat_1, f_space, lifetime, p0=p0)
-        coefficients['1'] = {'x': popt[0], 't0': popt[1], 'covariance': pcov}
-    except RuntimeError:
-        coefficients['1'] = None
+    # # v = 1
+    # p0 = (1, lifetime[0])
+    # try:
+    #     popt, pcov = curve_fit(dhs_feat_1, f_space, lifetime, p0=p0)
+    #     coefficients['1'] = {'x': popt[0], 't0': popt[1], 'covariance': pcov}
+    # except RuntimeError:
+    #     coefficients['1'] = None
 
-    # v = 2/3
+    # # v = 2/3
     # p0 = (0.1, lifetime[0], 10)
     # try:
     #     popt, pcov = curve_fit(dhs_feat_066, f_space, lifetime, p0=p0)
@@ -257,26 +271,64 @@ def decompose_histogram(data, significance, states=None):
     return parameters, boundaries
 
 
-def implicite_elastic_wlc(data, l, k, p):
-    d = np.array(data['d'])
-    f = np.array(data['F'])
-    x = d / l
-    coefficients = [1,
-                    -f * (3 / k + 1 / p) - 9 / 4,
-                    f ** 2 * (3 / (k ** 2) + 2 / (k * p)) + f * (9 / (2 * k) + 2 / p) + 3 / 2,
-                    -f ** 3 * (1 / (k ** 3) + 1 / (p * k ** 2)) - f ** 2 * (9 / (4 * k ** 2) + 2 / (k * p)) - f * (
-                                3 / (2 * k) + 1 / p)]
-    return x ** 3 * coefficients[0] + x ** 2 * coefficients[1] + x * coefficients[2] + coefficients[3]
+# def implicite_elastic_wlc(data, l, k, p):
+#     d = np.array(data['d'])
+#     f = np.array(data['F'])
+#     x = d / l
+#     coefficients = [1,
+#                     -f * (3 / k + 1 / p) - 9 / 4,
+#                     f ** 2 * (3 / (k ** 2) + 2 / (k * p)) + f * (9 / (2 * k) + 2 / p) + 3 / 2,
+#                     -f ** 3 * (1 / (k ** 3) + 1 / (p * k ** 2)) - f ** 2 * (9 / (4 * k ** 2) + 2 / (k * p)) - f * (
+#                                 3 / (2 * k) + 1 / p)]
+#     return x ** 3 * coefficients[0] + x ** 2 * coefficients[1] + x * coefficients[2] + coefficients[3]
+#
+#
+# def implicite_elastic_wlc_amplitude(data, l, k, p):
+#     return np.abs(implicite_elastic_wlc(data, l, k, p))
+#
+#
+# def minimize_kp(df, length, init_k, init_p):
+#     ydata = np.zeros(len(df))
+#     popt, pcov = curve_fit(implicite_elastic_wlc_amplitude, df, ydata, bounds=(0, np.inf), p0=(length, init_k, init_p))
+#     return popt, pcov
 
 
-def implicite_elastic_wlc_amplitude(data, l, k, p):
-    return np.abs(implicite_elastic_wlc(data, l, k, p))
+def minimize_pk(data, data_smoothed, p, k, significance=0.01, max_distance=0.01):
+    hist_values = data['d']/np.array([invert_wlc(f, p, k) for f in data['F']])
+    parameters, boundaries = decompose_histogram(np.array(hist_values), significance)
+    smoothed = pd.DataFrame({'d': data_smoothed['d'], 'F': data_smoothed['F']})
+    for index, row in parameters.iterrows():
+        l_prot = row['means']
+        smoothed['state_' + str(index)] = np.array([wlc(d, l_prot, p, k) for d in list(data_smoothed['d'])])
+    last_end = 0
+    for ind, row in parameters.iterrows():
+        l_prot = row['means']
+        data_close = smoothed[abs(smoothed['F'] - smoothed['state_' + str(ind)]) <= max_distance]
+        data_close = data_close[data_close['d'] > last_end]['d']
+        beg = data_close.min()
+        end = data_close.max()
+        last_end = end
+        if l_prot == parameters['means'].max():
+            fit_data = pd.DataFrame({'d': data[data['d'].between(beg, end)]['d'],
+                                     'F': data[data['d'].between(beg, end)]['F'],
+                                     'x': data[data['d'].between(beg, end)]['d']/l_prot})
+            print(beg, end, l_prot)
+    popt, pcov = curve_fit(reduced_wlc_np, fit_data['x'], fit_data['F'], p0=(p, k))
+    print(popt)
+    print(pcov)
+
+    return 0.7735670704545268, 200
 
 
-def minimize_kp(df, length, init_k, init_p):
-    ydata = np.zeros(len(df))
-    popt, pcov = curve_fit(implicite_elastic_wlc_amplitude, df, ydata, bounds=(0, np.inf), p0=(length, init_k, init_p))
-    return popt, pcov
+def implicit_elastic_wlc(data, p, k):
+    result = pd.DataFrame(columns=['0', '1', '2', '3', 'sum'])
+    result['3'] = data['x'] ** 3
+    result['2'] = (-1) * data['x'] ** 2 * (2.25 + data['F'] * (3 / k + 1 / p))
+    result['1'] = data['x'] * (data['F'] ** 2 * (3 / (k**2) + 2 / (k * p)) + data['F'] * (4.5 / k + 2 / p) + 1.5)
+    result['0'] = data['F'] * ((1 / (k**3) + 1 / (p * k**2)) * data['F'] ** 2 +
+                               (2.25 / (k**2) + 2 / (k * p)) * data['F'] + (1.5 / k + 1 / p))
+    result['sum'] = np.abs(result['3'] + result['2'] + result['1'] + result['0'])
+    return result['sum']
 
 
 

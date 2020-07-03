@@ -14,5 +14,7 @@ default_parameters = {
     'high_force_cutoff': {None: 1, 'theory': 1, 'experiment': 5},
     'low_force_cutoff': {None: 0.1, 'theory': 0.1, 'experiment': 5},
     'max_rupture_force': {None: 25, 'theory': 25, 'experiment': 42},
-    'initial_guess': {'p_prot': 5.88, 'p_dna': 0.16, 'k_prot': 200, 'k_dna': 310, 'l_dna': 345}
+    'initial_guess': {None: {'p_prot': 0.77, 'p_dna': 0.1, 'k_prot': 200, 'k_dna': 200, 'l_dna': 345},
+                      'theory': {'p_prot': 0.60578945, 'p_dna': 0.1, 'k_prot': 251.05866388, 'k_dna': 200, 'l_dna': 345},
+                      'experiment': {'p_prot': 5.88, 'p_dna': 0.16, 'k_prot': None, 'k_dna': 310, 'l_dna': 345}}
 }

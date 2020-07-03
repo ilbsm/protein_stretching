@@ -35,7 +35,7 @@ def simulate_spectrum():
     return trace
 
 
-def simulate_experiment():
+def simulate_experiment(traces=1, p_prot=0.7, k_prot=200, p_dna=0, k_dna=None):
     traces = [simulate_spectrum() for k in range(parameters['number'])]
     return traces
 

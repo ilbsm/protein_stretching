@@ -123,11 +123,11 @@ class Structure:
         # TODO clean up
         parameters = {}
         for key in ['residues', 'distance', 'linker', 'source', 'speed', 'residues_distance',
-                    'minimal_stretch_distance', 'initial_guess', 'states']:
+                    'minimal_stretch_distance', 'states']:
             parameters[key] = self.parameters[key]
             if key in additional.keys():
                 parameters[key] = additional[key]
-        for key in ['high_force_cutoff', 'low_force_cutoff', 'max_rupture_force']:
+        for key in ['initial_guess', 'high_force_cutoff', 'low_force_cutoff', 'max_rupture_force']:
             if key in additional.keys():
                 parameters[key] = additional[key]
             elif key in self.parameters.keys() and isinstance(self.parameters[key], str):
