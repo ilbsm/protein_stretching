@@ -8,10 +8,10 @@ from io import StringIO
 
 
 class Structure:
-    def __init__(self, filename=None, cases=None, columns=None, parameters={}, name=None, debug=False, **kwargs):
-        self.orig_input = filename
+    def __init__(self, input_data=None, cases=None, columns=None, parameters={}, name=None, debug=False, **kwargs):
+        self.orig_input = input_data
         # setting the name
-        self._set_name(filename, name)
+        self._set_name(input_data, name)
 
         # initializing log file if debug
         self.logger = None
@@ -26,10 +26,10 @@ class Structure:
 
         # reading the data (setting the traces)
         self.traces = []
-        self._read_data(filename, cases, columns)
+        self._read_data(input_data, cases, columns)
         return
 
-    def _read_data(self, filename, cases=None, columns=None, **kwargs):
+    def _read_data(self, input_data, cases=None, columns=None, **kwargs):
         # TODO clean up
         if 'separator' in kwargs.keys():
             separator = kwargs['separator']
@@ -39,26 +39,21 @@ class Structure:
             sheet_name = kwargs['sheet_name']
         else:
             sheet_name = self.parameters['sheet_name']
-        if not filename:
+        if len(input_data) == 0:
             if self.logger:
                 self.logger.debug("Initializing empty class. Hope you'll add some traces to analyze.")
             return
 
-        # if there is a file to read
-        if self.logger:
-            self.logger.info('Reading ' + filename + ' cases ' + str(cases) + ' columns ' + str(columns) + str(kwargs))
-        if '.xls' in filename:
-            data = pd.read_excel(filename, sheet_name=sheet_name)
-        else:   # the .csv-like case
-            if '.csv' not in filename:
-                if self.logger:
-                    self.logger.warning("Treating the input file as .csv file, although it does not have such extension.")
-            with open(filename, 'r') as myfile:
-                content = myfile.read().split("#")[1].strip()
-            if separator != ' ':
-                data = pd.read_csv(StringIO(content), sep=separator, escapechar='#')
-            else:
-                data = pd.read_csv(StringIO(content), delim_whitespace=True, escapechar='#')
+        # if there is the input_data to read
+        if isinstance(input_data, pd.DataFrame):
+            data = input_data
+            filename = 'Pandas Dataframe'
+        elif isinstance(input_data, str) and os.path.isfile(input_data):
+            data = self._read_input_file(input_data, separator, sheet_name, cases, columns, **kwargs)
+            filename = input_data
+        else:
+            raise NotImplementedError("Could not understand the input. Currently reading Pandas Dataframe, and paths "
+                                      "to .xls and .csv files.")
         data.dropna(axis='columns', how='all', inplace=True)
         headers = list(data)
         if columns:
@@ -90,10 +85,29 @@ class Structure:
                     trace_name = len(self.traces)
                 if 'unit' in kwargs.keys() and kwargs['unit'] == 'A':
                     trace_data['d'] = trace_data['d'] / 10
-                if cases and trace_name in cases:
+                if not cases or trace_name in cases:
                     self.traces.append(Trace(trace_name, trace_data, filename, logger=self.logger,
-                                     parameters=self._prepare_trace_parameters(kwargs)))
+                                     parameters=self._set_trace_parameters(kwargs)))
         return
+
+    def _read_input_file(self, filename, separator, sheet_name, cases, columns, **kwargs):
+        if self.logger:
+            self.logger.info(
+                'Reading ' + filename + ' cases ' + str(cases) + ' columns ' + str(columns) + str(kwargs))
+        if '.xls' in filename:
+            data = pd.read_excel(filename, sheet_name=sheet_name)
+        else:  # the .csv-like case
+            if '.csv' not in filename:
+                if self.logger:
+                    self.logger.warning(
+                        "Treating the input file as .csv file, although it does not have such extension.")
+            with open(filename, 'r') as myfile:
+                content = myfile.read().split("#")[1].strip()
+            if separator != ' ':
+                data = pd.read_csv(StringIO(content), sep=separator, escapechar='#')
+            else:
+                data = pd.read_csv(StringIO(content), delim_whitespace=True, escapechar='#')
+        return data
 
     def add_trace(self, filename, cases=None, columns=None, **kwargs):
         self._read_data(filename, cases, columns, **kwargs)
@@ -103,7 +117,7 @@ class Structure:
     def _set_name(self, filename, name):
         if name:
             self.name = name
-        elif filename:
+        elif isinstance(filename, str) and len(filename) > 0:
             self.name = os.path.splitext(os.path.basename(filename))[0]
         else:
             self.name = 'Experiment'
@@ -424,8 +438,9 @@ class Structure:
 
         self._plot_total_contour_length_histo(axes[0, 0])   # the total contour length histogram
         self._plot_overlaid_traces(axes[0, 1])              # the overlaid smoothed traces
-        self._plot_forces_histogram(axes[1, 0])             # the rupture forces histogram
-        self._plot_dhs_analysis(axes[1, 1])               # Dudko analysis
+        # TODO take care of extremal cases with only one fit for the forces and Dudko
+        # self._plot_forces_histogram(axes[1, 0])             # the rupture forces histogram
+        # self._plot_dhs_analysis(axes[1, 1])               # Dudko analysis
 
         fig.tight_layout()
         if self.logger:

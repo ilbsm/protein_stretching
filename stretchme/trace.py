@@ -16,7 +16,8 @@ class Trace:
         # filling the data
         self.data = data
         self.data = self.data[self.data['F'] > self.parameters['low_force_cutoff']].sort_values(by='d')
-        self.logger.info("Trace name " + str(name) + " got and parsed the data.")
+        if self.logger:
+            self.logger.info("Trace name " + str(name) + " got and parsed the data.")
 
         self.smoothed = pd.DataFrame()
 
@@ -181,7 +182,10 @@ class Trace:
 
         p_prot = self.parameters['initial_guess']['p_prot']
         k_prot = self.parameters['initial_guess']['k_prot']
-        self.coefficients['p_prot'], self.coefficients['k_prot'] = minimize_pk(self.data[['d', 'F']], self.smoothed, p_prot, k_prot)
+        p_prot, k_prot = minimize_pk(self.data[['d', 'F']], self.smoothed, p_prot, k_prot)
+        print(p_prot, k_prot)
+        self.coefficients['p_prot'] = p_prot
+        self.coefficients['k_prot'] = k_prot
         return
 
     def fit_contour_lengths(self):

@@ -10,6 +10,7 @@ from sklearn.mixture import GaussianMixture
 from sklearn.neighbors import KernelDensity
 from scipy.signal import argrelextrema
 from colorsys import hsv_to_rgb
+from scipy.stats import cauchy
 from matplotlib import pyplot as plt
 from mpl_toolkits import mplot3d
 
@@ -120,6 +121,10 @@ def reduced_wlc_np(x, p, k):
     return np.array([reduced_wlc(point, p, k) for point in x])
 
 
+def wlc_np(d, p, k, l):
+    return np.array([reduced_wlc(point/l, p, k) for point in d])
+
+
 def get_d_dna(p_dna, l_dna, k_dna, f_space):
     if p_dna > 0:
         return l_dna * np.array([invert_wlc(f, p_dna, k_dna) for f in f_space])
@@ -206,12 +211,15 @@ def get_color(k, max_value):
 
 def plot_decomposed_histogram(position, data, l_space, residue_distance):
     k = 0
-    for index, row in data[['means', 'widths', 'heights']].iterrows():
-        mean, width, height = tuple(row.to_numpy())
+    for index, row in data[['means', 'widths', 'heights', 'gammas']].iterrows():
+        mean, width, height, gamma = tuple(row.to_numpy())
         y_plot = gauss(l_space, height, mean, width)
+        y_plot_cauchy = cauchy.pdf(l_space, mean, gamma)
         residues = 1 + int(mean / residue_distance)
         label = "L= " + str(round(mean, 3)) + ' (' + str(residues) + ' AA)'
         position.plot(l_space, y_plot, linestyle='--', label=label, color=get_color(k, len(data)))
+        position.plot(l_space, y_plot_cauchy, linestyle=':', label=label, color=get_color(k, len(data)))
+
         k += 1
     return
 
@@ -235,6 +243,11 @@ def plot_trace_fits(position, coefficients, f_space, residue_distance):
 
 # postprocessing
 def decompose_histogram(data, significance, states=None):
+    # TODO take care of example with 1 observation...
+    if len(data) == 1:
+        parameters = pd.DataFrame({'means': np.array([float(data)]), 'widths': np.array([0]), 'heights': np.array(1)})
+        boundaries = [float(data), float(data)]
+        return parameters, boundaries
     # finding the number of components
     x = np.expand_dims(data, 1)
     kde = KernelDensity().fit(x)
@@ -265,7 +278,9 @@ def decompose_histogram(data, significance, states=None):
     parameters = pd.DataFrame({'means': np.array([x[0] for x in gmm.means_]),
                                'widths': np.array([x[0][0] for x in gmm.covariances_]),
                                'heights': np.array([np.exp(gmm.score_samples(np.array(u).reshape(-1, 1)))[0]
-                                                    for u in [x[0] for x in gmm.means_]])})
+                                                    for u in [x[0] for x in gmm.means_]]),
+                               'gammas': 1/(np.pi * np.array([np.exp(gmm.score_samples(np.array(u).reshape(-1, 1)))[0]
+                                                    for u in [x[0] for x in gmm.means_]]))})
     parameters = parameters.sort_values(by=['means'])
     boundaries = [min_boundary, max_boundary]
     return parameters, boundaries
@@ -292,32 +307,50 @@ def decompose_histogram(data, significance, states=None):
 #     popt, pcov = curve_fit(implicite_elastic_wlc_amplitude, df, ydata, bounds=(0, np.inf), p0=(length, init_k, init_p))
 #     return popt, pcov
 
-
-def minimize_pk(data, data_smoothed, p, k, significance=0.01, max_distance=0.01):
-    hist_values = data['d']/np.array([invert_wlc(f, p, k) for f in data['F']])
-    parameters, boundaries = decompose_histogram(np.array(hist_values), significance)
-    smoothed = pd.DataFrame({'d': data_smoothed['d'], 'F': data_smoothed['F']})
+def find_state_boundaries(smooth_data, parameters, p, k, max_distance=0.3):
+    begs = []
+    ends = []
+    last_end = 0
     for index, row in parameters.iterrows():
         l_prot = row['means']
-        smoothed['state_' + str(index)] = np.array([wlc(d, l_prot, p, k) for d in list(data_smoothed['d'])])
-    last_end = 0
-    for ind, row in parameters.iterrows():
-        l_prot = row['means']
-        data_close = smoothed[abs(smoothed['F'] - smoothed['state_' + str(ind)]) <= max_distance]
+        smooth_data['state_' + str(index)] = np.array([wlc(d, l_prot, p, k) for d in list(smooth_data['d'])])
+        data_close = smooth_data[abs(smooth_data['F'] - smooth_data['state_' + str(index)]) <= max_distance]
         data_close = data_close[data_close['d'] > last_end]['d']
-        beg = data_close.min()
-        end = data_close.max()
-        last_end = end
-        if l_prot == parameters['means'].max():
-            fit_data = pd.DataFrame({'d': data[data['d'].between(beg, end)]['d'],
-                                     'F': data[data['d'].between(beg, end)]['F'],
-                                     'x': data[data['d'].between(beg, end)]['d']/l_prot})
-            print(beg, end, l_prot)
-    popt, pcov = curve_fit(reduced_wlc_np, fit_data['x'], fit_data['F'], p0=(p, k))
-    print(popt)
-    print(pcov)
+        begs.append(data_close.min())
+        ends.append(data_close.max())
+        if ends[-1] != np.NaN:
+            last_end = ends[-1]
+    return begs, ends
 
-    return 0.7735670704545268, 200
+
+def minimize_pk(data, data_smoothed, p, k, significance=0.01, max_distance=0.3):
+    p_old = [0, 0, 0]
+    p_new = [p, k, 0]
+    while any([abs(x-y) > 10*significance for x, y in zip(p_new, p_old)]):
+        print('p_old ' + str(p_old))
+        print('p_new ' + str(p_old))
+        # finding the approximate contour length
+        hist_values = data['d']/np.array([invert_wlc(f, p_new[0], p_new[1]) for f in data['F']])
+        parameters, boundaries = decompose_histogram(np.array(hist_values), significance)
+
+        # finding ranges of states
+        smoothed = pd.DataFrame({'d': data_smoothed['d'], 'F': data_smoothed['F']})
+        begs, ends = find_state_boundaries(smoothed, parameters, p, k, max_distance)
+        parameters['begs'] = begs
+        parameters['ends'] = ends
+
+        # selecting the last state
+        row = parameters.dropna().sort_values(by='means', ascending=False).head(1)
+        beg, end, l_prot = row[['begs', 'ends', 'means']].to_numpy()[0]
+        fit_data = pd.DataFrame({'d': data_smoothed[data_smoothed['d'].between(beg, end)]['d'],
+                                 'F': data_smoothed[data_smoothed['d'].between(beg, end)]['F']})
+        fit_data = fit_data.dropna()
+
+        # fitting
+        p_old = [p_new[0], p_new[1], float(row['means'])]
+        p_new, pcov = curve_fit(wlc_np, fit_data['d'], fit_data['F'], p0=p_old)
+
+    return p_new[0], p_new[1]
 
 
 def implicit_elastic_wlc(data, p, k):
