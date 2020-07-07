@@ -26,5 +26,5 @@ def simulate(traces=1, p_prot=0.7, k_prot=200, p_dna=0, k_dna=None, position_blu
     return result
 
 
-analyze_file('ca*.fd', 'trmd_ca_6', 6)
+analyze_file('ca*.fd', 'trmd_ca_6', 7)
 
