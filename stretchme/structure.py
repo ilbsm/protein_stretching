@@ -33,13 +33,15 @@ class Structure:
         # TODO clean up
         if 'separator' in kwargs.keys():
             separator = kwargs['separator']
+            del kwargs['separator']
         else:
             separator = self.parameters['separator']
         if 'sheet_name' in kwargs.keys():
             sheet_name = kwargs['sheet_name']
+            del kwargs['sheet_name']
         else:
             sheet_name = self.parameters['sheet_name']
-        if len(input_data) == 0:
+        if input_data == None or len(input_data) == 0:
             if self.logger:
                 self.logger.debug("Initializing empty class. Hope you'll add some traces to analyze.")
             return

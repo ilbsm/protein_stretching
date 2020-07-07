@@ -211,14 +211,13 @@ def get_color(k, max_value):
 
 def plot_decomposed_histogram(position, data, l_space, residue_distance):
     k = 0
+    # TODO add Cauchy distribution
     for index, row in data[['means', 'widths', 'heights', 'gammas']].iterrows():
         mean, width, height, gamma = tuple(row.to_numpy())
         y_plot = gauss(l_space, height, mean, width)
-        y_plot_cauchy = cauchy.pdf(l_space, mean, gamma)
         residues = 1 + int(mean / residue_distance)
         label = "L= " + str(round(mean, 3)) + ' (' + str(residues) + ' AA)'
         position.plot(l_space, y_plot, linestyle='--', label=label, color=get_color(k, len(data)))
-        position.plot(l_space, y_plot_cauchy, linestyle=':', label=label, color=get_color(k, len(data)))
 
         k += 1
     return
@@ -259,6 +258,7 @@ def decompose_histogram(data, significance, states=None):
 
     # finding the range
     # TODO clean it up
+    # TODO take care for the case with len(maximas) == 0
     min_list = [estimator[_] for _ in range(len(estimator)) if kde_est[_] < significance and estimator[_] < maximas[0]]
     max_list = [estimator[_] for _ in range(len(estimator)) if kde_est[_] < significance and estimator[_] > maximas[-1]]
     if len(min_list) > 0:
@@ -278,9 +278,7 @@ def decompose_histogram(data, significance, states=None):
     parameters = pd.DataFrame({'means': np.array([x[0] for x in gmm.means_]),
                                'widths': np.array([x[0][0] for x in gmm.covariances_]),
                                'heights': np.array([np.exp(gmm.score_samples(np.array(u).reshape(-1, 1)))[0]
-                                                    for u in [x[0] for x in gmm.means_]]),
-                               'gammas': 1/(np.pi * np.array([np.exp(gmm.score_samples(np.array(u).reshape(-1, 1)))[0]
-                                                    for u in [x[0] for x in gmm.means_]]))})
+                                                    for u in [x[0] for x in gmm.means_]])})
     parameters = parameters.sort_values(by=['means'])
     boundaries = [min_boundary, max_boundary]
     return parameters, boundaries
@@ -326,10 +324,10 @@ def find_state_boundaries(smooth_data, parameters, p, k, max_distance=0.3):
 def minimize_pk(data, data_smoothed, p, k, significance=0.01, max_distance=0.3):
     p_old = [0, 0, 0]
     p_new = [p, k, 0]
+    results = []
     while any([abs(x-y) > 10*significance for x, y in zip(p_new, p_old)]):
-        print('p_old ' + str(p_old))
-        print('p_new ' + str(p_old))
         # finding the approximate contour length
+        print(p_new)
         hist_values = data['d']/np.array([invert_wlc(f, p_new[0], p_new[1]) for f in data['F']])
         parameters, boundaries = decompose_histogram(np.array(hist_values), significance)
 
@@ -345,10 +343,20 @@ def minimize_pk(data, data_smoothed, p, k, significance=0.01, max_distance=0.3):
         fit_data = pd.DataFrame({'d': data_smoothed[data_smoothed['d'].between(beg, end)]['d'],
                                  'F': data_smoothed[data_smoothed['d'].between(beg, end)]['F']})
         fit_data = fit_data.dropna()
+        print(row)
 
         # fitting
-        p_old = [p_new[0], p_new[1], float(row['means'])]
+        if p_new[2] != 0:
+            p_old = p_new
+        else:
+            p_old = [p_new[0], p_new[1], float(row['means'])]
         p_new, pcov = curve_fit(wlc_np, fit_data['d'], fit_data['F'], p0=p_old)
+        print(p_new)
+        p_red = [round(_, 3) for _ in p_new]
+        if p_red in results:
+            break
+        else:
+            results.append(p_red)
 
     return p_new[0], p_new[1]
 

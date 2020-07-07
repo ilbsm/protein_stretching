@@ -5,8 +5,8 @@ from matplotlib import pyplot as plt
 directory = '/Users/pawel/Documents/Projekty/2020 - Rozciaganie/data_original/trmd_cg/'
 
 
-def analyze_file(filename, states=None):
-    experiment = Structure(debug=True, name='trmd_ca_4')
+def analyze_file(filename, name, states=None):
+    experiment = Structure(debug=True, name=name)
     for file in glob.glob(directory + filename):
         experiment.add_trace(file, columns=['D(1,N)', 'FORCE'], separator=' ', source='theory', linker='none', unit='A')
     experiment.set_states(states)
@@ -26,7 +26,5 @@ def simulate(traces=1, p_prot=0.7, k_prot=200, p_dna=0, k_dna=None, position_blu
     return result
 
 
-experiment = Structure(simulate(), source='theory', linker='none')
-# print(len(experiment.traces))
-experiment.analyze()
+analyze_file('ca*.fd', 'trmd_ca_4', 4)
 

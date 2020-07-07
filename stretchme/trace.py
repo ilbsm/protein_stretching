@@ -179,11 +179,12 @@ class Trace:
         self.data['x_dna'] = np.zeros(len(self.data))
         self.data['d_dna'] = np.zeros(len(self.data))
 
-
+        # fitting part
         p_prot = self.parameters['initial_guess']['p_prot']
         k_prot = self.parameters['initial_guess']['k_prot']
-        p_prot, k_prot = minimize_pk(self.data[['d', 'F']], self.smoothed, p_prot, k_prot)
-        print(p_prot, k_prot)
+        # p_prot, k_prot = minimize_pk(self.data[['d', 'F']], self.smoothed, p_prot, k_prot)
+        # if self.logger:
+        #     self.logger.info("Fitted p_prot: " + str(p_prot) + " and k_prot: " + str(k_prot))
         self.coefficients['p_prot'] = p_prot
         self.coefficients['k_prot'] = k_prot
         return
