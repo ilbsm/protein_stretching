@@ -41,7 +41,8 @@ class Structure:
             del kwargs['sheet_name']
         else:
             sheet_name = self.parameters['sheet_name']
-        if input_data == None or len(input_data) == 0:
+        if (isinstance(input_data, pd.DataFrame) and len(input_data) == 0) or \
+                (not isinstance(input_data, pd.DataFrame) and not input_data):
             if self.logger:
                 self.logger.debug("Initializing empty class. Hope you'll add some traces to analyze.")
             return

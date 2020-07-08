@@ -1,0 +1,142 @@
+
+<!DOCTYPE html>
+
+<html lang="Python3">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Documentation &#8212; stretchme 0.1 documentation</title>
+    <link rel="stylesheet" href="_static/alabaster.css" type="text/css" />
+    <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+    <script id="documentation_options" data-url_root="./" src="_static/documentation_options.js"></script>
+    <script src="_static/jquery.js"></script>
+    <script src="_static/underscore.js"></script>
+    <script src="_static/doctools.js"></script>
+    <script src="_static/language_data.js"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="Licence" href="licence.html" />
+    <link rel="prev" title="Default parameters" href="parameters.html" />
+   
+  <link rel="stylesheet" href="_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <div class="section" id="documentation">
+<span id="id1"></span><h1>Documentation<a class="headerlink" href="#documentation" title="Permalink to this headline">¶</a></h1>
+<div class="section" id="usable-functions">
+<span id="doc-functions"></span><h2>Usable functions<a class="headerlink" href="#usable-functions" title="Permalink to this headline">¶</a></h2>
+</div>
+<div class="section" id="simulating-stretching-data">
+<span id="doc-simulate"></span><h2>Simulating stretching data<a class="headerlink" href="#simulating-stretching-data" title="Permalink to this headline">¶</a></h2>
+</div>
+<div class="section" id="stretching-classes">
+<span id="doc-classes"></span><h2>Stretching classes<a class="headerlink" href="#stretching-classes" title="Permalink to this headline">¶</a></h2>
+<span class="target" id="doc-class-trace"><span id="doc-class-structure"></span></span><dl class="py class">
+<dt id="stretchme.trace.Trace">
+<em class="property">class </em><code class="sig-prename descclassname">stretchme.trace.</code><code class="sig-name descname">Trace</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">name</span></em>, <em class="sig-param"><span class="n">data</span></em>, <em class="sig-param"><span class="n">orig_input</span></em>, <em class="sig-param"><span class="n">logger</span><span class="o">=</span><span class="default_value">None</span></em>, <em class="sig-param"><span class="n">parameters</span><span class="o">=</span><span class="default_value">None</span></em><span class="sig-paren">)</span><a class="headerlink" href="#stretchme.trace.Trace" title="Permalink to this definition">¶</a></dt>
+<dd><p>The class containing information about one, single measurement.</p>
+<dl class="simple">
+<dt>Attributes:</dt><dd><p>name (str): The class name
+orig_input (str): The original input (e.g. the path to the source file)
+parameters (dict): The dictionary of measurement parameters.
+data (Pandas Dataframe): The dataframe with columns 'd' and 'F' corresponding to measured distance and force.
+coefficients (dict): The dictionary with fitted coefficients
+rupture_forces (dict): The dictionary with measured rupture forces</p>
+</dd>
+</dl>
+</dd></dl>
+
+</div>
+</div>
+
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="index.html">stretchme</a></h1>
+
+
+
+
+
+
+
+
+<h3>Navigation</h3>
+<p class="caption"><span class="caption-text">Contents:</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="overview.html">Stretchme overview</a></li>
+<li class="toctree-l1"><a class="reference internal" href="start.html">Quick start</a></li>
+<li class="toctree-l1"><a class="reference internal" href="parameters.html">Default parameters</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Documentation</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#usable-functions">Usable functions</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#simulating-stretching-data">Simulating stretching data</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#stretching-classes">Stretching classes</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="licence.html">Licence</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="index.html">Documentation overview</a><ul>
+      <li>Previous: <a href="parameters.html" title="previous chapter">Default parameters</a></li>
+      <li>Next: <a href="licence.html" title="next chapter">Licence</a></li>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" />
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script>$('#searchbox').show(0);</script>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2020, pdabrowskitumanski.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 3.1.2</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+      
+      |
+      <a href="_sources/documentation.rst.txt"
+          rel="nofollow">Page source</a>
+    </div>
+
+    
+
+    
+  </body>
+</html>

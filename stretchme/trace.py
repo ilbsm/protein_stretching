@@ -1,12 +1,22 @@
-from datetime import datetime
 from matplotlib import pyplot as plt
 from .stretching_tools import *
 import pandas as pd
 
 
 class Trace:
+    """The class containing information about one, single measurement.
+
+    Attributes:
+        name (str): The class name.
+        orig_input (str): The original input (e.g. the path to the source file).
+        parameters (dict): The dictionary of measurement parameters.
+        data (Pandas Dataframe): The dataframe with columns 'd' and 'F' corresponding to measured distance and force.
+        coefficients (dict): The dictionary with fitted coefficients.
+        rupture_forces (dict): The dictionary with measured rupture forces.
+
+    """
     def __init__(self, name, data, orig_input, logger=None, parameters=None):
-        self.name = name
+        self.name = str(name)
         self.orig_input = orig_input
         self.logger = logger
 
@@ -131,7 +141,7 @@ class Trace:
     def _fit_distances(self):
         for index, row in self.coefficients['l_prot'].iterrows():
             l_prot = row['means']
-            self.smoothed['state_' + str(index)] = np.array([wlc(d, l_prot, self.coefficients.get('p_prot', 0),
+            self.smoothed['state_' + str(index)] = np.array([ewlc(d, l_prot, self.coefficients.get('p_prot', 0),
                                             self.coefficients.get('k_prot', None)) for d in list(self.smoothed['d'])])
         return
 
@@ -189,21 +199,43 @@ class Trace:
         self.coefficients['k_prot'] = k_prot
         return
 
+    def _fit_linker_dna(self):
+        return
+
+    def _fit_linker_none(self):
+        self.coefficients['k_dna'] = None
+        self.coefficients['l_dna'] = 0
+        self.coefficients['p_dna'] = 0
+        self.data['x_dna'] = np.zeros(len(self.data))
+        self.data['d_dna'] = np.zeros(len(self.data))
+
+        # fitting part
+        p_prot, k_prot = fit_pk_linker_none(self.data[['d', 'F']], self.parameters['initial_guess']['p_prot'],
+                                            self.parameters['initial_guess']['k_prot'], self.logger)
+        self.coefficients['p_prot'] = p_prot
+        self.coefficients['k_prot'] = k_prot
+        return
+
     def fit_contour_lengths(self):
         if self.logger:
             self.logger.info("Fitting contour lengths...")
-        if self.parameters['linker'] == 'dna' and self.parameters['source'] == 'experiment':
-            self._fit_cl_dna_experiment()
-        elif self.parameters['linker'] == 'dna' and self.parameters['source'] == 'theory':
-            self._fit_cl_dna_theory()
-        elif self.parameters['linker'] == 'none' and self.parameters['source'] == 'experiment':
-            self._fit_cl_none_experiment()
-        elif self.parameters['linker'] == 'none' and self.parameters['source'] == 'theory':
-            self._fit_cl_none_theory()
+        if self.parameters['linker'] == 'dna':
+            self._fit_linker_dna()
+        elif self.parameters['linker'] == 'none':
+            self._fit_linker_none()
         else:
-            raise ValueError("Unknown combination of data source and linker. \n"
-                             "Got data source " + self.parameters['source'] + " and linker " +
-                             self.parameters['linker'])
+            raise ValueError("Unknown linker " + self.parameters['linker'])
+        #     self._fit_cl_dna_experiment()
+        # elif self.parameters['linker'] == 'dna' and self.parameters['source'] == 'theory':
+        #     self._fit_cl_dna_theory()
+        # elif self.parameters['linker'] == 'none' and self.parameters['source'] == 'experiment':
+        #     self._fit_cl_none_experiment()
+        # elif self.parameters['linker'] == 'none' and self.parameters['source'] == 'theory':
+        #     self._fit_cl_none_theory()
+        # else:
+        #     raise ValueError("Unknown combination of data source and linker. \n"
+        #                      "Got data source " + self.parameters['source'] + " and linker " +
+        #                      self.parameters['linker'])
 
         self.data['x_prot'] = np.array([invert_wlc(f, self.coefficients['p_prot'], self.coefficients['k_prot'])
                                         for f in self.data['F']])

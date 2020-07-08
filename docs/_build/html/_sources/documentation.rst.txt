@@ -1,0 +1,24 @@
+.. _Documentation:
+
+Documentation
+=============
+
+.. _doc_functions:
+
+Usable functions
+----------------
+
+.. _doc_simulate:
+
+Simulating stretching data
+--------------------------
+
+.. _doc_classes:
+
+Stretching classes
+------------------
+
+.. _doc_class_structure:
+
+.. _doc_class_trace:
+.. autoclass:: stretchme.trace.Trace

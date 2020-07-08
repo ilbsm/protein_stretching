@@ -1,0 +1,4 @@
+.. _Start:
+
+Quick start
+===========

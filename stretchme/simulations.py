@@ -13,7 +13,7 @@ def simulate_traces(traces=1, p_prot=0.7, k_prot=200, p_dna=0, k_dna=None, posit
     return result
 
 
-def simulate_single_trace(p_prot=0.7, k_prot=200, p_dna=0, k_dna=None, position_blur=0.1, force_blur=1, l_dna=350,
+def simulate_single_trace(p_prot=0.7, k_prot=200, p_dna=0, k_dna=0, position_blur=0.1, force_blur=1, l_dna=350,
                           l_prots=(25, 50, 100), rupture_forces=(10, 15), force_range=(0.1, 20), relaxation=0.1,
                           rupture_forces_blur=0.1):
     # TODO add validation of the input data
@@ -24,7 +24,7 @@ def simulate_single_trace(p_prot=0.7, k_prot=200, p_dna=0, k_dna=None, position_
     real_rupture_forces.append(force_range[-1])
     d_prot_rupture = [l_prots[_] * (invert_wlc(real_rupture_forces[_], p_prot, k_prot) + relaxation)
                       for _ in range(len(l_prots) - 1)]
-    start_forces = [force_range[0]] + [wlc(d_prot_rupture[_], l_prots[_ + 1], p_prot, k_prot)
+    start_forces = [force_range[0]] + [ewlc(d_prot_rupture[_], l_prots[_ + 1], p_prot, k_prot)
                                        for _ in range(len(d_prot_rupture))]
     part_forces = [[start_forces[_], real_rupture_forces[_]] for _ in range(len(real_rupture_forces))]
 
