@@ -24,7 +24,7 @@ def simulate(traces=1, p_prot=0.7, k_prot=0.005, p_dna=0, k_dna=0, position_blur
     return result
 
 
-analyze_file('ca*.fd', 'trmd_ca_4', 4)
+analyze_file('ca*.fd', 'trmd_ca_6', 7)
 
 # experiment = Structure(simulate(), source='theory', linker='none')
 # experiment.set_states(3)
