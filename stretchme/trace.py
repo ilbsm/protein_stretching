@@ -154,19 +154,35 @@ class Trace:
         return
 
     def _fit_linker_dna(self):
+        p_dna = self.parameters['initial_guess']['p_dna']
+        k_dna = self.parameters['initial_guess']['k_dna']
+        l_dna = self.parameters['initial_guess']['l_dna']
+        p_prot = self.parameters['initial_guess']['p_prot']
+        k_prot = self.parameters['initial_guess']['k_prot']
+
+
+        # fitting part
+        p_prot, k_prot, p_dna, k_dna, l_dna = fit_pk_linker_dna(self.data[['d', 'F']],
+                                                                 p_prot, k_prot, p_dna, k_dna, l_dna,
+                                                                 states=self.parameters['states'], logger=self.logger)
+        self.coefficients['p_prot'] = p_prot
+        self.coefficients['k_prot'] = k_prot
+        self.data['x_dna'] = invert_wlc_np(self.data['F'], p_dna, k_dna)
+        self.data['d_dna'] = l_dna * self.data['x_dna']
         return
 
     def _fit_linker_none(self):
-        self.coefficients['k_dna'] = None
+        self.coefficients['k_dna'] = 0
         self.coefficients['l_dna'] = 0
         self.coefficients['p_dna'] = 0
+        p_prot = self.parameters['initial_guess']['p_prot']
+        k_prot = self.parameters['initial_guess']['k_prot']
         self.data['x_dna'] = np.zeros(len(self.data))
         self.data['d_dna'] = np.zeros(len(self.data))
 
         # fitting part
-        p_prot, k_prot = fit_pk_linker_none(self.data[['d', 'F']], self.parameters['initial_guess']['p_prot'],
-                                            self.parameters['initial_guess']['k_prot'],
-                                            states=self.parameters['states'], logger=self.logger)
+        p_prot, k_prot = fit_pk_linker_none(self.data[['d', 'F']], p_prot, k_prot, states=self.parameters['states'],
+                                            logger=self.logger)
         self.coefficients['p_prot'] = p_prot
         self.coefficients['k_prot'] = k_prot
         return
@@ -174,23 +190,12 @@ class Trace:
     def fit_contour_lengths(self):
         if self.logger:
             self.logger.info("Fitting contour lengths...")
-        if self.parameters['linker'] == 'dna':
-            self._fit_linker_dna()
-        elif self.parameters['linker'] == 'none':
+        if not self.parameters['linker']:
             self._fit_linker_none()
+        elif self.parameters['linker'] == 'dna':
+            self._fit_linker_dna()
         else:
             raise ValueError("Unknown linker " + self.parameters['linker'])
-        #     self._fit_cl_dna_experiment()
-        # elif self.parameters['linker'] == 'dna' and self.parameters['source'] == 'theory':
-        #     self._fit_cl_dna_theory()
-        # elif self.parameters['linker'] == 'none' and self.parameters['source'] == 'experiment':
-        #     self._fit_cl_none_experiment()
-        # elif self.parameters['linker'] == 'none' and self.parameters['source'] == 'theory':
-        #     self._fit_cl_none_theory()
-        # else:
-        #     raise ValueError("Unknown combination of data source and linker. \n"
-        #                      "Got data source " + self.parameters['source'] + " and linker " +
-        #                      self.parameters['linker'])
 
         self.data['x_prot'] = np.array([invert_wlc(f, self.coefficients['p_prot'], self.coefficients['k_prot'])
                                         for f in self.data['F']])

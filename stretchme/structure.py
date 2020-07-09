@@ -93,7 +93,7 @@ class Structure:
             self.traces.append(Trace(trace_name, trace_data, filename, logger=self.logger,
                                      parameters=self._set_trace_parameters(kwargs)))
         else:
-            for k in range(0, len(headers), 2):
+            for k in range(len(headers)%2, len(headers), 2):
                 # TODO take care of "index list out of range here, if the data are given in wrong format"
                 trace_data = data[[headers[k], headers[k + 1]]]
                 new_headers = {headers[k]: 'd', headers[k + 1]: 'F'}
@@ -155,20 +155,17 @@ class Structure:
     def _set_trace_parameters(self, additional={}):
         # TODO clean up
         parameters = {}
-        for key in ['residues', 'distance', 'linker', 'source', 'speed', 'residues_distance',
-                    'minimal_stretch_distance', 'states']:
+        for key in ['linker', 'source', 'speed', 'residues_distance', 'states', 'low_force_cutoff']:
             parameters[key] = self.parameters[key]
             if key in additional.keys():
                 parameters[key] = additional[key]
-        for key in ['initial_guess', 'high_force_cutoff', 'low_force_cutoff', 'max_rupture_force']:
-            if key in additional.keys():
-                parameters[key] = additional[key]
-            elif key in self.parameters.keys() and isinstance(self.parameters[key], str):
-                parameters[key] = self.parameters[key]
-            elif key in self.parameters.keys() and isinstance(self.parameters[key], dict):
-                parameters[key] = self.parameters[key][parameters['source']]
-            else:
-                parameters[key] = default_parameters[key][parameters['source']]
+        key = 'initial_guess'
+        if key in additional.keys():
+            parameters[key] = additional[key]
+        elif key in self.parameters.keys() and isinstance(self.parameters[key], dict):
+            parameters[key] = self.parameters[key]
+        else:
+            parameters[key] = default_parameters[key][parameters['source']]
         return parameters
 
     def set_residues(self, value):

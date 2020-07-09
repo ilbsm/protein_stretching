@@ -467,9 +467,31 @@ def fit_error(x, data, states=None, logger=None):
     return parameters['cauchy_gammas'].min() - parameters['pvalues'].max()
 
 
+def fit_error_dna(x, data, states=None, logger=None):
+    if logger:
+        logger.info(str(x))
+    d_dna = x[4] * invert_wlc_np(data['F'], x[2], x[3])
+    x_prot = invert_wlc_np(data['F'], x[0], x[1])
+    hist_values = (data['d'] - d_dna)/x_prot
+    try:
+        parameters = decompose_histogram_cauchy(hist_values, states=states)
+        return parameters['cauchy_gammas'].min() - parameters['pvalues'].max()
+    except:
+        return 999
+
+
 def fit_pk_linker_none(data, p, k, states=None, logger=None):
     if logger:
         logger.info("Fitting the parameters\np\tk")
     x_opt = minimize(fit_error, x0=np.array([p, k]), args=(data, states, logger), bounds=((0.1, 100), (0, 1)))
     p_opt, k_opt = x_opt.x
     return p_opt, k_opt
+
+
+def fit_pk_linker_dna(data, p, k, p_dna, k_dna, l_dna, states=None, logger=None):
+    if logger:
+        logger.info("Fitting the parameters\np\tk")
+    x_opt = minimize(fit_error_dna, x0=np.array([p, k, p_dna, k_dna, l_dna]), args=(data, states, logger),
+                     bounds=((0.1, 100), (0, 1), (0.1, 100), (0, 1), (0, np.inf)))
+    p_opt, k_opt, p_dna_opt, k_dna_opt, l_dna_opt = x_opt.x
+    return p_opt, k_opt, p_dna_opt, k_dna_opt, l_dna_opt
