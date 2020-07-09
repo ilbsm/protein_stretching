@@ -20,8 +20,9 @@ class Trace:
         self.orig_input = orig_input
         self.logger = logger
 
-        # setting the trace parameters
+        # setting the trace parameters and coefficients
         self.parameters = parameters
+        self.coefficients = {'k_prot': 0, 'p_prot': 0, 'p_dna': 0, 'k_dna': 0, 'l_dna': 0}
 
         # filling the data
         self.data = data
@@ -65,77 +66,30 @@ class Trace:
         return
 
     # setting
-    def set_residues(self, value):
-        self.parameters['residues'] = value
-        if self.logger:
-            self.logger.info("Set trace 'residues' value to " + str(value))
-        return
+    def set(self, **kwargs):
+        """ Method of setting the parameter/coefficient to given trace. The parameters to be set are given as keyword
+        arguments.
 
-    def set_distance(self, value):
-        self.parameters['distance'] = value
-        if self.logger:
-            self.logger.info("Set trace 'distance' value to " + str(value))
-        return
+                Args:
+                    **kwargs: The parameters which are going to be set. Accepted parameters are: 'residues' (int),
+                    'linker' ('dna'/None), 'source' ('experiment'/'cg'/'aa'), 'speed' (float), 'states' (int),
+                    'residues_distance', (float), 'low_force_cutoff' (float), and 'initial_guess' (dictionary).
 
-    def set_linker(self, value):
-        self.parameters['linker'] = value
-        if self.logger:
-            self.logger.info("Set trace 'linker' value to " + str(value))
-        return
-
-    def set_source(self, value):
-        self.parameters['source'] = value
-        if self.logger:
-            self.logger.info("Set trace 'source' value to " + str(value))
-        return
-
-    def set_speed(self, value):
-        self.parameters['speed'] = value
-        if self.logger:
-            self.logger.info("Set trace 'speed' value to " + str(value))
-        return
-
-    def set_residues_distance(self, value):
-        self.parameters['residues_distance'] = value
-        if self.logger:
-            self.logger.info("Set trace 'residues_distance' value to " + str(value))
-        return
-
-    def set_minimal_stretch_distance(self, value):
-        self.parameters['minimal_stretch_distance'] = value
-        if self.logger:
-            self.logger.info("Set trace 'minimal_stretch_distance' value to " + str(value))
-        return
-
-    def set_high_force_cutoff(self, value):
-        self.parameters['high_force_cutoff'] = value
-        if self.logger:
-            self.logger.info("Set trace 'high_force_cutoff' value to " + str(value))
-        return
-
-    def set_low_force_cutoff(self, value):
-        self.parameters['low_force_cutoff'] = value
-        if self.logger:
-            self.logger.info("Set trace 'low_force_cutoff' value to " + str(value))
-        return
-
-    def set_max_rupture_force(self, value):
-        self.parameters['max_rupture_force'] = value
-        if self.logger:
-            self.logger.info("Set trace 'max_rupture_force' value to " + str(value))
-        return
-
-    def set_initial_guess(self, value):
-        self.parameters['initial_guess'] = value
-        if self.logger:
-            self.logger.info("Set trace 'initial_guess' value to " + str(value))
-        return
-
-    def set_states(self, value):
-        self.parameters['states'] = value
-        if self.logger:
-            self.logger.info("Set trace 'states' value to " + str(value))
-        return
+                Returns:
+                    True if successful, False otherwise.
+                """
+        for key in kwargs:
+            if key in self.parameters.keys():
+                self.parameters[key] = kwargs[key]
+                if self.logger:
+                    self.logger.info("Set trace '" + str(key) + "' parameter to " + str(kwargs[key]))
+            elif key in self.coefficients.keys():
+                self.coefficients[key] = kwargs[key]
+                if self.logger:
+                    self.logger.info("Set trace '" + str(key) + "' coefficient to " + str(kwargs[key]))
+            else:
+                raise KeyError("Unknown property/coefficient " + str(key))
+        return True
 
     # fitting
     def _fit_distances(self):

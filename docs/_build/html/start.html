@@ -13,8 +13,11 @@
     <script src="_static/underscore.js"></script>
     <script src="_static/doctools.js"></script>
     <script src="_static/language_data.js"></script>
+    <script async="async" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.7/latest.js?config=TeX-AMS-MML_HTMLorMML"></script>
     <link rel="index" title="Index" href="genindex.html" />
     <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="Default parameters" href="parameters.html" />
+    <link rel="prev" title="Stretchme overview" href="overview.html" />
    
   <link rel="stylesheet" href="_static/custom.css" type="text/css" />
   
@@ -33,6 +36,136 @@
             
   <div class="section" id="quick-start">
 <span id="start"></span><h1>Quick start<a class="headerlink" href="#quick-start" title="Permalink to this headline">¶</a></h1>
+<div class="section" id="installation">
+<span id="start-installation"></span><h2>Installation<a class="headerlink" href="#installation" title="Permalink to this headline">¶</a></h2>
+<p>The installation of the package is as simple as writing:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">python3</span> <span class="o">-</span><span class="n">m</span> <span class="n">pip</span> <span class="n">install</span> <span class="o">--</span><span class="n">index</span><span class="o">-</span><span class="n">url</span> <span class="n">https</span><span class="p">:</span><span class="o">//</span><span class="n">test</span><span class="o">.</span><span class="n">pypi</span><span class="o">.</span><span class="n">org</span><span class="o">/</span><span class="n">simple</span><span class="o">/</span> <span class="o">--</span><span class="n">no</span><span class="o">-</span><span class="n">deps</span> <span class="n">strechme</span>
+</pre></div>
+</div>
+<p>It is distributed (yet) at the test.pypi.org:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">https</span><span class="p">:</span><span class="o">//</span><span class="n">test</span><span class="o">.</span><span class="n">pypi</span><span class="o">.</span><span class="n">org</span><span class="o">/</span><span class="n">project</span><span class="o">/</span><span class="n">Stretchme</span>
+</pre></div>
+</div>
+<p>As this is still a test version, it is maintained at a test server. In nearest future it will be provided at the real pypi.
+.. _start_theory:</p>
+</div>
+<div class="section" id="some-theory">
+<h2>Some theory<a class="headerlink" href="#some-theory" title="Permalink to this headline">¶</a></h2>
+<p>The force-extension curves for proteins and DNA are described using a version of elastic worm-like chain model. In the
+eWLC model, the force <em>F</em> dependence on the extension <em>d</em> is given by implicit equation:</p>
+<div class="math notranslate nohighlight">
+\[F(d;L,p_l,k_l,T) = \frac{k_BT}{p_l}\left( \frac{1}{4\cdot(1-\frac{d}{L}+\frac{F}{k_l})^2} - \frac{1}{4} + \frac{d}{L} - \frac{F}{k_l} \right)\]</div>
+<p>which depends parametrically on the protein contour length (<span class="math notranslate nohighlight">\(L\)</span>), persistence length (<span class="math notranslate nohighlight">\(p_l\)</span>), stretching
+constant of the bonds (<span class="math notranslate nohighlight">\(k_l\)</span>) and the temperature (<span class="math notranslate nohighlight">\(T\)</span>).
+As usually the temperature and persistence length are constant during experiment, one can treat their quotient as
+another variable <span class="math notranslate nohighlight">\(p=\frac{k_BT}{p_l}\)</span>. Similarly, as the values of <span class="math notranslate nohighlight">\(k_l\)</span> are usually high, in the everyday
+application it is more convenient to work with its inverse <span class="math notranslate nohighlight">\(k=\frac{1}{k_l}\)</span>. This yields the equation which is
+fitted in the Strechme package:</p>
+<div class="math notranslate nohighlight">
+\[F(d;L,p,k) = p\left( \frac{1}{4\cdot(1-\frac{d}{L}+kF)^2} - \frac{1}{4} + \frac{d}{L} - kF \right)\]</div>
+<p>When <span class="math notranslate nohighlight">\(k=0\)</span> one recovers the original Marko-Siggia function.</p>
+</div>
+<div class="section" id="requirements">
+<span id="start-requirements"></span><h2>Requirements<a class="headerlink" href="#requirements" title="Permalink to this headline">¶</a></h2>
+<p>The package runs for Python 3. In requires the following packages, installed during the standard package installation:
+* setuptools
+* pandas
+* matplotlib
+* numpy
+* scipy
+* scikit-learn
+* lmfit</p>
+</div>
+<div class="section" id="example-usage">
+<span id="start-examples"></span><h2>Example usage<a class="headerlink" href="#example-usage" title="Permalink to this headline">¶</a></h2>
+<p>Below the most common usages of the package are shown. For tweaking the analysis, see the documentation of the main classes <em>Structure</em> and <em>Trace</em>.</p>
+<div class="section" id="example-1">
+<h3>Example 1<a class="headerlink" href="#example-1" title="Permalink to this headline">¶</a></h3>
+<p>Analyzing the 'data.xls' file with the measured distances and corresponding forces in consecutive columns is very easy:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">stretchme</span> <span class="kn">import</span> <span class="n">analyze_experiment</span>
+<span class="n">analyze_experiment</span><span class="p">(</span><span class="s1">&#39;data.xls&#39;</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>results with the complete analysis of the data. One can also specify the sheet name:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">stretchme</span> <span class="kn">import</span> <span class="n">analyze_experiment</span>
+<span class="n">analyze_experiment</span><span class="p">(</span><span class="s1">&#39;data.xls&#39;</span><span class="p">,</span> <span class="n">sheet_name</span><span class="o">=</span><span class="s1">&#39;my_first_protein&#39;</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>and tell Strechme, that the data come from <em>experiment</em> with <em>dna</em> linkers attaching the protein to the beads:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">stretchme</span> <span class="kn">import</span> <span class="n">analyze_experiment</span>
+<span class="n">analyze_experiment</span><span class="p">(</span><span class="s1">&#39;data.xls&#39;</span><span class="p">,</span> <span class="n">sheet_name</span><span class="o">=</span><span class="s1">&#39;my_first_protein&#39;</span><span class="p">,</span> <span class="n">source</span><span class="o">=</span><span class="s1">&#39;experiment&#39;</span><span class="p">,</span> <span class="n">linker</span><span class="o">=</span><span class="s1">&#39;dna&#39;</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+<div class="section" id="example-2">
+<h3>Example 2<a class="headerlink" href="#example-2" title="Permalink to this headline">¶</a></h3>
+<p>One can also analyze traces stored in specific files, by manipulating the parameters of the <em>Structure</em> class:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">stretchme</span> <span class="kn">import</span> <span class="n">Structure</span>
+<span class="n">experiment</span> <span class="o">=</span> <span class="n">Structure</span><span class="p">()</span>
+<span class="k">for</span> <span class="n">file</span> <span class="ow">in</span> <span class="n">glob</span><span class="o">.</span><span class="n">glob</span><span class="p">(</span><span class="s1">&#39;my_proteins*.csv):</span>
+    <span class="n">experiment</span><span class="o">.</span><span class="n">add_trace</span><span class="p">(</span><span class="n">file</span><span class="p">)</span>
+<span class="n">experiment</span><span class="o">.</span><span class="n">analyze</span><span class="p">()</span>
+</pre></div>
+</div>
+<p>The last command will start the whole analysis, resulting in the histograms and fitted traces.</p>
+<p>In general, the data in the files are expected to contain distance and corresponding forces. If columns with specified headers (e.g. 'stretch_distance' and 'measured_force') are to be read, this can be specified within the <em>add_trace</em> method:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">stretchme</span> <span class="kn">import</span> <span class="n">analyze_experiment</span>
+<span class="n">experiment</span> <span class="o">=</span> <span class="n">Structure</span><span class="p">()</span>
+<span class="k">for</span> <span class="n">file</span> <span class="ow">in</span> <span class="n">glob</span><span class="o">.</span><span class="n">glob</span><span class="p">(</span><span class="s1">&#39;my_proteins*.csv):</span>
+    <span class="n">experiment</span><span class="o">.</span><span class="n">add_trace</span><span class="p">(</span><span class="n">file</span><span class="p">,</span> <span class="n">columns</span><span class="o">=</span><span class="p">[</span><span class="s1">&#39;stretch_distance&#39;</span><span class="p">,</span> <span class="s1">&#39;measured_force&#39;</span><span class="p">])</span>
+<span class="n">experiment</span><span class="o">.</span><span class="n">analyze</span><span class="p">()</span>
+</pre></div>
+</div>
+<p>One can also specify the expected number of states (e.g. 4) in the whole experiment:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">stretchme</span> <span class="kn">import</span> <span class="n">analyze_experiment</span>
+<span class="n">experiment</span> <span class="o">=</span> <span class="n">Structure</span><span class="p">()</span>
+<span class="k">for</span> <span class="n">file</span> <span class="ow">in</span> <span class="n">glob</span><span class="o">.</span><span class="n">glob</span><span class="p">(</span><span class="s1">&#39;my_proteins*.csv):</span>
+    <span class="n">experiment</span><span class="o">.</span><span class="n">add_trace</span><span class="p">(</span><span class="n">file</span><span class="p">,</span> <span class="n">columns</span><span class="o">=</span><span class="p">[</span><span class="s1">&#39;stretch_distance&#39;</span><span class="p">,</span> <span class="s1">&#39;measured_force&#39;</span><span class="p">])</span>
+<span class="n">experiment</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="n">states</span><span class="o">=</span><span class="mi">4</span><span class="p">)</span>
+<span class="n">experiment</span><span class="o">.</span><span class="n">analyze</span><span class="p">()</span>
+</pre></div>
+</div>
+<p>This will set the value of expected states in the total analysis for 4, but for each individual case, the number of states may still be different. If you want to set the individual trace, this can be specified by invoking the <em>.set()</em> method on the entries of the <em>Structure.traces</em> list:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">stretchme</span> <span class="kn">import</span> <span class="n">analyze_experiment</span>
+<span class="n">experiment</span> <span class="o">=</span> <span class="n">Structure</span><span class="p">()</span>
+<span class="k">for</span> <span class="n">file</span> <span class="ow">in</span> <span class="n">glob</span><span class="o">.</span><span class="n">glob</span><span class="p">(</span><span class="s1">&#39;my_proteins*.csv):</span>
+    <span class="n">experiment</span><span class="o">.</span><span class="n">add_trace</span><span class="p">(</span><span class="n">file</span><span class="p">,</span> <span class="n">columns</span><span class="o">=</span><span class="p">[</span><span class="s1">&#39;stretch_distance&#39;</span><span class="p">,</span> <span class="s1">&#39;measured_force&#39;</span><span class="p">])</span>
+    <span class="n">experiment</span><span class="o">.</span><span class="n">traces</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="n">states</span><span class="o">=</span><span class="mi">4</span><span class="p">)</span>
+<span class="n">experiment</span><span class="o">.</span><span class="n">analyze</span><span class="p">()</span>
+</pre></div>
+</div>
+</div>
+<div class="section" id="example-3">
+<h3>Example 3<a class="headerlink" href="#example-3" title="Permalink to this headline">¶</a></h3>
+<p>In general, fitting the curves takes most of the time. If you know the values of <em>p_prot</em>, <em>k_prot</em> etc, you can set
+them before analysis, prohibiting therefore finding new parameters. You can set the parameters globally:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>   <span class="n">experiment</span> <span class="o">=</span> <span class="n">Structure</span><span class="p">(</span><span class="s1">&#39;data.xls&#39;</span><span class="p">)</span>
+   <span class="n">experiment</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="n">k_prot</span><span class="o">=</span><span class="mf">0.005</span><span class="p">,</span> <span class="n">p_prot</span><span class="o">=</span><span class="mf">0.7</span><span class="p">)</span>
+   <span class="n">experiment</span><span class="o">.</span><span class="n">analyze</span><span class="p">()</span>
+
+<span class="ow">or</span> <span class="k">for</span> <span class="n">each</span> <span class="n">trace</span> <span class="n">individually</span><span class="p">::</span>
+
+   <span class="n">experiment</span> <span class="o">=</span> <span class="n">Structure</span><span class="p">()</span>
+   <span class="k">for</span> <span class="n">file</span> <span class="ow">in</span> <span class="n">glob</span><span class="o">.</span><span class="n">glob</span><span class="p">(</span><span class="s1">&#39;my_proteins*.csv):</span>
+       <span class="n">experiment</span><span class="o">.</span><span class="n">add_trace</span><span class="p">(</span><span class="n">file</span><span class="p">,</span> <span class="n">columns</span><span class="o">=</span><span class="p">[</span><span class="s1">&#39;stretch_distance&#39;</span><span class="p">,</span> <span class="s1">&#39;measured_force&#39;</span><span class="p">])</span>
+       <span class="n">experiment</span><span class="o">.</span><span class="n">traces</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="n">p_prot</span><span class="o">=</span><span class="mf">0.7</span><span class="p">,</span> <span class="n">k_prot</span><span class="o">=</span><span class="mf">0.005</span><span class="p">)</span>
+   <span class="n">experiment</span><span class="o">.</span><span class="n">analyze</span><span class="p">()</span>
+</pre></div>
+</div>
+</div>
+<div class="section" id="example-4">
+<h3>Example 4<a class="headerlink" href="#example-4" title="Permalink to this headline">¶</a></h3>
+<p>One can also simulate the traces and plot them using standard MatPlotLib functions. The data obtained are as raw as in experiment, i.e. they are not sorted, therefore, in order to obtain a good plot, one needs to sort them first:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">stretchme</span> <span class="kn">import</span> <span class="n">simulate_experiment</span>
+<span class="kn">from</span> <span class="nn">matplotlib</span> <span class="kn">import</span> <span class="n">pyplot</span> <span class="k">as</span> <span class="n">plt</span>
+<span class="n">data</span> <span class="o">=</span> <span class="n">simulate_experiment</span><span class="p">(</span><span class="n">traces</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+<span class="n">data</span> <span class="o">=</span> <span class="n">data</span><span class="o">.</span><span class="n">sort_values</span><span class="p">(</span><span class="n">by</span><span class="o">=</span><span class="p">[</span><span class="s1">&#39;d&#39;</span><span class="p">])</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">data</span><span class="p">[</span><span class="s1">&#39;d&#39;</span><span class="p">],</span> <span class="n">data</span><span class="p">[</span><span class="s1">&#39;F&#39;</span><span class="p">])</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">show</span><span class="p">()</span>
+</pre></div>
+</div>
+</div>
+</div>
 </div>
 
 
@@ -52,11 +185,27 @@
 
 
 <h3>Navigation</h3>
+<p class="caption"><span class="caption-text">Contents:</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="overview.html">Stretchme overview</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Quick start</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#installation">Installation</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#some-theory">Some theory</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#requirements">Requirements</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#example-usage">Example usage</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="parameters.html">Default parameters</a></li>
+<li class="toctree-l1"><a class="reference internal" href="documentation.html">Documentation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="licence.html">Licence</a></li>
+</ul>
 
 <div class="relations">
 <h3>Related Topics</h3>
 <ul>
   <li><a href="index.html">Documentation overview</a><ul>
+      <li>Previous: <a href="overview.html" title="previous chapter">Stretchme overview</a></li>
+      <li>Next: <a href="parameters.html" title="next chapter">Default parameters</a></li>
   </ul></li>
 </ul>
 </div>

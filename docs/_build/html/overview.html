@@ -13,8 +13,11 @@
     <script src="_static/underscore.js"></script>
     <script src="_static/doctools.js"></script>
     <script src="_static/language_data.js"></script>
+    <script async="async" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.7/latest.js?config=TeX-AMS-MML_HTMLorMML"></script>
     <link rel="index" title="Index" href="genindex.html" />
     <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="Quick start" href="start.html" />
+    <link rel="prev" title="Welcome to stretchme&#39;s!" href="index.html" />
    
   <link rel="stylesheet" href="_static/custom.css" type="text/css" />
   
@@ -33,6 +36,18 @@
             
   <div class="section" id="stretchme-overview">
 <span id="overview"></span><h1>Stretchme overview<a class="headerlink" href="#stretchme-overview" title="Permalink to this headline">¶</a></h1>
+<p>Stretchme is a Python3 package allowing for the automated analysis of the stretching of proteins with optical tweezers or AFM. The expected input from the user are the data <em>(d, F)</em> with <em>d</em> being the stretching distance and <em>F</em> the measured force.</p>
+<p>Strechme analyses data both from simulations (theory) and experiment, with or without DNA linker joining the protein to the pulled bead. Strechme can also analyze the data, where the protein is being stretched simultaneously with the DNA.</p>
+<p>Basically, as a result, the user should obtain two figures. One figure contains all the cumulative data for the experiment, including the histograms of obtained states fits to the overlayed traces, the histograms of forces, and the Dudko-Hummer-Szabo analysis.</p>
+<div class="figure align-center" id="id1">
+<img alt="_images/example_whole.jpg" src="_images/example_whole.jpg" />
+<p class="caption"><span class="caption-text">The exemplary output of the cumulative data.</span><a class="headerlink" href="#id1" title="Permalink to this image">¶</a></p>
+</div>
+<p>The second figure contains the histogram of observed states, separated by their contour length, along with the fits for individual measurements (traces).</p>
+<div class="figure align-center" id="id2">
+<img alt="_images/example_single.jpg" src="_images/example_single.jpg" />
+<p class="caption"><span class="caption-text">The exemplary output of the analysis of single trace.</span><a class="headerlink" href="#id2" title="Permalink to this image">¶</a></p>
+</div>
 </div>
 
 
@@ -52,11 +67,21 @@
 
 
 <h3>Navigation</h3>
+<p class="caption"><span class="caption-text">Contents:</span></p>
+<ul class="current">
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Stretchme overview</a></li>
+<li class="toctree-l1"><a class="reference internal" href="start.html">Quick start</a></li>
+<li class="toctree-l1"><a class="reference internal" href="parameters.html">Default parameters</a></li>
+<li class="toctree-l1"><a class="reference internal" href="documentation.html">Documentation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="licence.html">Licence</a></li>
+</ul>
 
 <div class="relations">
 <h3>Related Topics</h3>
 <ul>
   <li><a href="index.html">Documentation overview</a><ul>
+      <li>Previous: <a href="index.html" title="previous chapter">Welcome to stretchme's!</a></li>
+      <li>Next: <a href="start.html" title="next chapter">Quick start</a></li>
   </ul></li>
 </ul>
 </div>

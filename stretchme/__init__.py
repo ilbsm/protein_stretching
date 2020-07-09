@@ -11,9 +11,7 @@ from .simulations import simulate_traces
 def analyze_experiment(filename, experiment_name=None, sheet_name=0, separator=',', linker=None, unit='nm', speed=1.0,
                        source='theory', cases=None, read_columns=None, residues_distance=0.365, low_force_cutoff=0.1,
                        initial_guess=None, plot_columns=4, debug=False):
-    """Main function for analysis all the data stored in one file. Creates the figures with each trace fitting, and the
-    figure with analysis of all the data merged, including the histogram of rupture forces and the Dudko-Hummer-Szabo
-    analysis of the states lifetimes.
+    """Main function for analysis all the data stored in one file. Creates the figures with each trace fitting, and the figure with analysis of all the data merged, including the histogram of rupture forces and the Dudko-Hummer-Szabo analysis of the states lifetimes.
 
 
         Args:
@@ -41,7 +39,7 @@ def analyze_experiment(filename, experiment_name=None, sheet_name=0, separator='
             initial_guess (dict/None, optional): The dictionary with initial guesses for fitting the data. If None, the
                 default initial_guess will be used. Default: None.
             plot_columns (int, optional): The number of traces in one row in the plots. Default: 4.
-            debug (bool, optional): The debug mode. In the debug mode the log file is created. Default: False
+            debug (bool, optional): The debug mode. In the debug mode the log file is created. Default: False.
 
         Returns:
             bool: The return value. True for success, False otherwise.
@@ -88,7 +86,7 @@ def simulate_experiment(traces=1, p_prot=0.7, k_prot=0.005, l_prots=(25, 50, 100
                 rupture, measured in the fraction of the contour length. Viable vales are between 0 and 1. Default: 0.1.
 
         Returns:
-            Pandas Dataframe with simulated distances and forces.
+            Pandas Dataframe: Simulated distances and forces.
 
 
         """

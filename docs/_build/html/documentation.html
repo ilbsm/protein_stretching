@@ -13,6 +13,7 @@
     <script src="_static/underscore.js"></script>
     <script src="_static/doctools.js"></script>
     <script src="_static/language_data.js"></script>
+    <script async="async" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.7/latest.js?config=TeX-AMS-MML_HTMLorMML"></script>
     <link rel="index" title="Index" href="genindex.html" />
     <link rel="search" title="Search" href="search.html" />
     <link rel="next" title="Licence" href="licence.html" />
@@ -35,27 +36,213 @@
             
   <div class="section" id="documentation">
 <span id="id1"></span><h1>Documentation<a class="headerlink" href="#documentation" title="Permalink to this headline">¶</a></h1>
-<div class="section" id="usable-functions">
-<span id="doc-functions"></span><h2>Usable functions<a class="headerlink" href="#usable-functions" title="Permalink to this headline">¶</a></h2>
-</div>
-<div class="section" id="simulating-stretching-data">
-<span id="doc-simulate"></span><h2>Simulating stretching data<a class="headerlink" href="#simulating-stretching-data" title="Permalink to this headline">¶</a></h2>
+<div class="section" id="functions">
+<span id="doc-functions"></span><h2>Functions<a class="headerlink" href="#functions" title="Permalink to this headline">¶</a></h2>
+<span class="target" id="doc-simulate"></span><dl class="py function">
+<dt id="stretchme.analyze_experiment">
+<code class="sig-prename descclassname">stretchme.</code><code class="sig-name descname">analyze_experiment</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">filename</span></em>, <em class="sig-param"><span class="n">experiment_name</span><span class="o">=</span><span class="default_value">None</span></em>, <em class="sig-param"><span class="n">sheet_name</span><span class="o">=</span><span class="default_value">0</span></em>, <em class="sig-param"><span class="n">separator</span><span class="o">=</span><span class="default_value">','</span></em>, <em class="sig-param"><span class="n">linker</span><span class="o">=</span><span class="default_value">None</span></em>, <em class="sig-param"><span class="n">unit</span><span class="o">=</span><span class="default_value">'nm'</span></em>, <em class="sig-param"><span class="n">speed</span><span class="o">=</span><span class="default_value">1.0</span></em>, <em class="sig-param"><span class="n">source</span><span class="o">=</span><span class="default_value">'theory'</span></em>, <em class="sig-param"><span class="n">cases</span><span class="o">=</span><span class="default_value">None</span></em>, <em class="sig-param"><span class="n">read_columns</span><span class="o">=</span><span class="default_value">None</span></em>, <em class="sig-param"><span class="n">residues_distance</span><span class="o">=</span><span class="default_value">0.365</span></em>, <em class="sig-param"><span class="n">low_force_cutoff</span><span class="o">=</span><span class="default_value">0.1</span></em>, <em class="sig-param"><span class="n">initial_guess</span><span class="o">=</span><span class="default_value">None</span></em>, <em class="sig-param"><span class="n">plot_columns</span><span class="o">=</span><span class="default_value">4</span></em>, <em class="sig-param"><span class="n">debug</span><span class="o">=</span><span class="default_value">False</span></em><span class="sig-paren">)</span><a class="headerlink" href="#stretchme.analyze_experiment" title="Permalink to this definition">¶</a></dt>
+<dd><p>Main function for analysis all the data stored in one file. Creates the figures with each trace fitting, and the figure with analysis of all the data merged, including the histogram of rupture forces and the Dudko-Hummer-Szabo analysis of the states lifetimes.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>filename</strong> (<em>str/Pandas Dataframe</em>) -- The path to the file with data, or the Pandas Dataframe with the data.</p></li>
+<li><p><strong>experiment_name</strong> (<em>str/None</em><em>, </em><em>optional</em>) -- The name of the experiment, serving as the prefix for the files to be
+created. If None, the prefix will be created out of the input file, or it would be 'Experiment'.
+Default: None.</p></li>
+<li><p><strong>sheet_name</strong> (<em>str</em><em>, </em><em>optional</em>) -- The name of the sheet in the .xls file to be analyzed. If 0, the first sheet
+will be analyzed. Default: 0.</p></li>
+<li><p><strong>separator</strong> (<em>str</em><em>, </em><em>optional</em>) -- The separator delimiting the columns in the .csv file. Default: ','.</p></li>
+<li><p><strong>linker</strong> (<em>str/None</em><em>, </em><em>optional</em>) -- The linker joining the protein to the beads which are pulled. The viable
+options are None or 'dna'. Default: None.</p></li>
+<li><p><strong>unit</strong> (<em>str</em><em>, </em><em>optional</em>) -- The unit of the distance. Viable arguments are 'nm', or 'A'. Default: 'nm'</p></li>
+<li><p><strong>speed</strong> (<em>float</em><em>, </em><em>optional</em>) -- The pulling speed, needed for Dudko-Hummer-Szabo analysis. Default: 1.0</p></li>
+<li><p><strong>cases</strong> (<em>list/None</em><em>, </em><em>optional</em>) -- The list of cases to be analyzed from the data. If None, all the cases will be
+analyzed. Default: None.</p></li>
+<li><p><strong>source</strong> (<em>str</em><em>, </em><em>optional</em>) -- The source of the data. Viable options are 'theory' or 'experiment'. The value used
+to establish the initial guess of the parameters.</p></li>
+<li><p><strong>read_columns</strong> (<em>[</em><em>str</em><em>, </em><em>str</em><em>]</em><em>/None</em><em>, </em><em>optional</em>) -- The headers of the columns in .xls/.csv files to be read. If None,
+every two columns will be treated as the distance and corresponding force. Default: None.</p></li>
+<li><p><strong>residues_distance</strong> (<em>float</em><em>, </em><em>optional</em>) -- The expected distance in nm between Ca atoms of protein chain upon full
+stretching. Needed to calculate translate the contour lengths to the number of residues. Default: 0.365</p></li>
+<li><p><strong>low_force_cutoff</strong> (<em>float</em><em>, </em><em>optional</em>) -- The lower cutoff of the force in pN to be analyzed. The lower the cutoff
+is set, the more outliers may appear. Default: 0.1.</p></li>
+<li><p><strong>initial_guess</strong> (<em>dict/None</em><em>, </em><em>optional</em>) -- The dictionary with initial guesses for fitting the data. If None, the
+default initial_guess will be used. Default: None.</p></li>
+<li><p><strong>plot_columns</strong> (<em>int</em><em>, </em><em>optional</em>) -- The number of traces in one row in the plots. Default: 4.</p></li>
+<li><p><strong>debug</strong> (<em>bool</em><em>, </em><em>optional</em>) -- The debug mode. In the debug mode the log file is created. Default: False.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>The return value. True for success, False otherwise.</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>bool</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt id="stretchme.simulate_experiment">
+<code class="sig-prename descclassname">stretchme.</code><code class="sig-name descname">simulate_experiment</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">traces</span><span class="o">=</span><span class="default_value">1</span></em>, <em class="sig-param"><span class="n">p_prot</span><span class="o">=</span><span class="default_value">0.7</span></em>, <em class="sig-param"><span class="n">k_prot</span><span class="o">=</span><span class="default_value">0.005</span></em>, <em class="sig-param"><span class="n">l_prots</span><span class="o">=</span><span class="default_value">25, 50, 100</span></em>, <em class="sig-param"><span class="n">p_dna</span><span class="o">=</span><span class="default_value">0</span></em>, <em class="sig-param"><span class="n">k_dna</span><span class="o">=</span><span class="default_value">0</span></em>, <em class="sig-param"><span class="n">l_dna</span><span class="o">=</span><span class="default_value">350</span></em>, <em class="sig-param"><span class="n">rupture_forces</span><span class="o">=</span><span class="default_value">10, 15</span></em>, <em class="sig-param"><span class="n">force_range</span><span class="o">=</span><span class="default_value">0.1, 20</span></em>, <em class="sig-param"><span class="n">position_blur</span><span class="o">=</span><span class="default_value">0.1</span></em>, <em class="sig-param"><span class="n">force_blur</span><span class="o">=</span><span class="default_value">1</span></em>, <em class="sig-param"><span class="n">rupture_forces_blur</span><span class="o">=</span><span class="default_value">0.1</span></em>, <em class="sig-param"><span class="n">relaxation</span><span class="o">=</span><span class="default_value">0.1</span></em><span class="sig-paren">)</span><a class="headerlink" href="#stretchme.simulate_experiment" title="Permalink to this definition">¶</a></dt>
+<dd><p>Simulating the stretching data.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>traces</strong> (<em>int</em><em>, </em><em>optional</em>) -- The number of traces to be simulated. Default: 1.</p></li>
+<li><p><strong>p_prot</strong> (<em>float</em><em>, </em><em>optional</em>) -- The value kBT/pL for protein. Default: 0.7.</p></li>
+<li><p><strong>k_prot</strong> (<em>float</em><em>, </em><em>optional</em>) -- The value of 1/K characterizing the protein. If 0, no effect of force on the
+distance between residues is seen. Default: 0.005.</p></li>
+<li><p><strong>l_prots</strong> (<em>tuple of floats</em><em>, </em><em>optional</em>) -- The consecutive contour lengths of the protein during stretching.
+Default: (25, 50, 100).</p></li>
+<li><p><strong>p_dna</strong> (<em>float</em><em>, </em><em>optional</em>) -- The value kBT/pL for DNA. If 0, no DNA is included. Default: 0.</p></li>
+<li><p><strong>k_dna</strong> (<em>float</em><em>, </em><em>optional</em>) -- The value of 1/K characterizing the DNA. If 0, no effect of force on the
+distance between bases is seen. Default: 0.</p></li>
+<li><p><strong>l_dna</strong> (<em>float</em><em>, </em><em>optional</em>) -- The contour length of the DNA. Default: 350.</p></li>
+<li><p><strong>rupture_forces</strong> (<em>tuple of floats</em><em>, </em><em>optional</em>) -- The forces corresponding to the rupture of states determined by
+their contour length. The number of forces have to be number of states -1. Default: (10, 15).</p></li>
+<li><p><strong>force_range</strong> (<em>(</em><em>float</em><em>, </em><em>float</em><em>)</em><em>, </em><em>optional</em>) -- The range of forces to be measured. Default: (0.1, 20).</p></li>
+<li><p><strong>position_blur</strong> (<em>float</em><em>, </em><em>optional</em>) -- The Gaussian width of the uncertainty of the position measurement.
+Default: 0.1.</p></li>
+<li><p><strong>force_blur</strong> (<em>float</em><em>, </em><em>optional</em>) -- The Gaussian width of the uncertainty of the force measurement.
+Default: 1.</p></li>
+<li><p><strong>rupture_forces_blur</strong> (<em>float</em><em>, </em><em>optional</em>) -- The Gaussian width of the uncertainty of the true rupture force.
+Default: 0.1.</p></li>
+<li><p><strong>relaxation</strong> (<em>float</em><em>, </em><em>optional</em>) -- The parameter determining how long it takes the protein to relax after
+rupture, measured in the fraction of the contour length. Viable vales are between 0 and 1. Default: 0.1.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>Simulated distances and forces.</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>Pandas Dataframe</p>
+</dd>
+</dl>
+</dd></dl>
+
 </div>
 <div class="section" id="stretching-classes">
-<span id="doc-classes"></span><h2>Stretching classes<a class="headerlink" href="#stretching-classes" title="Permalink to this headline">¶</a></h2>
-<span class="target" id="doc-class-trace"><span id="doc-class-structure"></span></span><dl class="py class">
+<h2>Stretching classes<a class="headerlink" href="#stretching-classes" title="Permalink to this headline">¶</a></h2>
+<span class="target" id="doc-class-structure"></span><dl class="py class">
+<dt id="stretchme.structure.Structure">
+<em class="property">class </em><code class="sig-prename descclassname">stretchme.structure.</code><code class="sig-name descname">Structure</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">input_data</span><span class="o">=</span><span class="default_value">None</span></em>, <em class="sig-param"><span class="n">cases</span><span class="o">=</span><span class="default_value">None</span></em>, <em class="sig-param"><span class="n">columns</span><span class="o">=</span><span class="default_value">None</span></em>, <em class="sig-param"><span class="n">parameters</span><span class="o">=</span><span class="default_value">{}</span></em>, <em class="sig-param"><span class="n">name</span><span class="o">=</span><span class="default_value">None</span></em>, <em class="sig-param"><span class="n">debug</span><span class="o">=</span><span class="default_value">False</span></em>, <em class="sig-param"><span class="o">**</span><span class="n">kwargs</span></em><span class="sig-paren">)</span><a class="headerlink" href="#stretchme.structure.Structure" title="Permalink to this definition">¶</a></dt>
+<dd><p>The class containing information about the whole experiment, consisting of many measurements (traces).</p>
+<dl class="py attribute">
+<dt id="stretchme.structure.Structure.input_data">
+<code class="sig-name descname">input_data</code><a class="headerlink" href="#stretchme.structure.Structure.input_data" title="Permalink to this definition">¶</a></dt>
+<dd><p>The data to be analyzed or the path the file with data.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p>str/Pandas Dataframe/None</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt id="stretchme.structure.Structure.parameters">
+<code class="sig-name descname">parameters</code><a class="headerlink" href="#stretchme.structure.Structure.parameters" title="Permalink to this definition">¶</a></dt>
+<dd><p>The dictionary of measurement parameters.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p>dict</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt id="stretchme.structure.Structure.coefficients">
+<code class="sig-name descname">coefficients</code><a class="headerlink" href="#stretchme.structure.Structure.coefficients" title="Permalink to this definition">¶</a></dt>
+<dd><p>The dictionary with fitted coefficients.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p>dict</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt id="stretchme.structure.Structure.rupture_forces">
+<code class="sig-name descname">rupture_forces</code><a class="headerlink" href="#stretchme.structure.Structure.rupture_forces" title="Permalink to this definition">¶</a></dt>
+<dd><p>The dictionary with measured rupture forces.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p>dict</p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+<span class="target" id="doc-class-trace"></span><dl class="py class">
 <dt id="stretchme.trace.Trace">
 <em class="property">class </em><code class="sig-prename descclassname">stretchme.trace.</code><code class="sig-name descname">Trace</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">name</span></em>, <em class="sig-param"><span class="n">data</span></em>, <em class="sig-param"><span class="n">orig_input</span></em>, <em class="sig-param"><span class="n">logger</span><span class="o">=</span><span class="default_value">None</span></em>, <em class="sig-param"><span class="n">parameters</span><span class="o">=</span><span class="default_value">None</span></em><span class="sig-paren">)</span><a class="headerlink" href="#stretchme.trace.Trace" title="Permalink to this definition">¶</a></dt>
 <dd><p>The class containing information about one, single measurement.</p>
-<dl class="simple">
-<dt>Attributes:</dt><dd><p>name (str): The class name
-orig_input (str): The original input (e.g. the path to the source file)
-parameters (dict): The dictionary of measurement parameters.
-data (Pandas Dataframe): The dataframe with columns 'd' and 'F' corresponding to measured distance and force.
-coefficients (dict): The dictionary with fitted coefficients
-rupture_forces (dict): The dictionary with measured rupture forces</p>
+<dl class="py attribute">
+<dt id="stretchme.trace.Trace.name">
+<code class="sig-name descname">name</code><a class="headerlink" href="#stretchme.trace.Trace.name" title="Permalink to this definition">¶</a></dt>
+<dd><p>The class name.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p>str</p>
 </dd>
 </dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt id="stretchme.trace.Trace.orig_input">
+<code class="sig-name descname">orig_input</code><a class="headerlink" href="#stretchme.trace.Trace.orig_input" title="Permalink to this definition">¶</a></dt>
+<dd><p>The original input (e.g. the path to the source file).</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p>str</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt id="stretchme.trace.Trace.parameters">
+<code class="sig-name descname">parameters</code><a class="headerlink" href="#stretchme.trace.Trace.parameters" title="Permalink to this definition">¶</a></dt>
+<dd><p>The dictionary of measurement parameters.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p>dict</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt id="stretchme.trace.Trace.data">
+<code class="sig-name descname">data</code><a class="headerlink" href="#stretchme.trace.Trace.data" title="Permalink to this definition">¶</a></dt>
+<dd><p>The dataframe with columns 'd' and 'F' corresponding to measured distance and force.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p>Pandas Dataframe</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt id="stretchme.trace.Trace.coefficients">
+<code class="sig-name descname">coefficients</code><a class="headerlink" href="#stretchme.trace.Trace.coefficients" title="Permalink to this definition">¶</a></dt>
+<dd><p>The dictionary with fitted coefficients.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p>dict</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt id="stretchme.trace.Trace.rupture_forces">
+<code class="sig-name descname">rupture_forces</code><a class="headerlink" href="#stretchme.trace.Trace.rupture_forces" title="Permalink to this definition">¶</a></dt>
+<dd><p>The dictionary with measured rupture forces.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p>dict</p>
+</dd>
+</dl>
+</dd></dl>
+
 </dd></dl>
 
 </div>
@@ -84,8 +271,7 @@ rupture_forces (dict): The dictionary with measured rupture forces</p>
 <li class="toctree-l1"><a class="reference internal" href="start.html">Quick start</a></li>
 <li class="toctree-l1"><a class="reference internal" href="parameters.html">Default parameters</a></li>
 <li class="toctree-l1 current"><a class="current reference internal" href="#">Documentation</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="#usable-functions">Usable functions</a></li>
-<li class="toctree-l2"><a class="reference internal" href="#simulating-stretching-data">Simulating stretching data</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#functions">Functions</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#stretching-classes">Stretching classes</a></li>
 </ul>
 </li>
