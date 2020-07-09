@@ -1,4 +1,4 @@
-""" The miscelenea functions for stretching package"""
+""" The miscellanea functions for stretching package"""
 
 import pandas as pd
 import numpy as np
@@ -17,44 +17,27 @@ from lmfit import Model
 
 
 # preprocessing
-def pack_parameters(filename, sheet_name=0, residues=None, distance=None, linker=None, source=None, unit=None,
-                    speed=None, residues_distance=0.365, minimal_stretch_distance=10, high_force_cutoff=None,
-                    low_force_cutoff=None, max_rupture_force=None, max_cluster_gap=15, plot_columns=4,
-                    initial_guess=None,
-                    separator=None):
+def pack_parameters(filename, sheet_name=0, linker=None, unit='nm', speed=1, residues_distance=0.365, source='theory',
+                    low_force_cutoff=0.1, plot_columns=4, initial_guess=None, separator=None):
+
     """ Filtering and packing the parameters for a clearer view."""
     # TODO add filters of the input parameters
     parameters = {
         'filename': filename,
         'sheet_name': sheet_name,
-        'residues': residues,
-        'distance': distance,
         'linker': linker,
-        'source': source,
         'unit': unit,
         'speed': speed,
+        'source': source,
         'residues_distance': residues_distance,
-        'minimal_stretch_distance': minimal_stretch_distance,
-        'max_cluster_gap': max_cluster_gap,
         'plot_columns': plot_columns,
-        'separator': separator
+        'separator': separator,
+        'low_force_cutoff': low_force_cutoff
     }
-    if high_force_cutoff:
-        parameters['high_force_cutoff'] = high_force_cutoff
-    else:
-        parameters['high_force_cutoff'] = default_parameters['high_force_cutoff'][parameters['source']]
-    if low_force_cutoff:
-        parameters['low_force_cutoff'] = low_force_cutoff
-    else:
-        parameters['low_force_cutoff'] = default_parameters['low_force_cutoff'][parameters['source']]
-    if max_rupture_force:
-        parameters['max_rupture_force'] = max_rupture_force
-    else:
-        parameters['max_rupture_force'] = default_parameters['max_rupture_force'][parameters['source']]
-    if high_force_cutoff:
+    if initial_guess:
         parameters['initial_guess'] = initial_guess
     else:
-        parameters['initial_guess'] = default_parameters['initial_guess']
+        parameters['initial_guess'] = default_parameters['initial_guess'][parameters['source']]
     return parameters
 
 

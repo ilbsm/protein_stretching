@@ -8,6 +8,15 @@ from io import StringIO
 
 
 class Structure:
+    """The class containing information about the whole experiment, consisting of many measurements (traces).
+
+    Attributes:
+        input_data (str/Pandas Dataframe/None): The data to be analyzed or the path the file with data.
+        parameters (dict): The dictionary of measurement parameters.
+        coefficients (dict): The dictionary with fitted coefficients.
+        rupture_forces (dict): The dictionary with measured rupture forces.
+
+    """
     def __init__(self, input_data=None, cases=None, columns=None, parameters={}, name=None, debug=False, **kwargs):
         self.orig_input = input_data
         # setting the name

@@ -9,16 +9,16 @@ Functions
 ---------
 
 .. _doc_simulate:
+.. autofunction:: stretchme.analyze_experiment
+.. autofunction:: stretchme.simulate_experiment
 
-Simulating stretching data
---------------------------
-
-.. _doc_classes:
 
 Stretching classes
 ------------------
 
 .. _doc_class_structure:
+.. autoclass:: stretchme.structure.Structure
+
 
 .. _doc_class_trace:
 .. autoclass:: stretchme.trace.Trace
