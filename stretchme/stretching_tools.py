@@ -425,7 +425,7 @@ def guess_states_number(hist_values, significance=0.01):
 def decompose_histogram_cauchy(hist_values, states=None, significance=0.01):
     if not states:
         maximas, support = guess_states_number(hist_values, significance=significance)
-        states = len(maximas)
+        states = max(len(maximas), 1)
     else:
         # TODO check if this is enough
         significant = [x for x in hist_values if x >= significance]

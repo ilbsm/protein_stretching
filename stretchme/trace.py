@@ -211,7 +211,8 @@ class Trace:
 
         # fitting part
         p_prot, k_prot = fit_pk_linker_none(self.data[['d', 'F']], self.parameters['initial_guess']['p_prot'],
-                                            self.parameters['initial_guess']['k_prot'], self.logger)
+                                            self.parameters['initial_guess']['k_prot'],
+                                            states=self.parameters['states'], logger=self.logger)
         self.coefficients['p_prot'] = p_prot
         self.coefficients['k_prot'] = k_prot
         return

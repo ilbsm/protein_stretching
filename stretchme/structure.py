@@ -29,6 +29,13 @@ class Structure:
         self._read_data(input_data, cases, columns)
         return
 
+    def _close_logs(self):
+        handlers = self.logger.handlers[:]
+        for handler in handlers:
+            handler.close()
+            self.logger.removeHandler(handler)
+        return
+
     def _read_data(self, input_data, cases=None, columns=None, **kwargs):
         # TODO clean up
         if 'separator' in kwargs.keys():
@@ -442,8 +449,14 @@ class Structure:
         self._plot_total_contour_length_histo(axes[0, 0])   # the total contour length histogram
         self._plot_overlaid_traces(axes[0, 1])              # the overlaid smoothed traces
         # TODO take care of extremal cases with only one fit for the forces and Dudko
-        # self._plot_forces_histogram(axes[1, 0])             # the rupture forces histogram
-        # self._plot_dhs_analysis(axes[1, 1])               # Dudko analysis
+        try:
+            self._plot_forces_histogram(axes[1, 0])             # the rupture forces histogram
+        except:
+            pass
+        try:
+            self._plot_dhs_analysis(axes[1, 1])               # Dudko analysis
+        except:
+            pass
 
         fig.tight_layout()
         if self.logger:
@@ -499,6 +512,8 @@ class Structure:
 
         with open(oname, 'w') as ofile:
             ofile.write('\n'.join(result))
+        # TODO make something intelligent with the loggers, to close it without the need to run 'save_data'
+        self._close_logs()
         return
 
     def get_info(self):
