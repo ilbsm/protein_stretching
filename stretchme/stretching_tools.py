@@ -281,6 +281,7 @@ def decompose_histogram(data, significance, states=None):
                 cauchy_mus.append(mu)
                 ensamble = cauchy.rvs(size=len(data_hist), loc=mu, scale=gamma)
                 pvalues.append(ks_2samp(ensamble, data_hist).pvalue)
+                break
     parameters = pd.DataFrame({'means': np.array([x[0] for x in gmm.means_]),
                                'widths': np.array([x[0][0] for x in gmm.covariances_]),
                                'heights': np.array([np.exp(gmm.score_samples(np.array(u).reshape(-1, 1)))[0]

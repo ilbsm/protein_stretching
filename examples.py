@@ -8,7 +8,7 @@ directory = ''
 def analyze_file(filename, name, states=None):
     experiment = Structure(debug=True, name=name)
     for file in glob.glob(directory + filename):
-        experiment.add_trace(file, columns=['D(1,N)', 'FORCE'], separator=' ', source='theory', linker='none', unit='A')
+        experiment.add_trace(file, columns=['D(1,N)', 'FORCE'], separator=' ', source='theory', linker=None, unit='A')
     experiment.set_states(states)
     experiment.analyze()
     experiment.save_data()

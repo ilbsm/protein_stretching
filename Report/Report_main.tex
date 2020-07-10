@@ -1,10 +1,10 @@
-
 \documentclass[11pt]{article}
 
 \usepackage{graphicx}       % to include graphics
 \usepackage{hyperref}       % to simplify the use of \href
 \usepackage{amsmath}
 \usepackage{bm}
+\graphicspath{{./figures/}}
 
 \newtheorem{lemma}[theorem]{Lemma}
 
@@ -18,50 +18,58 @@
 %%%%%%%% Introduction %%%%%%%%
 \section*{Introduction}
 \label{sec:intro}
-The aim of this work was to analyze the data on stretching of complex topology proteins -- $3_1$ knotted TrmD, Tm1510 and their fusion, and find the best theoretical model allowing recreation of experimental results.
-However, the experimental data could not be fitted reasonably with any function commonly used in analysis of protein stretching.
-The problem was the simultaneous stretching of both protein and DNA linker.
-This led to the necessity of thorough studies of the underlying model and a development of a new technique dealing with a problematic case.
-The description of the Worm-Like Chain (WLC model), along with the new technique is contained in Sec.\ref{sec:WLC}.
-The resulting analysis of the experimental data is presented in Sec.\ref{sec:exp}.
+The aim of this work was to analyze the data on stretching of complex topology proteins -- $3_1$ knotted TrmD, Tm1510 and their fusion (Fig.\ref{fig:intro_proteins}.
+Alongside, the analysis of the simulated stretching of those proteins were analyzed in order to select the theoretical model which agrees best with the experiment.
+Interestingly, the common approach of fitting the WLC model did not succeed in this case.
+In experiment, the problem was caused by the simultaneous stretching of both protein and DNA linker.
+On the other hand, in the simulated stretching, the bond joining the protein residues is subjected for stretching, which is not assumed in the standard WLC model.
+These problems required development of a new approach to analyze both the experimental, and simulated data.
+The extensive description of the Worm-Like Chain (WLC model), along with its developments are contained in Sec.\ref{sec:wlc}.
 
-On the other hand, the need to determine, which model corresponds to the experiment best, various numerical factors had to be calculated \textit{in silico} and compared with their experiment-based counter parts.
-However, usually, the theoretical analysis of protein stretching is compared only roughly with the experiment, as the resulting curves are noticeably different.
-The reason lies in treating the residue-residue bond as a harmonic spring, which in principle can get stretched infinitely upon force.
-Therefore, the correct way of dealing with \textit{in silico} stretching is to include the elastic factor compensating for the artificial stretching of the protein backbone.
-The results of such analysis are described in Sec.\ref{sec:theory}.
+Overcoming the mentioned problems opened the way for the analysis of the data. The analysis of the experimental data led to a surprising result, that the proteins, previously thought to contain the knot, may actually not be knotted.
+This results, along with the discussion of possible cause of this effect is the topic of Sec.\ref{sec:exp}.
 
-Finally, such analysis would not be possible if not the software created specially for this purpose.
-As the idea of the project was, that it would be passed on at some time, the assertion of the code was, that it has to be understandable and easy-operable for even unexperienced users.
-As a result, a standalone package-like code was created, fully described, with the whole change history based on GitHub.
-Therefore, the code, upon some standard operations can be finished as a fully operational user-friendly package.
+On the other hand, the experimental data characterizing the protein unfolding upon stretching allowed for the selection of the theoretical model predicting the protein stretching in the most reliable way. These results are contained in Sec.\ref{sec:theory}.
+
+During realization of this project, the underlying thought was, that it would be taken over possibly by a student not confident enough to start own analysis from scratch.
+Therefore, all the tools developed during this project, along with the implementation of the new technique was wrapped into a Python3 package, called Stretchme.
+Right now, Stretchme is fully operational package, downloadable from GitHub and PyPi.
+The details of the package are contained in Sec.\ref{sec:stretchme} and in the Manual for the package.
+
+Finally, the Sec.\ref{sec:literature} contains literature important in the understanding of stretching of topologically non-trivial proteins.
 
 %%%%%%%% Theory of WLC %%%%%%%%
-\section*{Worm-like chain model - theory and development}
-\label{sec:WLC}
-The Worm-Like Chain (WLC) is a model describing a semi-flexible polymer.
-Introduced in 1949\cite{kratky1949rontgenuntersuchung} is also called by the surnames of its creators the Kratky\–Porod model.
+\section*{Theoretical introduction}
+\label{sec:wlc}
+The polymeric properties of proteins and DNA are commonly described in terms of variants of Worm-Like Chain (WLC) model.
+Here, keeping in mind, that these notes may be useful for people with no prior experience in protein stretching, the complete theory of the WLC model, starting from the very basics is described.
 
 \subsection*{Freely jointed chain}
 \label{subsec:wlc_flc}
-One of the simplest model of polymers is the freely-jointed chain (FLC).
-In this model, the polymer is composed of $N$ stiff rods, each of the length $l$.
+Before diving into subtleties of WLC model, one may warm up with even simpler freely-jointed chain (FLC) model.
+In this model, the polymer is presented as a set of $N$ stiff rods, connected one to another in linear fashion, each of equal length $l$.
 The total length of the polymer is then $Nl=L$.
-The orientations of the rods are completely independent of each other, therefore the mean vector connecting the termini $<\vv{\mn{R}} = <\sum_{n=1}^N \vv{\mn{r_i}}> = \sum_{n=1}^N <\vv{\mn{r_i}}> = 0$.
-This does not mean, that the ends coincide, rather they fluctuate around each other (``symmetrically'').
+The orientations of the rods are completely independent of each other, therefore the rods are ``freely-jointed''.
+This results in the expected end-to-end distance, which is equal:
 
-\subsection*{WLC model and its assumptions}
-\label{subsec:wlc_assumptions}
-In the WLC model is a generalization of the FLC model, with the rod length $l\rightarrow 0$ and number of beads $N\rightarrow\infty$, keeping $Nl=L$.
-In such case, the polymer may be parametrized by a space curve $\vv{\bm{r}}(s)$ with $s\in(0,L)$.
-The conformational space of the WLC polymer is restricted by the energy landscape following from the energy of bending.
-In the FJC-like case, the bending energy is given by:
+\begin{equation}
+    <\vv{\mn{R}} = <\sum_{n=1}^N \vv{\mn{r_i}}> = \sum_{n=1}^N <\vv{\mn{r_i}}> = 0
+\end{equation}
+However, this does not mean, that the ends coincide, rather they fluctuate around each other (``symmetrically'').
+These fluctuations may be described by the expected length of the vector joining the termini:
+
+The more interesting behaviour of the chain can be observed, if one adds the bending energy on the chain:
 \begin{equation}
     \label{eq:wlc_assumptions_discrete}
     H = -\epsilon\sum_{i=1}^{N-1}\vv{\bm{r}}_{i+1}\cdot\vv{\bm{r}}_{i}
 \end{equation}
 
-From the law of cosines (Sec.\ref{subsec:app_cosines}) the product \vv{\bm{r}}_{i+1}\cdot\vv{\bm{r}}_{i} can be rewritten as:
+\subsection*{WLC model and its assumptions}
+\label{subsec:wlc_assumptions}
+The Worm-Like Chain model is a generalization of the FLC model, describing a semi-flexible polymer.
+It is called also Kratky\–Porod model because of its creators \cite{kratky1949rontgenuntersuchung}.
+One can obtain obtain the WLC model from the FJC with the bending energy term.
+Indeed, from the law of cosines (Sec.\ref{subsec:app_cosines}) the product \vv{\bm{r}}_{i+1}\cdot\vv{\bm{r}}_{i} can be rewritten as:
 
 \begin{equation}
     \label{eq:wlc_assumptions_cosines}
@@ -144,6 +152,10 @@ To account on this effect, the extensible WLC model was introduced\cite{wang1997
 \subsection*{Generalization of Puchner's analysis}
 \label{subsec:wlc_method}
 
+
+\subsection*{The expected chain reduction upon knotting}
+\label{subsec:wlc_chain-reduction}
+
 %%%%%%%% Results - experiment %%%%%%%%
 \section*{Experimental results}
 \label{sec:exp}
@@ -154,29 +166,96 @@ TrmD is the $+3_1$-knotted tRNA (guanine-N(1)-)-methyltransferase, from \textit{
 Tm1510 is the protein of unknown function from \textit{Thermotoga maritima} bacteria.
 Due to its sequential similarity (?) it is also putatively $+3_1$-knotted protein.
 
-\subsection*{The fitting procedure}
+\subsection*{Presence of the knot}
+\label{subsec:exp_knot}
+
+\subsection*{The contour lengths and stretching pathways}
+\label{subsec:exp_contour-lengths}
+
+\subsection*{The thermodynamics}
+\label{subsec:exp_thermodynamics}
 
 %%%%%%%% Results - theory %%%%%%%%
 \section{Analyzing the simulated stretching}
 \label{sec:theory}
-\subsetion*{The models}
+\subsection*{The models}
+\label{subsec:theory_models}
 
+\subsection*{Results for each model}
+\label{subsec:theory_results}
 
-%%%%%%%% Appencices %%%%%%%%
-\section*{Appendices}
-\label{sec:app}
-\subsection*{The law of cosines}
-\label{subsec:app_cosines}
-\subsection*{The Marko-Siggia derivation}
-\label{subsec:app_marko_siggia}
-\subsection*{The probability distributions}
-\label{subsec:app_probability}
-\subsection*{The Dudko-Hummer-Szabo analysis}
-\label{subsec:app_dudko}
+\subsection*{Selection of the best model}
+\label{subsec:theory_best}
+
+%%%%%%%% Stretchme %%%%%%%%
+\section{Stretchme - the Python3 package to analyze protein stretching}
+\label{sec:stretchme}
+\subsection*{The package functions}
+\label{subsec:stretchme_functions}
+
+\subsection*{Installation, availability, documentation}
+\label{subsec:stretchme_documentation}
+
+%%%%%%%% literature %%%%%%%%
+\section{Literature}
+\label{sec:literature}
+
 
 %%%%%%%% Conclusions %%%%%%%%
 \section{Conclusions}
 \label{sec:conclusions}
+
+
+%%%%%%%% Appendices %%%%%%%%
+\section*{Appendices}
+\label{sec:app}
+\subsection*{The law of cosines}
+\label{subsec:app_cosines}
+In any triangle with the edges and angles as marked in the Fig.\ref{fig:app_cosines}, the following law is fulfilled:
+\begin{equation}
+c^{2}=a^{2}+b^{2}-2ab\cos \gamma
+\end{equation}
+\begin{equation}
+c=a\cos \beta +b\cos \alpha
+c^{2}=ac\cos \beta +bc\cos \alpha
+a^{2}=ac\cos \beta +ab\cos \gamma
+b^{2}=bc\cos \alpha +ab\cos \gamma
+a^{2}+b^{2}=ac\cos \beta +bc\cos \alpha +2ab\cos \gamma
+ a^{2}+b^{2}-c^{2}=ac\cos \beta +bc\cos \alpha +2ab\cos \gamma -(ac\cos \beta +bc\cos \alpha
+\subsection*{The Marko-Siggia derivation}
+\label{subsec:app_marko_siggia}
+\subsection*{The probability distributions}
+\label{subsec:app_probability}
+\subsubsection*{Transformation of probability distributions}
+
+
+\subsubsection*{Ratio distribution of two normal ditributions}
+Let $X, Y\sim\mathcal{N}(\0,\,\1)$ be independent distributions.
+Their joint distribution is described with the density:
+\begin{equation}
+p_{X,Y}(x,y)={\frac {1}{2\pi }}\exp(-{\frac {x^{2}}{2}})\exp(-{\frac {y^{2}}{2}})
+\end{equation}
+Then their quotient $Z=X/Y$ has the density
+\begin{equation}
+p_{Z}(z)=\int _{{-\infty }}^{{+\infty }}|y|\,p_{{X,Y}}(zy,y)\,dy=
+={\frac {1}{2\pi }}\int _{-\infty }^{\infty }\,|y|\,\exp(-{\frac {(zy)^{2}}{2}})\,\exp(-{\frac {y^{2}}{2}})\,dy
+={\frac {1}{2\pi }}\int _{-\infty }^{\infty }\,|y|\,\exp(-{\frac {y^{2}(z^{2}+1)}{2}})\,dy
+\end{equation}
+Given the integral:
+\begin{equation}
+\int _{0}^{\infty }\,x\,\exp(-cx^{2})dx={\frac {1}{2c}}
+\end{equation}
+one easily gets:
+\begin{equation}
+p_{Z}(z)={\frac {1}{\pi (z^{2}+1)}}
+\end{equation}
+\subsection*{The Pade approximants}
+\label{subsec:app_pade}
+\subsection*{The Dudko-Hummer-Szabo analysis}
+
+\label{subsec:app_dudko}
+\subsection*{The table of all results}
+\label{subsec:app_results}
 
 %%%%%%%% References %%%%%%%%
 \bibliography{biblio}

@@ -121,7 +121,7 @@ class Structure:
                     self.logger.warning(
                         "Treating the input file as .csv file, although it does not have such extension.")
             with open(filename, 'r') as myfile:
-                content = myfile.read().split("#")[1].strip()
+                content = myfile.read().split("#")[-1].strip()
             if separator != ' ':
                 data = pd.read_csv(StringIO(content), sep=separator, escapechar='#')
             else:
@@ -144,6 +144,10 @@ class Structure:
 
     def _set_parameters(self, parameters, **kwargs):
         self.parameters = default_parameters
+        if 'source' in self.parameters.keys():
+            self.parameters['initial_guess'] = self.parameters['initial_guess'][self.parameters['source']]
+        else:
+            self.parameters['initial_guess'] = None
         for key in parameters.keys():
             self.parameters[key] = parameters[key]
         for key in kwargs:
@@ -303,10 +307,13 @@ class Structure:
 
         # plotting each trace
         for k in range(0, number):
-            axes.append(plt.subplot2grid((rows, 2 * columns), (int(k / columns), (2 * k) % (2 * columns))))
-            self.traces[k]._plot_histogram(position=axes[-1], max_contour_length=max_contour_length)
-            axes.append(plt.subplot2grid((rows, 2 * columns), (int(k / columns), ((2 * k) + 1) % (2 * columns))))
-            self.traces[k]._plot_fits(position=axes[-1])
+            try:
+                axes.append(plt.subplot2grid((rows, 2 * columns), (int(k / columns), (2 * k) % (2 * columns))))
+                self.traces[k]._plot_histogram(position=axes[-1], max_contour_length=max_contour_length)
+                axes.append(plt.subplot2grid((rows, 2 * columns), (int(k / columns), ((2 * k) + 1) % (2 * columns))))
+                self.traces[k]._plot_fits(position=axes[-1])
+            except:
+                pass
 
         plt.tight_layout()
 
