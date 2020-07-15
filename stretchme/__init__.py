@@ -96,3 +96,28 @@ def simulate_experiment(traces=1, p_prot=0.7, k_prot=0.005, l_prots=(25, 50, 100
                            l_dna=l_dna, rupture_forces=rupture_forces, force_range=force_range,
                            position_blur=position_blur, force_blur=force_blur,  rupture_forces_blur=rupture_forces_blur,
                            relaxation=relaxation)
+
+
+def analyze_trace(filename, case=0, columns=None, name=None, debug=False, **kwargs):
+    """Analyzing single trace. Creates a figure with contour length histogram and fit.
+
+
+        Args:
+            filename (str/Pandas Dataframe): The path to the file with data, or the Pandas Dataframe with the data.
+            case (int, optional): The case to be analyzed from the whole file. Default: 0
+            columns: ([str, str]/None, optional): The headers of the distance and force columns in the file. If None,
+                the first two columns will be used. Default: None.
+            name: (str, optional): The name of the experiment, for the output data. If None, the name will be set to
+                "Experiment". Default: None
+            debug: (bool, optional): The debug mode. Default: False.
+            **kwargs: other arguments passed to the reader or fitter. In particular, the fit parameters such as
+                'p_prot', 'k_prot', 'p_dna', 'k_dna', 'l_dna' may be set.
+
+        Returns:
+            bool: True if successful, False otherwise.
+
+        """
+    experiment = Structure(filename, cases=[case], columns=columns, name=name, debug=debug, **kwargs)
+    experiment.traces[0].analyze()
+    experiment.traces[0].plot()
+    return True

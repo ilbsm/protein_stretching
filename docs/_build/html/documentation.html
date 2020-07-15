@@ -120,12 +120,41 @@ rupture, measured in the fraction of the contour length. Viable vales are betwee
 </dl>
 </dd></dl>
 
+<dl class="py function">
+<dt id="stretchme.analyze_trace">
+<code class="sig-prename descclassname">stretchme.</code><code class="sig-name descname">analyze_trace</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">filename</span></em>, <em class="sig-param"><span class="n">case</span><span class="o">=</span><span class="default_value">0</span></em>, <em class="sig-param"><span class="n">columns</span><span class="o">=</span><span class="default_value">None</span></em>, <em class="sig-param"><span class="n">name</span><span class="o">=</span><span class="default_value">None</span></em>, <em class="sig-param"><span class="n">debug</span><span class="o">=</span><span class="default_value">False</span></em>, <em class="sig-param"><span class="o">**</span><span class="n">kwargs</span></em><span class="sig-paren">)</span><a class="headerlink" href="#stretchme.analyze_trace" title="Permalink to this definition">¶</a></dt>
+<dd><p>Analyzing single trace. Creates a figure with contour length histogram and fit.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>filename</strong> (<em>str/Pandas Dataframe</em>) -- The path to the file with data, or the Pandas Dataframe with the data.</p></li>
+<li><p><strong>case</strong> (<em>int</em><em>, </em><em>optional</em>) -- The case to be analyzed from the whole file. Default: 0</p></li>
+<li><p><strong>columns</strong> -- ([str, str]/None, optional): The headers of the distance and force columns in the file. If None,
+the first two columns will be used. Default: None.</p></li>
+<li><p><strong>name</strong> -- (str, optional): The name of the experiment, for the output data. If None, the name will be set to
+&quot;Experiment&quot;. Default: None</p></li>
+<li><p><strong>debug</strong> -- (bool, optional): The debug mode. Default: False.</p></li>
+<li><p><strong>**kwargs</strong> -- other arguments passed to the reader or fitter. In particular, the fit parameters such as
+'p_prot', 'k_prot', 'p_dna', 'k_dna', 'l_dna' may be set.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>True if successful, False otherwise.</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>bool</p>
+</dd>
+</dl>
+</dd></dl>
+
 </div>
-<div class="section" id="stretching-classes">
-<h2>Stretching classes<a class="headerlink" href="#stretching-classes" title="Permalink to this headline">¶</a></h2>
-<span class="target" id="doc-class-structure"></span><dl class="py class">
+<div class="section" id="classes-and-methods">
+<h2>Classes and methods<a class="headerlink" href="#classes-and-methods" title="Permalink to this headline">¶</a></h2>
+<div class="section" id="class-structure">
+<span id="doc-class-structure"></span><h3>Class Structure<a class="headerlink" href="#class-structure" title="Permalink to this headline">¶</a></h3>
+<dl class="py class">
 <dt id="stretchme.structure.Structure">
-<em class="property">class </em><code class="sig-prename descclassname">stretchme.structure.</code><code class="sig-name descname">Structure</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">input_data</span><span class="o">=</span><span class="default_value">None</span></em>, <em class="sig-param"><span class="n">cases</span><span class="o">=</span><span class="default_value">None</span></em>, <em class="sig-param"><span class="n">columns</span><span class="o">=</span><span class="default_value">None</span></em>, <em class="sig-param"><span class="n">parameters</span><span class="o">=</span><span class="default_value">{}</span></em>, <em class="sig-param"><span class="n">name</span><span class="o">=</span><span class="default_value">None</span></em>, <em class="sig-param"><span class="n">debug</span><span class="o">=</span><span class="default_value">False</span></em>, <em class="sig-param"><span class="o">**</span><span class="n">kwargs</span></em><span class="sig-paren">)</span><a class="headerlink" href="#stretchme.structure.Structure" title="Permalink to this definition">¶</a></dt>
+<em class="property">class </em><code class="sig-prename descclassname">stretchme.structure.</code><code class="sig-name descname">Structure</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">input_data</span><span class="o">=</span><span class="default_value">None</span></em>, <em class="sig-param"><span class="n">cases</span><span class="o">=</span><span class="default_value">None</span></em>, <em class="sig-param"><span class="n">columns</span><span class="o">=</span><span class="default_value">None</span></em>, <em class="sig-param"><span class="n">name</span><span class="o">=</span><span class="default_value">None</span></em>, <em class="sig-param"><span class="n">debug</span><span class="o">=</span><span class="default_value">False</span></em>, <em class="sig-param"><span class="o">**</span><span class="n">kwargs</span></em><span class="sig-paren">)</span><a class="headerlink" href="#stretchme.structure.Structure" title="Permalink to this definition">¶</a></dt>
 <dd><p>The class containing information about the whole experiment, consisting of many measurements (traces).</p>
 <dl class="py attribute">
 <dt id="stretchme.structure.Structure.input_data">
@@ -150,17 +179,6 @@ rupture, measured in the fraction of the contour length. Viable vales are betwee
 </dd></dl>
 
 <dl class="py attribute">
-<dt id="stretchme.structure.Structure.coefficients">
-<code class="sig-name descname">coefficients</code><a class="headerlink" href="#stretchme.structure.Structure.coefficients" title="Permalink to this definition">¶</a></dt>
-<dd><p>The dictionary with fitted coefficients.</p>
-<dl class="field-list simple">
-<dt class="field-odd">Type</dt>
-<dd class="field-odd"><p>dict</p>
-</dd>
-</dl>
-</dd></dl>
-
-<dl class="py attribute">
 <dt id="stretchme.structure.Structure.rupture_forces">
 <code class="sig-name descname">rupture_forces</code><a class="headerlink" href="#stretchme.structure.Structure.rupture_forces" title="Permalink to this definition">¶</a></dt>
 <dd><p>The dictionary with measured rupture forces.</p>
@@ -173,9 +191,185 @@ rupture, measured in the fraction of the contour length. Viable vales are betwee
 
 </dd></dl>
 
-<span class="target" id="doc-class-trace"></span><dl class="py class">
+<dl class="py function">
+<dt id="stretchme.structure.Structure.analyze">
+<code class="sig-prename descclassname">stretchme.structure.Structure.</code><code class="sig-name descname">analyze</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">self</span></em><span class="sig-paren">)</span><a class="headerlink" href="#stretchme.structure.Structure.analyze" title="Permalink to this definition">¶</a></dt>
+<dd><p>Perform the whole analysis.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns</dt>
+<dd class="field-odd"><p>True if successful, False otherwise.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt id="stretchme.structure.Structure.add_trace">
+<code class="sig-prename descclassname">stretchme.structure.Structure.</code><code class="sig-name descname">add_trace</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">self</span></em>, <em class="sig-param"><span class="n">filename</span></em>, <em class="sig-param"><span class="n">cases</span><span class="o">=</span><span class="default_value">None</span></em>, <em class="sig-param"><span class="n">columns</span><span class="o">=</span><span class="default_value">None</span></em>, <em class="sig-param"><span class="o">**</span><span class="n">kwargs</span></em><span class="sig-paren">)</span><a class="headerlink" href="#stretchme.structure.Structure.add_trace" title="Permalink to this definition">¶</a></dt>
+<dd><p>Adding the trace to the structure.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>filename</strong> (<em>str/Pandas Dataframe</em>) -- Path to the file, or Pandas Dataframe with the data of the trace.</p></li>
+<li><p><strong>cases</strong> (<em>list</em><em>, </em><em>optional</em>) -- The list of cases to be added. If None, all cases will traces will be used.
+Default: None.</p></li>
+<li><p><strong>columns</strong> (<em>[</em><em>str</em><em>, </em><em>str</em><em>]</em><em>, </em><em>optional</em>) -- The list of headers of the columns containing the distance and
+corresponding force. If None, first two columns will be used. Default: None</p></li>
+<li><p><strong>**kwargs</strong> -- The parameters which are going to be set for the traces. Accepted parameters are:</p></li>
+<li><p><strong>'linker'</strong> (<em>'dna'/None</em><em>)</em><em>, </em><em>'source'</em><em> (</em><em>'experiment'/'cg'/'aa'</em><em>)</em><em>, </em><em>'speed'</em><em> (</em><em>float</em><em>)</em><em>, </em><em>'states'</em><em> (</em><em>int</em>) -- </p></li>
+<li><p><strong>'residues_distance'</strong><strong>,</strong> (<em>float</em><em>)</em><em>, </em><em>'low_force_cutoff'</em><em> (</em><em>float</em><em>)</em><em>, </em><em>'initial_guess'</em><em> (</em><em>dictionary</em>) -- </p></li>
+<li><p><strong>'separator'</strong> (<em>(</em><em>string</em><em>)</em><em>,</em>) -- </p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>List of the names of the Traces added.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt id="stretchme.structure.Structure.set">
+<code class="sig-prename descclassname">stretchme.structure.Structure.</code><code class="sig-name descname">set</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">self</span></em>, <em class="sig-param"><span class="o">**</span><span class="n">kwargs</span></em><span class="sig-paren">)</span><a class="headerlink" href="#stretchme.structure.Structure.set" title="Permalink to this definition">¶</a></dt>
+<dd><p>Setting the parameter/coefficient to the Structure. The parameters to be set are given as keyword arguments.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>**kwargs</strong> -- The parameters which are going to be set. Accepted parameters are: 'linker' ('dna'/None),</p></li>
+<li><p><strong>'source'</strong> (<em>'experiment'/'cg'/'aa'</em><em>)</em><em>, </em><em>'speed'</em><em> (</em><em>float</em><em>)</em><em>, </em><em>'states'</em><em> (</em><em>int</em><em>)</em><em>, </em><em>'residues_distance'</em><em>, </em><em>(</em><em>float</em>) -- </p></li>
+<li><p><strong>'low_force_cutoff'</strong> (<em>float</em><em>)</em><em>, </em><em>'initial_guess'</em><em> (</em><em>dictionary</em><em>)</em><em>, </em><em>'plot_columns'</em><em> (</em><em>int</em>) -- </p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>True if successful, False otherwise.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt id="stretchme.structure.Structure.make_plots">
+<code class="sig-prename descclassname">stretchme.structure.Structure.</code><code class="sig-name descname">make_plots</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">self</span></em><span class="sig-paren">)</span><a class="headerlink" href="#stretchme.structure.Structure.make_plots" title="Permalink to this definition">¶</a></dt>
+<dd><p>Plotting all the output figures.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns</dt>
+<dd class="field-odd"><p>True if successful, False otherwise.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt id="stretchme.structure.Structure.make_partial_plots">
+<code class="sig-prename descclassname">stretchme.structure.Structure.</code><code class="sig-name descname">make_partial_plots</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">self</span></em>, <em class="sig-param"><span class="n">output</span><span class="o">=</span><span class="default_value">None</span></em><span class="sig-paren">)</span><a class="headerlink" href="#stretchme.structure.Structure.make_partial_plots" title="Permalink to this definition">¶</a></dt>
+<dd><p>Plot the fits for each trace in structure.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>output</strong> (<em>str</em><em>, </em><em>optional</em>) -- The output name for the figure.</p>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>True if successful, False otherwise.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt id="stretchme.structure.Structure.make_histograms">
+<code class="sig-prename descclassname">stretchme.structure.Structure.</code><code class="sig-name descname">make_histograms</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">self</span></em>, <em class="sig-param"><span class="n">output</span><span class="o">=</span><span class="default_value">None</span></em><span class="sig-paren">)</span><a class="headerlink" href="#stretchme.structure.Structure.make_histograms" title="Permalink to this definition">¶</a></dt>
+<dd><p>Plot the cumulative histograms for all traces in structure.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>output</strong> (<em>str</em><em>, </em><em>optional</em>) -- The output name for the figure.</p>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>True if successful, False otherwise.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt id="stretchme.structure.Structure.plot_contour_length">
+<code class="sig-prename descclassname">stretchme.structure.Structure.</code><code class="sig-name descname">plot_contour_length</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">self</span></em>, <em class="sig-param"><span class="n">output</span><span class="o">=</span><span class="default_value">None</span></em><span class="sig-paren">)</span><a class="headerlink" href="#stretchme.structure.Structure.plot_contour_length" title="Permalink to this definition">¶</a></dt>
+<dd><p>Plot histogram of contour length.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>output</strong> (<em>str</em><em>, </em><em>optional</em>) -- The output name for the figure.</p>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>True if successful, False otherwise.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt id="stretchme.structure.Structure.plot_traces">
+<code class="sig-prename descclassname">stretchme.structure.Structure.</code><code class="sig-name descname">plot_traces</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">self</span></em>, <em class="sig-param"><span class="n">output</span><span class="o">=</span><span class="default_value">None</span></em><span class="sig-paren">)</span><a class="headerlink" href="#stretchme.structure.Structure.plot_traces" title="Permalink to this definition">¶</a></dt>
+<dd><p>Plot overlaid traces.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>output</strong> (<em>str</em><em>, </em><em>optional</em>) -- The output name for the figure.</p>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>True if successful, False otherwise.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt id="stretchme.structure.Structure.plot_forces">
+<code class="sig-prename descclassname">stretchme.structure.Structure.</code><code class="sig-name descname">plot_forces</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">self</span></em>, <em class="sig-param"><span class="n">output</span><span class="o">=</span><span class="default_value">None</span></em><span class="sig-paren">)</span><a class="headerlink" href="#stretchme.structure.Structure.plot_forces" title="Permalink to this definition">¶</a></dt>
+<dd><p>Plot histogram of rupture forces.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>output</strong> (<em>str</em><em>, </em><em>optional</em>) -- The output name for the figure.</p>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>True if successful, False otherwise.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt id="stretchme.structure.Structure.plot_dhs">
+<code class="sig-prename descclassname">stretchme.structure.Structure.</code><code class="sig-name descname">plot_dhs</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">self</span></em>, <em class="sig-param"><span class="n">output</span><span class="o">=</span><span class="default_value">None</span></em><span class="sig-paren">)</span><a class="headerlink" href="#stretchme.structure.Structure.plot_dhs" title="Permalink to this definition">¶</a></dt>
+<dd><p>Plot Dudko-Hummer-Szabo analysis.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>output</strong> (<em>str</em><em>, </em><em>optional</em>) -- The output name for the figure.</p>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>True if successful, False otherwise.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt id="stretchme.structure.Structure.collect_coefficients">
+<code class="sig-prename descclassname">stretchme.structure.Structure.</code><code class="sig-name descname">collect_coefficients</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">self</span></em><span class="sig-paren">)</span><a class="headerlink" href="#stretchme.structure.Structure.collect_coefficients" title="Permalink to this definition">¶</a></dt>
+<dd><p>Collecting the coefficients for the whole structure as the means of coefficients from all traces.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns</dt>
+<dd class="field-odd"><p>True if successful, False otherwise.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt id="stretchme.structure.Structure.save_data">
+<code class="sig-prename descclassname">stretchme.structure.Structure.</code><code class="sig-name descname">save_data</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">self</span></em>, <em class="sig-param"><span class="n">output</span><span class="o">=</span><span class="default_value">None</span></em><span class="sig-paren">)</span><a class="headerlink" href="#stretchme.structure.Structure.save_data" title="Permalink to this definition">¶</a></dt>
+<dd><p>Save the fitted data to the text file.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>output</strong> (<em>str</em><em>, </em><em>optional</em>) -- The output name for the file.</p>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>True if successful, False otherwise.</p>
+</dd>
+</dl>
+</dd></dl>
+
+</div>
+<div class="section" id="class-trace">
+<span id="doc-class-trace"></span><h3>Class Trace<a class="headerlink" href="#class-trace" title="Permalink to this headline">¶</a></h3>
+<dl class="py class">
 <dt id="stretchme.trace.Trace">
-<em class="property">class </em><code class="sig-prename descclassname">stretchme.trace.</code><code class="sig-name descname">Trace</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">name</span></em>, <em class="sig-param"><span class="n">data</span></em>, <em class="sig-param"><span class="n">orig_input</span></em>, <em class="sig-param"><span class="n">logger</span><span class="o">=</span><span class="default_value">None</span></em>, <em class="sig-param"><span class="n">parameters</span><span class="o">=</span><span class="default_value">None</span></em><span class="sig-paren">)</span><a class="headerlink" href="#stretchme.trace.Trace" title="Permalink to this definition">¶</a></dt>
+<em class="property">class </em><code class="sig-prename descclassname">stretchme.trace.</code><code class="sig-name descname">Trace</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">name</span></em>, <em class="sig-param"><span class="n">data</span></em>, <em class="sig-param"><span class="n">orig_input</span></em>, <em class="sig-param"><span class="n">experiment_name</span><span class="o">=</span><span class="default_value">'Experiment'</span></em>, <em class="sig-param"><span class="n">debug</span><span class="o">=</span><span class="default_value">False</span></em>, <em class="sig-param"><span class="n">parameters</span><span class="o">=</span><span class="default_value">None</span></em><span class="sig-paren">)</span><a class="headerlink" href="#stretchme.trace.Trace" title="Permalink to this definition">¶</a></dt>
 <dd><p>The class containing information about one, single measurement.</p>
 <dl class="py attribute">
 <dt id="stretchme.trace.Trace.name">
@@ -202,7 +396,7 @@ rupture, measured in the fraction of the contour length. Viable vales are betwee
 <dl class="py attribute">
 <dt id="stretchme.trace.Trace.parameters">
 <code class="sig-name descname">parameters</code><a class="headerlink" href="#stretchme.trace.Trace.parameters" title="Permalink to this definition">¶</a></dt>
-<dd><p>The dictionary of measurement parameters.</p>
+<dd><p>The dictionary of measurement parameters and fitted coefficients.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Type</dt>
 <dd class="field-odd"><p>dict</p>
@@ -222,17 +416,6 @@ rupture, measured in the fraction of the contour length. Viable vales are betwee
 </dd></dl>
 
 <dl class="py attribute">
-<dt id="stretchme.trace.Trace.coefficients">
-<code class="sig-name descname">coefficients</code><a class="headerlink" href="#stretchme.trace.Trace.coefficients" title="Permalink to this definition">¶</a></dt>
-<dd><p>The dictionary with fitted coefficients.</p>
-<dl class="field-list simple">
-<dt class="field-odd">Type</dt>
-<dd class="field-odd"><p>dict</p>
-</dd>
-</dl>
-</dd></dl>
-
-<dl class="py attribute">
 <dt id="stretchme.trace.Trace.rupture_forces">
 <code class="sig-name descname">rupture_forces</code><a class="headerlink" href="#stretchme.trace.Trace.rupture_forces" title="Permalink to this definition">¶</a></dt>
 <dd><p>The dictionary with measured rupture forces.</p>
@@ -245,6 +428,116 @@ rupture, measured in the fraction of the contour length. Viable vales are betwee
 
 </dd></dl>
 
+<dl class="py function">
+<dt id="stretchme.trace.Trace.set">
+<code class="sig-prename descclassname">stretchme.trace.Trace.</code><code class="sig-name descname">set</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">self</span></em>, <em class="sig-param"><span class="o">**</span><span class="n">kwargs</span></em><span class="sig-paren">)</span><a class="headerlink" href="#stretchme.trace.Trace.set" title="Permalink to this definition">¶</a></dt>
+<dd><p>Method of setting the parameter to the trace.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>**kwargs</strong> -- The parameters which are going to be set. Accepted parameters are: 'linker' ('dna'/None),</p></li>
+<li><p><strong>'source'</strong> (<em>'experiment'/'cg'/'aa'</em><em>)</em><em>, </em><em>'speed'</em><em> (</em><em>float</em><em>)</em><em>, </em><em>'states'</em><em> (</em><em>int</em><em>)</em><em>, </em><em>'residues_distance'</em><em>, </em><em>(</em><em>float</em>) -- </p></li>
+<li><p><strong>'low_force_cutoff'</strong> (<em>float</em><em>)</em><em>, </em><em>and 'initial_guess'</em><em> (</em><em>dictionary</em>) -- </p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>True if successful, False otherwise.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt id="stretchme.trace.Trace.analyze">
+<code class="sig-prename descclassname">stretchme.trace.Trace.</code><code class="sig-name descname">analyze</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">self</span></em><span class="sig-paren">)</span><a class="headerlink" href="#stretchme.trace.Trace.analyze" title="Permalink to this definition">¶</a></dt>
+<dd><p>Performing the whole analysis of the trace.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns</dt>
+<dd class="field-odd"><p>True if successful, False otherwise.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt id="stretchme.trace.Trace.fit_contour_lengths">
+<code class="sig-prename descclassname">stretchme.trace.Trace.</code><code class="sig-name descname">fit_contour_lengths</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">self</span></em><span class="sig-paren">)</span><a class="headerlink" href="#stretchme.trace.Trace.fit_contour_lengths" title="Permalink to this definition">¶</a></dt>
+<dd><p>Fitting the contour lengths for the trace.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns</dt>
+<dd class="field-odd"><p>True if successful, False otherwise.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt id="stretchme.trace.Trace.find_ranges">
+<code class="sig-prename descclassname">stretchme.trace.Trace.</code><code class="sig-name descname">find_ranges</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">self</span></em>, <em class="sig-param"><span class="n">max_distance</span><span class="o">=</span><span class="default_value">None</span></em><span class="sig-paren">)</span><a class="headerlink" href="#stretchme.trace.Trace.find_ranges" title="Permalink to this definition">¶</a></dt>
+<dd><p>Method of setting the parameter to the trace.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>max_distance</strong> (<em>float/None</em><em>, </em><em>optional</em>) -- The maximal deviation of the fitted curve from the data in the
+state. If None, the default value will be used.</p>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>True if successful, False otherwise.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt id="stretchme.trace.Trace.find_rupture_forces">
+<code class="sig-prename descclassname">stretchme.trace.Trace.</code><code class="sig-name descname">find_rupture_forces</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">self</span></em><span class="sig-paren">)</span><a class="headerlink" href="#stretchme.trace.Trace.find_rupture_forces" title="Permalink to this definition">¶</a></dt>
+<dd><p>Find the rupture forces for each state.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns</dt>
+<dd class="field-odd"><p>True if successful, False otherwise.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt id="stretchme.trace.Trace.plot">
+<code class="sig-prename descclassname">stretchme.trace.Trace.</code><code class="sig-name descname">plot</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">self</span></em>, <em class="sig-param"><span class="n">output</span><span class="o">=</span><span class="default_value">None</span></em><span class="sig-paren">)</span><a class="headerlink" href="#stretchme.trace.Trace.plot" title="Permalink to this definition">¶</a></dt>
+<dd><p>Plots the contour length histogram and the fits.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>output</strong> (<em>string/None</em><em>, </em><em>optional</em>) -- The name of the output file.</p>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>True if successful, False otherwise.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt id="stretchme.trace.Trace.get_info">
+<code class="sig-prename descclassname">stretchme.trace.Trace.</code><code class="sig-name descname">get_info</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">self</span></em><span class="sig-paren">)</span><a class="headerlink" href="#stretchme.trace.Trace.get_info" title="Permalink to this definition">¶</a></dt>
+<dd><p>Get the information about the trace.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns</dt>
+<dd class="field-odd"><p>The formatted information</p>
+</dd>
+<dt class="field-even">Return type</dt>
+<dd class="field-even"><p>String</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt id="stretchme.trace.Trace.generate_smooths">
+<code class="sig-prename descclassname">stretchme.trace.Trace.</code><code class="sig-name descname">generate_smooths</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">self</span></em>, <em class="sig-param"><span class="n">intervals</span><span class="o">=</span><span class="default_value">None</span></em><span class="sig-paren">)</span><a class="headerlink" href="#stretchme.trace.Trace.generate_smooths" title="Permalink to this definition">¶</a></dt>
+<dd><p>Generate smooth trace, stored as trace.smoothed dataframe.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>intervals</strong> (<em>int/None</em><em>, </em><em>optional</em>) -- The number of distance intervals in the smoothed trace. If None, the
+default value will be used.</p>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>True if successful, False otherwise.</p>
+</dd>
+</dl>
+</dd></dl>
+
+</div>
 </div>
 </div>
 
@@ -272,7 +565,7 @@ rupture, measured in the fraction of the contour length. Viable vales are betwee
 <li class="toctree-l1"><a class="reference internal" href="parameters.html">Default parameters</a></li>
 <li class="toctree-l1 current"><a class="current reference internal" href="#">Documentation</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="#functions">Functions</a></li>
-<li class="toctree-l2"><a class="reference internal" href="#stretching-classes">Stretching classes</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#classes-and-methods">Classes and methods</a></li>
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="licence.html">Licence</a></li>

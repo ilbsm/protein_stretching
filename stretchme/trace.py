@@ -1,6 +1,6 @@
-from matplotlib import pyplot as plt
 from .stretching_tools import *
 import pandas as pd
+from matplotlib import pyplot as plt
 
 
 class Trace:
@@ -9,43 +9,235 @@ class Trace:
     Attributes:
         name (str): The class name.
         orig_input (str): The original input (e.g. the path to the source file).
-        parameters (dict): The dictionary of measurement parameters.
+        parameters (dict): The dictionary of measurement parameters and fitted coefficients.
         data (Pandas Dataframe): The dataframe with columns 'd' and 'F' corresponding to measured distance and force.
-        coefficients (dict): The dictionary with fitted coefficients.
         rupture_forces (dict): The dictionary with measured rupture forces.
 
     """
-    def __init__(self, name, data, orig_input, logger=None, parameters=None):
+    def __init__(self, name, data, orig_input, experiment_name='Experiment', debug=False, parameters=None):
         self.name = str(name)
         self.orig_input = orig_input
-        self.logger = logger
+        self.experiment_name = experiment_name
+        self.debug = debug
 
-        # setting the trace parameters and coefficients
-        self.parameters = parameters
-        self.coefficients = {'k_prot': 0, 'p_prot': 0, 'p_dna': 0, 'k_dna': 0, 'l_dna': 0}
+        # setting the trace parameters
+        if not parameters:
+            self.parameters = default_parameters
+            self.parameters['initial_guess'] = default_parameters['initial_guess'][None]
+        else:
+            self.parameters = parameters
 
         # filling the data
-        self.data = data
+        self.data = data.dropna()
         self.data = self.data[self.data['F'] > self.parameters['low_force_cutoff']].sort_values(by='d')
-        if self.logger:
-            self.logger.info("Trace name " + str(name) + " got and parsed the data.")
 
         self.smoothed = pd.DataFrame()
-
         self.boundaries = []
-        self.coefficients = {}
+        self.state_boundaries = pd.DataFrame(columns=['state', 'beg', 'end'])
         self.rupture_forces = {}
+
+        if self.debug:
+            logger = set_logger(self.experiment_name)
+            logger.info("Trace name " + str(name) + " got and parsed the data.")
+            close_logs(logger)
         return
 
-    # generating
-    def _generate_smooths(self):
-        if self.logger:
-            self.logger.info("Generating smooth trace...")
+    ''' Methods for users '''
+    def set(self, **kwargs):
+        """ Method of setting the parameter to the trace.
+
+                Args:
+                    **kwargs: The parameters which are going to be set. Accepted parameters are: 'linker' ('dna'/None),
+                    'source' ('experiment'/'cg'/'aa'), 'speed' (float), 'states' (int), 'residues_distance', (float),
+                    'low_force_cutoff' (float), and 'initial_guess' (dictionary).
+
+                Returns:
+                    True if successful, False otherwise.
+                """
+        self.parameters = {**self.parameters, **kwargs}
+        if self.debug:
+            logger = set_logger(self.experiment_name)
+            logger.info("Trace parameters updated. Current parameters: " + str(self.parameters))
+            close_logs(logger)
+        return True
+
+    def analyze(self):
+        """ Performing the whole analysis of the trace.
+
+                Returns:
+                    True if successful, False otherwise.
+                """
+        if self.debug:
+            logger = set_logger(self.experiment_name)
+            logger.info("Starting analysis of the trace.")
+            close_logs(logger)
+
+        self.generate_smooths()
+        self.fit_contour_lengths()
+        self.find_ranges()
+        self.find_rupture_forces()
+
+        if self.debug:
+            logger = set_logger(self.experiment_name)
+            logger.info("Finished trace " + str(self.name))
+            close_logs(logger)
+
+        return True
+
+    def fit_contour_lengths(self):
+        """ Fitting the contour lengths for the trace.
+
+                Returns:
+                    True if successful, False otherwise.
+                """
+
+        # fitting coefficients
+        coefficients = fit_coefficients(self.data, self.parameters)
+        self.parameters = {**self.parameters, **coefficients}
+
+        # transforming coordinates
+        self.data['x_prot'] = np.array([invert_wlc(f, self.parameters['p_prot'], self.parameters['k_prot'])
+                                        for f in self.data['F']])
+        self.data['d_dna'] = get_d_dna(self.parameters['p_dna'], self.parameters['l_dna'], self.parameters['k_dna'],
+                                       self.data['F'])
+        self.data['d_prot'] = self.data['d'] - self.data['d_dna']
+        self.data['hist_values'] = self.data['d_prot'] / self.data['x_prot']
+
+        # decomposing contour length histogram
+        parameters, bounds = decompose_histogram(np.array(self.data['hist_values']), states=self.parameters['states'],
+                                                 significance=self.parameters['significance'])
+        self.boundaries = bounds
+        self.parameters['l_prot'] = parameters
+        if self.debug:
+            logger = set_logger(self.experiment_name)
+            logger.info("Contour length fitted. Coefficient got:\n" + str(coefficients))
+            close_logs(logger)
+        return True
+
+    def find_ranges(self, max_distance=None):
+        """ Method of setting the parameter to the trace.
+
+                Args:
+                   max_distance (float/None, optional): The maximal deviation of the fitted curve from the data in the
+                    state. If None, the default value will be used.
+
+                Returns:
+                    True if successful, False otherwise.
+                """
+        if not max_distance:
+            max_distance = self.parameters['max_distance']
+        last_end = 0
+        for index, row in self.parameters['l_prot'].iterrows():
+            state = 'state_' + str(index)
+            l_prot = row['means']
+            self.smoothed[state] = \
+                np.array([ewlc(d, l_prot, self.parameters.get('p_prot', 0), self.parameters.get('k_prot', None))
+                          for d in list(self.smoothed['d'])])
+            data_close = self.smoothed[abs(self.smoothed['F'] - self.smoothed[state]) <= max_distance]
+            data_close = data_close[data_close['d'] > last_end]['d']
+            last_end = data_close.max()
+            new_row = pd.DataFrame({'state': state, 'beg': data_close.min(), 'end': last_end}, index=[0])
+            self.state_boundaries = pd.concat([self.state_boundaries, new_row], ignore_index=True)
+
+        if self.debug:
+            logger = set_logger(self.experiment_name)
+            logger.info("Ranges found. These are:\n" + str(self.state_boundaries))
+            close_logs(logger)
+        return True
+
+    def find_rupture_forces(self):
+        """ Find the rupture forces for each state.
+
+                Returns:
+                    True if successful, False otherwise.
+                """
+
+        forces = []
+        for ind, row in self.state_boundaries.iterrows():
+            state, beg, end = tuple(row.to_numpy())
+            forces.append(self.data[self.data['d'].between(beg, end)]['F'].max())
+        self.parameters['l_prot']['rupture_forces'] = np.array(forces)
+
+        if self.debug:
+            logger = set_logger(self.experiment_name)
+            pd.set_option('display.max_columns', None)
+            pd.set_option('display.max_rows', None)
+            logger.info("Rupture forces found. These are:\n" + str(self.parameters['l_prot']))
+            pd.reset_option('display.max_columns')
+            pd.reset_option('display.max_rows')
+            close_logs(logger)
+        return True
+
+    def plot(self, output=None):
+        """ Plots the contour length histogram and the fits.
+
+                Args:
+                    output (string/None, optional): The name of the output file.
+
+                Returns:
+                    True if successful, False otherwise.
+                """
+        fig, axes = plt.subplots(1, 2, dpi=600, figsize=(10, 5))
+        self.plot_histogram(position=axes[0])
+        self.plot_fits(position=axes[1])
+        plt.tight_layout()
+
+        if not output:
+            ofile = self.experiment_name + '_' + self.name + '.png'
+        else:
+            ofile = output
+
+        if self.debug:
+            logger = set_logger(self.experiment_name)
+            logger.info("Saving figure to: " + ofile)
+            close_logs(logger)
+
+        plt.savefig(ofile)
+        plt.close(fig)
+        return
+
+    def get_info(self):
+        """ Get the information about the trace.
+
+                Returns:
+                    String: The formatted information
+                """
+        separator = '####'
+        info = ['Trace name ' + str(self.name),
+                'Trace source file ' + str(self.orig_input),
+                'p_Prot:\t\t' + str(self.parameters['p_prot']),
+                'k_Prot:\t\t' + str(self.parameters['k_prot']),
+                'p_DNA:\t\t' + str(self.parameters['p_dna']),
+                'k_DNA:\t\t' + str(self.parameters['k_dna']),
+                'l_DNA:\t\t' + str(self.parameters['l_dna']),
+                'Contour length\tgamma\t',
+                self.parameters['l_prot'].to_csv(sep='\t'),
+                separator]
+        return '\n'.join(info)
+
+    def generate_smooths(self, intervals=None):
+        """ Generate smooth trace, stored as trace.smoothed dataframe.
+
+                Args:
+                    intervals (int/None, optional): The number of distance intervals in the smoothed trace. If None, the
+                        default value will be used.
+
+                Returns:
+                    True if successful, False otherwise.
+                """
+        if self.debug:
+            logger = set_logger(self.experiment_name)
+            logger.info("Generating smoothed traces.")
+            close_logs(logger)
+
+        if not intervals:
+            intervals = self.parameters['intervals']
+
         f_smooth = []
         d_smooth = []
 
         # averaging over the interval
-        d_range = np.linspace(min(self.data['d']), max(self.data['d']), 1001)
+        d_range = np.linspace(min(self.data['d']), max(self.data['d']), intervals)
         for k in range(len(d_range)-1):
             d_min = d_range[k]
             d_max = d_range[k+1]
@@ -57,179 +249,13 @@ class Trace:
         # running average
         d_smooth, f_smooth = running_average(d_smooth, f_smooth)
         self.smoothed = pd.DataFrame({'d': d_smooth, 'F': f_smooth})
-        return
-
-    def _parse_cl_histogram(self, significance=0.001):
-        parameters, boundaries = decompose_histogram(np.array(self.data['hist_values']), significance)
-        self.boundaries = boundaries
-        self.coefficients['l_prot'] = parameters
-        return
-
-    # setting
-    def set(self, **kwargs):
-        """ Method of setting the parameter/coefficient to given trace. The parameters to be set are given as keyword
-        arguments.
-
-                Args:
-                    **kwargs: The parameters which are going to be set. Accepted parameters are: 'residues' (int),
-                    'linker' ('dna'/None), 'source' ('experiment'/'cg'/'aa'), 'speed' (float), 'states' (int),
-                    'residues_distance', (float), 'low_force_cutoff' (float), and 'initial_guess' (dictionary).
-
-                Returns:
-                    True if successful, False otherwise.
-                """
-        for key in kwargs:
-            if key in self.parameters.keys():
-                self.parameters[key] = kwargs[key]
-                if self.logger:
-                    self.logger.info("Set trace '" + str(key) + "' parameter to " + str(kwargs[key]))
-            elif key in self.coefficients.keys():
-                self.coefficients[key] = kwargs[key]
-                if self.logger:
-                    self.logger.info("Set trace '" + str(key) + "' coefficient to " + str(kwargs[key]))
-            else:
-                raise KeyError("Unknown property/coefficient " + str(key))
         return True
 
-    # fitting
-    def _fit_distances(self):
-        for index, row in self.coefficients['l_prot'].iterrows():
-            l_prot = row['means']
-            self.smoothed['state_' + str(index)] = np.array([ewlc(d, l_prot, self.coefficients.get('p_prot', 0),
-                                            self.coefficients.get('k_prot', None)) for d in list(self.smoothed['d'])])
-        return
+    ''' Restricted methods '''
+    def plot_histogram(self, position=None, max_contour_length=None):
+        """ Plotting the contour length histogram in a given position"""
 
-    def _fit_cl_dna_experiment(self):
-        self.coefficients['p_prot'] = self.parameters['initial_guess']['p_prot']
-        self.coefficients['p_dna'] = self.parameters['initial_guess']['p_dna']
-        self.coefficients['k_dna'] = self.parameters['initial_guess']['k_dna']
-        self.coefficients['k_prot'] = None
-        self.coefficients['l_dna'] = self.parameters['initial_guess']['l_dna']
-
-        self.data['x_dna'] = np.array([invert_wlc(f, self.coefficients['p_dna'], self.coefficients['k_dna'])
-                                       for f in self.data['F']])
-        self.data['d_dna'] = self.coefficients['l_dna'] * self.data['x_dna']
-        return
-
-    def _fit_cl_dna_theory(self):
-        # TODO finish it
-        self.coefficients['p_prot'] = self.parameters['initial_guess']['p_prot']
-        self.coefficients['p_dna'] = self.parameters['initial_guess']['p_dna']
-        self.coefficients['k_dna'] = self.parameters['initial_guess']['k_dna']
-        self.coefficients['k_prot'] = self.parameters['initial_guess']['k_prot']
-        self.coefficients['l_dna'] = self.parameters['initial_guess']['l_dna']
-
-        self.data['x_dna'] = np.array([invert_wlc(f, self.coefficients['p_dna'], self.coefficients['k_dna'])
-                                       for f in self.data['F']])
-        self.data['d_dna'] = self.coefficients['l_dna'] * self.data['x_dna']
-        return
-
-    def _fit_cl_none_experiment(self):
-        # TODO finish it
-        self.coefficients['p_prot'] = self.parameters['initial_guess']['p_prot']
-        self.coefficients['p_dna'] = 0
-        self.coefficients['k_dna'] = None
-        self.coefficients['k_prot'] = None
-        self.coefficients['l_dna'] = 0
-
-        self.data['x_dna'] = np.zeros(len(self.data))
-        self.data['d_dna'] = np.zeros(len(self.data))
-        return
-
-    def _fit_cl_none_theory(self):
-        self.coefficients['k_dna'] = None
-        self.coefficients['l_dna'] = 0
-        self.coefficients['p_dna'] = 0
-        self.data['x_dna'] = np.zeros(len(self.data))
-        self.data['d_dna'] = np.zeros(len(self.data))
-
-        # fitting part
-        p_prot = self.parameters['initial_guess']['p_prot']
-        k_prot = self.parameters['initial_guess']['k_prot']
-        # p_prot, k_prot = minimize_pk(self.data[['d', 'F']], self.smoothed, p_prot, k_prot)
-        # if self.logger:
-        #     self.logger.info("Fitted p_prot: " + str(p_prot) + " and k_prot: " + str(k_prot))
-        self.coefficients['p_prot'] = p_prot
-        self.coefficients['k_prot'] = k_prot
-        return
-
-    def _fit_linker_dna(self):
-        p_dna = self.parameters['initial_guess']['p_dna']
-        k_dna = self.parameters['initial_guess']['k_dna']
-        l_dna = self.parameters['initial_guess']['l_dna']
-        p_prot = self.parameters['initial_guess']['p_prot']
-        k_prot = self.parameters['initial_guess']['k_prot']
-
-
-        # fitting part
-        p_prot, k_prot, p_dna, k_dna, l_dna = fit_pk_linker_dna(self.data[['d', 'F']],
-                                                                 p_prot, k_prot, p_dna, k_dna, l_dna,
-                                                                 states=self.parameters['states'], logger=self.logger)
-        self.coefficients['p_prot'] = p_prot
-        self.coefficients['k_prot'] = k_prot
-        self.data['x_dna'] = invert_wlc_np(self.data['F'], p_dna, k_dna)
-        self.data['d_dna'] = l_dna * self.data['x_dna']
-        return
-
-    def _fit_linker_none(self):
-        self.coefficients['k_dna'] = 0
-        self.coefficients['l_dna'] = 0
-        self.coefficients['p_dna'] = 0
-        p_prot = self.parameters['initial_guess']['p_prot']
-        k_prot = self.parameters['initial_guess']['k_prot']
-        self.data['x_dna'] = np.zeros(len(self.data))
-        self.data['d_dna'] = np.zeros(len(self.data))
-
-        # fitting part
-        p_prot, k_prot = fit_pk_linker_none(self.data[['d', 'F']], p_prot, k_prot, states=self.parameters['states'],
-                                            logger=self.logger)
-        self.coefficients['p_prot'] = p_prot
-        self.coefficients['k_prot'] = k_prot
-        return
-
-    def fit_contour_lengths(self):
-        if self.logger:
-            self.logger.info("Fitting contour lengths...")
-        if not self.parameters['linker']:
-            self._fit_linker_none()
-        elif self.parameters['linker'] == 'dna':
-            self._fit_linker_dna()
-        else:
-            raise ValueError("Unknown linker " + self.parameters['linker'])
-
-        self.data['x_prot'] = np.array([invert_wlc(f, self.coefficients['p_prot'], self.coefficients['k_prot'])
-                                        for f in self.data['F']])
-        self.data['d_prot'] = self.data['d'] - self.data['d_dna']
-        self.data['hist_values'] = self.data['d_prot'] / self.data['x_prot']
-        self._parse_cl_histogram()
-        self._fit_distances()
-        return
-
-    def find_rupture_forces(self, max_distance=0.3):
-        # the ranges are determined by the proximity of fitted curve to the smoothed data
-        # TODO clean it up
-        if self.logger:
-            self.logger.info("Finding rupture forces...")
-        last_end = 0
-        forces = []
-        for ind, row in self.coefficients['l_prot'].iterrows():
-            data_close = self.smoothed[abs(self.smoothed['F'] - self.smoothed['state_' + str(ind)]) <= max_distance]
-            data_close = data_close[data_close['d'] > last_end]['d']
-            beg = data_close.min()
-            end = data_close.max()
-            last_end = end
-            forces.append(self.data[self.data['d'].between(beg, end)]['F'].max())
-
-        self.coefficients['l_prot']['rupture_forces'] = np.array(forces)
-        return
-
-    def find_energies(self):
-        if self.logger:
-            self.logger.info("Finding energies...")
-        return
-
-    # Plotting #
-    def _plot_histogram(self, position=None, max_contour_length=None):
+        # setting the scene
         position.set_title('Contour length histogram (trace ' + str(self.name) + ')')
         position.set_xlabel('Extension [nm]')
         position.set_ylabel('Counts')
@@ -239,67 +265,33 @@ class Trace:
             else:
                 max_contour_length = self.data['hist_values'].max()
         position.set_xlim(0, max_contour_length)
-        l_space = np.linspace(0, max_contour_length)
 
         # whole histogram
         position.hist(self.data['hist_values'], bins=500, density=True, alpha=0.5)
 
         # decomposed histogram
-        plot_decomposed_histogram(position, self.coefficients['l_prot'], l_space, self.parameters['residues_distance'])
+        plot_decomposed_histogram(position, self.parameters['l_prot'], max_contour_length,
+                                  self.parameters['residues_distance'])
 
         position.legend()
         return
 
-    def _plot_fits(self, position=None):
+    def plot_fits(self, position=None):
+        """ Plotting the fits to the traces. """
+
+        # setting the scene
         position.set_title('Trace fits (trace ' + str(self.name) + ')')
         position.set_xlim(min(self.data['d']), max(self.data['d']))
         position.set_ylim(0, self.data['F'].max())
         position.set_xlabel('Extension [nm]')
         position.set_ylabel('Force [pN]')
 
-        #plotting original data
+        # plotting original and smoothed data
         position.plot(self.data['d'], self.data['F'], label='Original data')
         position.plot(self.smoothed['d'], self.smoothed['F'], label='Smoothed data')
 
         # plotting fits
-        f_space = np.linspace(0.1, self.data['F'].max())
-        plot_trace_fits(position, self.coefficients, f_space, self.parameters['residues_distance'])
+        plot_trace_fits(position, self.parameters, self.data['F'].max(), self.parameters['residues_distance'])
 
         position.legend()
         return
-
-    # analyzing
-    def analyze(self):
-        print("Analyzing " + str(self.name))
-        if self.logger:
-            self.logger.info("Analyzing trace " + str(self.name))
-        self._generate_smooths()
-        self.fit_contour_lengths()
-        self.find_rupture_forces()
-        # self.find_energies()
-        if self.logger:
-            self.logger.info("Finished trace " + str(self.name))
-        return
-
-    def summary(self):
-        result = []
-        separator = '####\n'
-        result.append(str(self.name))
-        result.append('->\tp_Prot:\t\t' + str(self.coefficients['p_prot']))
-        result.append('->\tp_DNA:\t\t' + str(self.coefficients['p_dna']))
-        result.append('->\tk_Prot:\t\t' + str(self.coefficients['k_prot']))
-        result.append('->\tk_DNA:\t\t' + str(self.coefficients['k_dna']))
-        result.append('->\tl_DNA:\t\t' + str(self.coefficients['l_dna']))
-        result.append('->\tContour length\tgamma\tsigma^2\trupture_force')
-        result.append('->\t' + self.coefficients['l_prot'].to_csv(sep='\t'))
-        result.append('->\tContour length boundaries')
-        result.append('->\t' + str(self.boundaries))
-        result.append(separator)
-
-        return '\n'.join(result)
-
-    def get_info(self):
-        info = []
-        info.append("Trace name " + str(self.name))
-        info.append("Trace source file " + str(self.orig_input))
-        return '\n'.join(info)

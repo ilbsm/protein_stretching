@@ -12,6 +12,7 @@ Welcome to stretchme's!
 
    overview.rst
    start.rst
+   theory.rst
    parameters.rst
    documentation.rst
    licence.rst

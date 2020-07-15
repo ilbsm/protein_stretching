@@ -2,9 +2,7 @@ from .stretching_tools import *
 from .default_parameters import default_parameters
 from .trace import Trace
 from matplotlib import pyplot as plt
-import logging
 import os
-from io import StringIO
 
 
 class Structure:
@@ -13,346 +11,504 @@ class Structure:
     Attributes:
         input_data (str/Pandas Dataframe/None): The data to be analyzed or the path the file with data.
         parameters (dict): The dictionary of measurement parameters.
-        coefficients (dict): The dictionary with fitted coefficients.
         rupture_forces (dict): The dictionary with measured rupture forces.
 
     """
-    def __init__(self, input_data=None, cases=None, columns=None, parameters={}, name=None, debug=False, **kwargs):
+    def __init__(self, input_data=None, cases=None, columns=None, name=None, debug=False, **kwargs):
         self.orig_input = input_data
+        self.debug = debug
+
         # setting the name
         self._set_name(input_data, name)
 
         # initializing log file if debug
-        self.logger = None
-        if debug:
-            logging.basicConfig(filename=self.name + '.log', filemode='w', level=logging.DEBUG,
-                                format='%(asctime)s %(message)s')
-            self.logger = logging.getLogger()
-            self.logger.debug('Initializing the "Structure" class with name: ' + str(self.name))
+        if self.debug:
+            logger = set_logger(self.name, mode='w')
+            logger.debug('Initializing the "Structure" class with name: ' + str(self.name))
+            close_logs(logger)
 
         # setting parameters
-        self._set_parameters(parameters, **kwargs)
+        self.parameters = {}
+        self._set_parameters(**kwargs)
 
         # reading the data (setting the traces)
         self.traces = []
         self._read_data(input_data, cases, columns)
         return
 
-    def _close_logs(self):
-        handlers = self.logger.handlers[:]
-        for handler in handlers:
-            handler.close()
-            self.logger.removeHandler(handler)
-        return
-
-    def _read_data(self, input_data, cases=None, columns=None, **kwargs):
-        # TODO clean up
-        if 'separator' in kwargs.keys():
-            separator = kwargs['separator']
-            del kwargs['separator']
-        else:
-            separator = self.parameters['separator']
-        if 'sheet_name' in kwargs.keys():
-            sheet_name = kwargs['sheet_name']
-            del kwargs['sheet_name']
-        else:
-            sheet_name = self.parameters['sheet_name']
-        if (isinstance(input_data, pd.DataFrame) and len(input_data) == 0) or \
-                (not isinstance(input_data, pd.DataFrame) and not input_data):
-            if self.logger:
-                self.logger.debug("Initializing empty class. Hope you'll add some traces to analyze.")
-            return
-
-        # if there is the input_data to read
-        if isinstance(input_data, pd.DataFrame):
-            data = input_data
-            filename = 'Pandas Dataframe'
-        elif isinstance(input_data, str) and os.path.isfile(input_data):
-            data = self._read_input_file(input_data, separator, sheet_name, cases, columns, **kwargs)
-            filename = input_data
-        else:
-            raise NotImplementedError("Could not understand the input. Currently reading Pandas Dataframe, and paths "
-                                      "to .xls and .csv files.")
-        data.dropna(axis='columns', how='all', inplace=True)
-        headers = list(data)
-        if columns:
-            if isinstance(columns[0], int) and isinstance(columns[0], int) \
-                    and (columns[0] not in headers or columns[1] not in headers):
-                trace_data = data[[headers[columns[0]], headers[columns[1]]]]
-                new_headers = {headers[columns[0]]: 'd', headers[columns[1]]: 'F'}
-            elif columns[0] in headers and columns[1] in headers:
-                trace_data = data[columns]
-                new_headers = {columns[0]: 'd', columns[1]: 'F'}
-            else:
-                raise NotImplementedError("Could not understand the columns to be read.")
-
-            trace_name = len(self.traces)
-            trace_data = trace_data.rename(columns=new_headers)
-            if 'unit' in kwargs.keys() and kwargs['unit'] == 'A':
-                trace_data['d'] = trace_data['d'] / 10
-            self.traces.append(Trace(trace_name, trace_data, filename, logger=self.logger,
-                                     parameters=self._set_trace_parameters(kwargs)))
-        else:
-            for k in range(len(headers)%2, len(headers), 2):
-                # TODO take care of "index list out of range here, if the data are given in wrong format"
-                trace_data = data[[headers[k], headers[k + 1]]]
-                new_headers = {headers[k]: 'd', headers[k + 1]: 'F'}
-                trace_data = trace_data.rename(columns=new_headers)
-                if headers[k][0] == 'd':
-                    trace_name = headers[k].strip('dF_ ')
-                else:
-                    trace_name = len(self.traces)
-                if 'unit' in kwargs.keys() and kwargs['unit'] == 'A':
-                    trace_data['d'] = trace_data['d'] / 10
-                if not cases or trace_name in cases:
-                    self.traces.append(Trace(trace_name, trace_data, filename, logger=self.logger,
-                                     parameters=self._set_trace_parameters(kwargs)))
-        return
-
-    def _read_input_file(self, filename, separator, sheet_name, cases, columns, **kwargs):
-        if self.logger:
-            self.logger.info(
-                'Reading ' + filename + ' cases ' + str(cases) + ' columns ' + str(columns) + str(kwargs))
-        if '.xls' in filename:
-            data = pd.read_excel(filename, sheet_name=sheet_name)
-        else:  # the .csv-like case
-            if '.csv' not in filename:
-                if self.logger:
-                    self.logger.warning(
-                        "Treating the input file as .csv file, although it does not have such extension.")
-            with open(filename, 'r') as myfile:
-                content = myfile.read().split("#")[-1].strip()
-            if separator != ' ':
-                data = pd.read_csv(StringIO(content), sep=separator, escapechar='#')
-            else:
-                data = pd.read_csv(StringIO(content), delim_whitespace=True, escapechar='#')
-        return data
-
+    ''' Methods for users '''
     def add_trace(self, filename, cases=None, columns=None, **kwargs):
-        self._read_data(filename, cases, columns, **kwargs)
-        return
+        """ Adding the trace to the structure.
 
-    # setting parameters
-    def _set_name(self, filename, name):
-        if name:
-            self.name = name
-        elif isinstance(filename, str) and len(filename) > 0:
-            self.name = os.path.splitext(os.path.basename(filename))[0]
-        else:
-            self.name = 'Experiment'
-        return 0
+                Args:
+                    filename (str/Pandas Dataframe): Path to the file, or Pandas Dataframe with the data of the trace.
+                    cases (list, optional): The list of cases to be added. If None, all cases will traces will be used.
+                        Default: None.
+                    columns ([str, str], optional): The list of headers of the columns containing the distance and
+                        corresponding force. If None, first two columns will be used. Default: None
+                    **kwargs: The parameters which are going to be set for the traces. Accepted parameters are:
+                    'linker' ('dna'/None), 'source' ('experiment'/'cg'/'aa'), 'speed' (float), 'states' (int),
+                    'residues_distance', (float), 'low_force_cutoff' (float), 'initial_guess' (dictionary), 'sheet_name'
+                    (string), 'separator' (char), unit (string).
 
-    def _set_parameters(self, parameters, **kwargs):
-        self.parameters = default_parameters
-        if 'source' in self.parameters.keys():
-            self.parameters['initial_guess'] = self.parameters['initial_guess'][self.parameters['source']]
-        else:
-            self.parameters['initial_guess'] = None
-        for key in parameters.keys():
-            self.parameters[key] = parameters[key]
-        for key in kwargs:
-            self.parameters[key] = kwargs[key]
-        if self.logger:
-            self.logger.debug("Parameters:\t" + str(parameters))
-        return
+                Returns:
+                    List of the names of the Traces added.
+                """
 
-    def _set_trace_parameters(self, additional={}):
-        # TODO clean up
-        parameters = {}
-        for key in ['linker', 'source', 'speed', 'residues_distance', 'states', 'low_force_cutoff']:
-            parameters[key] = self.parameters[key]
-            if key in additional.keys():
-                parameters[key] = additional[key]
-        key = 'initial_guess'
-        if key in additional.keys():
-            parameters[key] = additional[key]
-        elif key in self.parameters.keys() and isinstance(self.parameters[key], dict):
-            parameters[key] = self.parameters[key]
-        else:
-            parameters[key] = default_parameters[key][parameters['source']]
-        return parameters
+        n = len(self.traces)
+        self._read_data(filename, cases=cases, columns=columns, **kwargs)
+        names = [str(x) for x in range(n, len(self.traces))]
+        return names
 
-    def set_residues(self, value):
-        self.parameters['residues'] = value
-        if self.logger:
-            self.logger.info("Set 'residues' value to " + str(value))
-        return
+    def set(self, **kwargs):
+        """ Setting the parameter/coefficient to the Structure. The parameters to be set are given as keyword arguments.
 
-    def set_distance(self, value):
-        self.parameters['distance'] = value
-        if self.logger:
-            self.logger.info("Set 'distance' value to " + str(value))
-        return
+                Args:
+                    **kwargs: The parameters which are going to be set. Accepted parameters are: 'linker' ('dna'/None),
+                    'source' ('experiment'/'cg'/'aa'), 'speed' (float), 'states' (int), 'residues_distance', (float),
+                    'low_force_cutoff' (float), 'initial_guess' (dictionary), 'plot_columns' (int).
 
-    def set_linker(self, value):
-        self.parameters['linker'] = value
-        if self.logger:
-            self.logger.info("Set 'linker' value to " + str(value))
-        return
+                Returns:
+                    True if successful, False otherwise.
+                """
 
-    def set_source(self, value):
-        self.parameters['source'] = value
-        if self.logger:
-            self.logger.info("Set 'source' value to " + str(value))
-        return
+        self.parameters = {**self.parameters, **kwargs}
+        for trace in self.traces:
+            trace.set(**kwargs)
 
-    def set_unit(self, value):
-        self.parameters['unit'] = value
-        if self.logger:
-            self.logger.info("Set 'unit' value to " + str(value))
-        return
+        if self.debug:
+            logger = set_logger(self.name)
+            logger.info("Structure parameters updated. Current parameters: " + str(self.parameters))
+            close_logs(logger)
+        return True
 
-    def set_speed(self, value):
-        self.parameters['speed'] = value
-        if self.logger:
-            self.logger.info("Set 'speed' value to " + str(value))
-        return
-
-    def set_residues_distance(self, value):
-        self.parameters['residues_distance'] = value
-        if self.logger:
-            self.logger.info("Set 'residues_distance' value to " + str(value))
-        return
-
-    def set_minimal_stretch_distance(self, value):
-        self.parameters['minimal_stretch_distance'] = value
-        if self.logger:
-            self.logger.info("Set 'minimal_stretch_distance' value to " + str(value))
-        return
-
-    def set_plot_columns(self, value):
-        self.parameters['plot_columns'] = value
-        if self.logger:
-            self.logger.info("Set 'plot_columns' value to " + str(value))
-        return
-
-    def set_high_force_cutoff(self, value):
-        self.parameters['high_force_cutoff'] = value
-        if self.logger:
-            self.logger.info("Set 'high_force_cutoff' value to " + str(value))
-        return
-
-    def set_low_force_cutoff(self, value):
-        self.parameters['low_force_cutoff'] = value
-        if self.logger:
-            self.logger.info("Set 'low_force_cutoff' value to " + str(value))
-        return
-
-    def set_max_rupture_force(self, value):
-        self.parameters['max_rupture_force'] = value
-        if self.logger:
-            self.logger.info("Set 'max_rupture_force' value to " + str(value))
-        return
-
-    def set_initial_guess(self, value):
-        self.parameters['initial_guess'] = value
-        if self.logger:
-            self.logger.info("Set 'initial_guess' value to " + str(value))
-        return
-
-    def set_states(self, value):
-        self.parameters['states'] = value
-        if self.logger:
-            self.logger.info("Set 'states' value to " + str(value))
-        return
-
-    # analyzing
-    def _collect_coefficients(self):
-        self.coefficients = {}
-        self.coefficients['p_prot'] = np.mean(np.array([t.coefficients.get('p_prot', 0) for t in self.traces]))
-        self.coefficients['p_dna'] = np.mean(np.array([t.coefficients.get('p_dna', 0) for t in self.traces]))
-        self.coefficients['l_dna'] = np.mean(np.array([t.coefficients.get('l_dna', 0) for t in self.traces]))
-        k_prots = [t.coefficients.get('k_prot', None) for t in self.traces]
-        if None in k_prots:
-            self.coefficients['k_prot'] = None
-        else:
-            self.coefficients['k_prot'] = np.mean(np.array(k_prots))
-        k_dnas = [t.coefficients.get('k_dna', None) for t in self.traces]
-        if None in k_dnas:
-            self.coefficients['k_dna'] = None
-        else:
-            self.coefficients['k_dna'] = np.mean(np.array(k_dnas))
-        return
-
-    def _find_paths(self):
-        return
-
-    def analyze(self):
-        if self.logger:
-            self.logger.info("Starting analysis of the experiment.")
-        for t in self.traces:
-            t.analyze()
-        self._collect_coefficients()
-        self.make_plots()
-        self._find_paths()
-        # self.save_data()
-        return
-
-    # plotting
     def make_plots(self):
-        self._make_histograms()
-        self._make_partial_plots()
-        return
+        """ Plotting all the output figures.
 
-    def _make_partial_plots(self):
-        if self.logger:
-            print("Making plots of individual fits.")
+
+                Returns:
+                    True if successful, False otherwise.
+                """
+
+        self.make_histograms()
+        self.make_partial_plots()
+        return True
+
+    def make_partial_plots(self, output=None):
+        """ Plot the fits for each trace in structure.
+
+                Args:
+                    output (str, optional): The output name for the figure.
+
+                Returns:
+                    True if successful, False otherwise.
+                """
+
+        if self.debug:
+            logger = set_logger(self.name)
+            logger.info("Plotting fits of individual traces")
+            close_logs(logger)
+
         # setting the figure
         number = len(self.traces)                                   # number of traces to plot
         columns = self.parameters['plot_columns']                   # number of columns
         rows = max(int(np.ceil(float(number) / columns)), 2)        # number of rows
         fig = plt.subplots(dpi=600, figsize=(10*int(columns), 5*int(rows)))
         axes = []
-        max_contour_length = self.coefficients['boundaries'][1]     # to align plots
+        max_contour_length = self.parameters['boundaries'][1]     # to align plots
 
         # plotting each trace
         for k in range(0, number):
-            try:
-                axes.append(plt.subplot2grid((rows, 2 * columns), (int(k / columns), (2 * k) % (2 * columns))))
-                self.traces[k]._plot_histogram(position=axes[-1], max_contour_length=max_contour_length)
-                axes.append(plt.subplot2grid((rows, 2 * columns), (int(k / columns), ((2 * k) + 1) % (2 * columns))))
-                self.traces[k]._plot_fits(position=axes[-1])
-            except:
-                pass
-
+            axes.append(plt.subplot2grid((rows, 2 * columns), (int(k / columns), (2 * k) % (2 * columns))))
+            self.traces[k].plot_histogram(position=axes[-1], max_contour_length=max_contour_length)
+            axes.append(plt.subplot2grid((rows, 2 * columns), (int(k / columns), ((2 * k) + 1) % (2 * columns))))
+            self.traces[k].plot_fits(position=axes[-1])
         plt.tight_layout()
 
-        if self.logger:
-            print("Saving contour lengths figure to " + self.name + '_contour_lengths.png')
-        plt.savefig(self.name + '_contour_lengths.png')
+        if not output:
+            ofile = self.name + '_contour_lengths.png'
+        else:
+            ofile = output
+
+        if self.debug:
+            logger = set_logger(self.name)
+            logger.info("Saving fits figure to " + ofile)
+            close_logs(logger)
+
+        plt.savefig(ofile)
+        plt.close(fig)
+        return True
+
+    def make_histograms(self, output=None):
+        """ Plot the cumulative histograms for all traces in structure.
+
+                Args:
+                    output (str, optional): The output name for the figure.
+
+                Returns:
+                    True if successful, False otherwise.
+                """
+
+        if self.debug:
+            logger = set_logger(self.name)
+            logger.info("Making histograms.")
+            close_logs(logger)
+
+        fig, axes = plt.subplots(2, 2, dpi=600, figsize=(10, 10))
+
+        self._plot_total_contour_length_histo(axes[0, 0])   # the total contour length histogram
+        self._plot_overlaid_traces(axes[0, 1])              # the overlaid smoothed traces
+        self._plot_forces_histogram(axes[1, 0])             # the rupture forces histogram
+        self._plot_dhs_analysis(axes[1, 1])                 # Dudko analysis
+        fig.tight_layout()
+
+        if not output:
+            ofile = self.name + '_histograms.png'
+        else:
+            ofile = output
+
+        if self.debug:
+            logger = set_logger(self.name)
+            logger.info("Saving histograms figure to " + ofile)
+            close_logs(logger)
+
+        plt.savefig(ofile)
+        plt.close(fig)
+        return True
+
+    def plot_contour_length(self, output=None):
+        """ Plot histogram of contour length.
+
+                 Args:
+                     output (str, optional): The output name for the figure.
+
+                 Returns:
+                     True if successful, False otherwise.
+                 """
+
+        fig, axes = plt.subplots(1, 1, dpi=600, figsize=(5, 5))
+        self._plot_total_contour_length_histo(axes[0])
+        if not output:
+            ofile = self.name + '_contour_length.png'
+        else:
+            ofile = output
+
+        plt.savefig(ofile)
+        plt.close()
         return
 
-    def _plot_total_contour_length_histo(self, position, significance=0.001):
+    def plot_traces(self, output=None):
+        """ Plot overlaid traces.
+
+                  Args:
+                      output (str, optional): The output name for the figure.
+
+                  Returns:
+                      True if successful, False otherwise.
+                  """
+
+        fig, axes = plt.subplots(1, 1, dpi=600, figsize=(5, 5))
+        self._plot_overlaid_traces(axes[0])
+
+        if not output:
+            ofile = self.name + '_traces.png'
+        else:
+            ofile = output
+
+        plt.savefig(ofile)
+        plt.close()
+        return True
+
+    def plot_forces(self, output=None):
+        """ Plot histogram of rupture forces.
+
+                  Args:
+                      output (str, optional): The output name for the figure.
+
+                  Returns:
+                      True if successful, False otherwise.
+                  """
+
+        fig, axes = plt.subplots(1, 1, dpi=600, figsize=(5, 5))
+        self._plot_forces_histogram(axes[0])
+
+        if not output:
+            ofile = self.name + '_rupture_forces.png'
+        else:
+            ofile = output
+
+        plt.savefig(ofile)
+        plt.close()
+        return True
+
+    def plot_dhs(self, output=None):
+        """ Plot Dudko-Hummer-Szabo analysis.
+
+                  Args:
+                      output (str, optional): The output name for the figure.
+
+                  Returns:
+                      True if successful, False otherwise.
+                  """
+
+        fig, axes = plt.subplots(1, 1, dpi=600, figsize=(5, 5))
+        self._plot_dhs_analysis(axes[0])
+
+        if not output:
+            ofile = self.name + '_dhs_analysis.png'
+        else:
+            ofile = output
+
+        plt.savefig(ofile)
+        plt.close()
+        return True
+
+    def collect_coefficients(self):
+        """ Collecting the coefficients for the whole structure as the means of coefficients from all traces.
+
+                  Returns:
+                      True if successful, False otherwise.
+                  """
+
+        if self.debug:
+            logger = set_logger(self.name)
+            logger.info("Collecting coefficients")
+            close_logs(logger)
+
+        # collecting the traces coefficients
+        coefficients = ['p_prot', 'k_prot', 'p_dna', 'k_dna', 'l_dna']
+        for c in coefficients:
+            self.parameters[c] = np.mean(np.array([t.parameters.get(c, 0) for t in self.traces]))
+
+        # creating the data for contour length histogram
+        for t in self.traces:
+            self.hist_values += list(t.data['hist_values'])
+
+        # decomposing the contour length histogram = obtaining the contour lengths
+        parameters, boundaries = decompose_histogram(np.array(self.hist_values), states=self.parameters['states'],
+                                                     significance=self.parameters['significance'])
+        self.parameters['l_prot'] = parameters
+        self.parameters['boundaries'] = boundaries
+
+        # collecting the rupture forces
+        self._analyze_rupture_forces()
+
+        # perform Dudko-Hummer-Szabo analysis
+        self._analyze_dhs()
+        return True
+
+    def analyze(self):
+        """ Perform the whole analysis.
+
+                  Returns:
+                      True if successful, False otherwise.
+                  """
+        if self.debug:
+            logger = set_logger(self.name)
+            logger.info("Starting analysis of the experiment")
+            close_logs(logger)
+
+        for t in self.traces:
+            t.analyze()
+
+        self.collect_coefficients()
+        self.make_plots()
+        self.save_data()
+        return
+
+    def save_data(self, output=None):
+        """ Save the fitted data to the text file.
+
+                  Args:
+                      output (str, optional): The output name for the file.
+
+                  Returns:
+                      True if successful, False otherwise.
+                  """
+
+        separator = '################\n'
+        if not output:
+            oname = str(self.name) + '_results'
+        else:
+            oname = output
+
+        if self.debug:
+            logger = set_logger(self.name)
+            logger.info("Saving data to " + oname)
+            close_logs(logger)
+
+        result = [self._get_general_info(separator),
+                  self._get_traces_info(separator),
+                  self._get_cummulative_statistics(separator),
+                  self._get_force_analysis_info(separator)]
+
+        with open(oname, 'w') as ofile:
+            ofile.write('\n'.join(result))
+        return True
+
+    ''' Protected methods '''
+    # getting info
+    def _get_general_info(self, separator):
+        info = ['Experiment name\t' + str(self.name),
+                'Experiment source file\t' + str(self.orig_input),
+                'Number of traces:\t' + str(len(self.traces)),
+                'Data source\t' + str(self.parameters['source']),
+                'Data unit\t' + str(self.parameters['unit']),
+                'Structure linker\t' + str(self.parameters['linker']),
+                'Number of states\t' + str(self.parameters['states']),
+                'Pulling speed\t' + str(self.parameters['speed']),
+                'Low force cutoff\t' + str(self.parameters['low_force_cutoff']),
+                'Significance\t' + str(self.parameters['significance']),
+                'Fit initial guess\t' + str(self.parameters['initial_guess']),
+                'Residue distance (nm)\t' + str(self.parameters['residue_distance']),
+                'Sheet name\t' + str(self.parameters['sheet_name']),
+                'Separator\t' + str(self.parameters['separator']),
+                separator]
+        return '\n'.join(info)
+
+    def _get_traces_info(self, separator):
+        result = ['Summary of individual curves'] + [t.get_info() for t in self.traces] + [separator]
+        return '\n'.join(result)
+
+    def _get_cummulative_statistics(self, separator):
+        result = ['Summary of the cumulative statistics',
+                  'p_Prot:\t\t' + str(self.parameters['p_prot']),
+                  'k_Prot:\t\t' + str(self.parameters['k_prot']),
+                  'p_DNA:\t\t' + str(self.parameters['p_dna']),
+                  'k_DNA:\t\t' + str(self.parameters['k_dna']),
+                  'l_DNA:\t\t' + str(self.parameters['l_dna']),
+                  'Contour length\tgamma\t',
+                  self.parameters['l_prot'].to_csv(sep='\t'),
+                  separator]
+        return '\n'.join(result)
+
+    def _get_force_analysis_info(self, separator):
+        result = ['Dudko-Hummer-Szabo analysis', self.forces.to_csv(sep='\t')]
+        result += [str(key) + '\t' + str(v) + '\t' + str(self.dhs_results[key][v])
+                   for key in self.dhs_results.keys() for v in self.dhs_results[key].keys()]
+        result.append(separator)
+        return '\n'.join(separator)
+
+    # reading
+    def _read_data(self, input_data=None, cases=None, columns=None, **kwargs):
+        """ Reading the data and splitting them into Traces """
+        parameters = {**self.parameters, **kwargs}
+
+        if isinstance(input_data, pd.DataFrame):
+            data = read_dataframe(input_data, cases, columns)
+        else:
+            data = read_from_file(input_data, cases, columns, parameters, self.name, self.debug)
+
+        # preprocessing data
+        data.dropna(axis='columns', how='all', inplace=True)
+        if len(data) == 0:
+            if self.debug:
+                logger = set_logger(self.name)
+                logger.info("Initializing empty class. Hope you'll add some traces to analyze.")
+                close_logs(logger)
+                return
+
+        # dividing data into traces
+        headers = list(data)
+        for k in range(len(headers) % 2, len(headers), 2):    # if the first column is the index
+            if headers[k][0] == 'd':
+                trace_name = headers[k].strip('d_')
+            else:
+                trace_name = str(int(k/2))
+            trace_data = data[[headers[k], headers[k + 1]]]
+            new_headers = {headers[k]: 'd', headers[k + 1]: 'F'}
+            trace_data = trace_data.rename(columns=new_headers)
+            if parameters['unit'] == 'A':
+                trace_data['d'] = trace_data['d'] / 10
+            self.traces.append(Trace(trace_name, trace_data, input_data, experiment_name=self.name, debug=self.debug,
+                                     parameters=self.parameters))
+        return True
+
+    # setting
+    def _set_name(self, filename, name):
+        """ Setting the Structure name """
+        if name:
+            self.name = name
+        elif isinstance(filename, str) and len(filename) > 0:       # possibly the path to file
+            self.name = os.path.splitext(os.path.basename(filename))[0]
+        else:
+            self.name = 'Experiment'
+        return 0
+
+    def _set_parameters(self, **kwargs):
+        """ The method of setting the parameters for the whole Structure """
+        # filling in the default parameters
+        self.parameters = default_parameters
+
+        # substituting parameters
+        for key in kwargs:
+            self.parameters[key] = kwargs[key]
+
+        # dealing with initial_guess
+        if 'initial_guess' not in list(kwargs.keys()):
+            self.parameters['initial_guess'] = self.parameters['initial_guess'][self.parameters['source']]
+
+        # setting other attributes
+        self.hist_values = []
+        self.forces = pd.DataFrame(columns=['means', 'rupture_forces'])
+        self.states = []
+        self.max_f = 0
+        self.dhs_states = []
+        self.dhs_results = {}
+
+        if self.debug:
+            logger = set_logger(self.name)
+            logger.debug("Set structure parameters:\t" + str(self.parameters))
+            close_logs(logger)
+        return
+
+    # plotting
+    """ Plotting the contour length panel """
+    def _plot_total_contour_length_histo(self, position):
+        if not self.hist_values:
+            if self.debug:
+                logger = set_logger(self.name)
+                logger.debug("Structure.hist_values empty, nothing to plot. Did you run .analyze() or "
+                             ".collect_coefficients ?")
+                close_logs(logger)
+            return
+        if self.parameters['boundaries']:
+            bound = self.parameters['boundaries'][1]
+        else:
+            bound = max(self.hist_values)
+
+        if self.debug:
+            logger = set_logger(self.name)
+            logger.info("Making cumulative contour length histograms.")
+            close_logs(logger)
+
+        # setting the scene
         position.set_xlabel('Contour length')
         position.set_ylabel('Occurences')
         position.set_title('Contour length histogram')
-
-        # collecting the data from all traces
-        hist_values = []
-        for t in self.traces:
-            hist_values += list(t.data['hist_values'])
+        position.set_xlim(0, bound)
 
         # plotting histogram
-        position.hist(hist_values, bins=500, density=True, alpha=0.5)
+        position.hist(self.hist_values, bins=500, density=True, alpha=0.5)
 
-        # decomposing histogram
-        parameters, boundaries = decompose_histogram(np.array(hist_values), significance, self.parameters['states'])
-        self.coefficients['l_prot'] = parameters
-        self.coefficients['boundaries'] = boundaries
-        position.set_xlim(0, boundaries[1])
-
-        # plotting decomposed histogram
-        l_space = np.linspace(0, boundaries[1], 1001)
-        plot_decomposed_histogram(position, self.coefficients['l_prot'], l_space, self.parameters['residues_distance'])
+        # plotting decomposition
+        plot_decomposed_histogram(position, self.parameters['l_prot'], bound, self.parameters['residues_distance'])
 
         position.legend()
         return
 
     def _plot_overlaid_traces(self, position):
+        if self.debug:
+            logger = set_logger(self.name)
+            logger.info("Plotting overlaid traces.")
+            close_logs(logger)
+
+        # setting the scene
         position.set_xlabel('Distension [nm]')
         position.set_ylabel('Force [pN]')
         position.set_title('All smoothed traces overlaid')
         max_f = 0
+        position.set_ylim(0, max_f)
 
         # plotting overlaid smoothed traces
         for k in range(len(self.traces)):
@@ -360,181 +516,110 @@ class Structure:
             position.plot(t.smoothed['d'], t.smoothed['F'], color=get_gray_shade(k, len(self.traces)))
             max_f = max(max_f, t.data['F'].max())
 
-        position.set_ylim(0, max_f)
-
         # plotting fits
-        f_space = np.linspace(0.1, max_f)
-        plot_trace_fits(position, self.coefficients, f_space, self.parameters['residues_distance'])
+        plot_trace_fits(position, self.parameters, max_f, self.parameters['residues_distance'])
 
         position.legend()
         return
 
-    def _plot_forces_histogram(self, position, significance=0.001):
+    def _plot_forces_histogram(self, position):
+        if not self.forces:
+            if self.debug:
+                logger = set_logger(self.name)
+                logger.debug("Structure.forces empty, nothing to plot. Did you run .analyze() or "
+                             ".collect_coefficients ?")
+                close_logs(logger)
+            return
+
+        if self.debug:
+            logger = set_logger(self.name)
+            logger.info("Making the rupture forces histogram.")
+            close_logs(logger)
+
+        # setting the scene
         position.set_xlabel('Force [pN]')
         position.set_ylabel('Occurences')
         position.set_title('Rupture force histogram')
-
-        # collecting forces with respective contour lengths
-        forces = pd.concat([t.coefficients['l_prot'][['means', 'rupture_forces']].dropna() for t in self.traces],
-                           ignore_index=True)
-        self.max_f = forces['rupture_forces'].max()
-        columns = ['l_prot', 'p_prot', 'k_prot', 'means', 'widths', 'heights', 'beg', 'end']
-        self.forces_cofficients = pd.DataFrame(columns=columns)
         f_space = np.linspace(0, self.max_f)
-        states = []
 
-        # calculating the probability of force contour length coming from calculated contour length for whole experiment
-        for index, row in self.coefficients['l_prot'][['means', 'widths', 'heights']].iterrows():
-            mean, width, height = tuple(row.to_numpy())
-            forces['state_' + str(index)] = gauss(np.array(forces['means']), height, mean, width)
-            states.append('state_' + str(index))
+        # plotting the histograms and the fitted contour
+        for k in range(len(self.states)):
+            state = self.states[k]
+            data_to_plot = np.array(self.forces[self.forces['state'] == state]['rupture_forces'].dropna())
+            # TODO the line below is redundant with _analyze_dhs
+            parameters, boundaries = decompose_histogram(data_to_plot, significance=self.parameters['significance'])
 
-        # selecting the corresponding state
-        forces['state'] = forces[states].idxmax(axis=1)
-
-        # plotting the histogram and the fitted contour
-        for k in range(len(states)):
-            state = states[k]
-            data = np.array(forces[forces['state'] == state]['rupture_forces'].dropna())
-            parameters, boundaries = decompose_histogram(data, significance)
             y_plot = np.zeros(len(f_space))
-            for index, row in parameters.iterrows():
+            for index, row in parameters.iterrows():    # if there is more than 1 contour length for this force
                 y_plot += gauss(f_space, row['heights'], row['means'], row['widths'])
-            label = '; '.join([str(round(x, 3)) for x in list(parameters['means'].values)]) + ' pN'
-            position.hist(data, bins=20, color=get_color(k, len(states)), alpha=0.5, density=True, label=label)
-            position.plot(f_space, y_plot, linestyle='--', color=get_color(k, len(states)))
 
-            # preparing data for Dudko analysis
-            state_index = int(state.strip('state_'))
-            l_prot = self.coefficients['l_prot'].loc[state_index, 'means']
-            parameters['l_prot'] = np.array([l_prot for _ in range(len(parameters))])
-            parameters['p_prot'] = np.array([self.coefficients['p_prot'] for _ in range(len(parameters))])
-            parameters['k_prot'] = np.array([self.coefficients['k_prot'] for _ in range(len(parameters))])
-            parameters['beg'] = np.array([boundaries[0] for _ in range(len(parameters))])
-            parameters['end'] = np.array([boundaries[1] for _ in range(len(parameters))])
-            self.forces_cofficients = pd.concat([self.forces_cofficients, parameters], ignore_index=True)
+            label = '; '.join([str(round(x, 3)) for x in list(parameters['means'].values)]) + ' pN'
+            position.hist(data_to_plot, bins=20, color=get_color(k, len(self.states)), alpha=0.5, density=True,
+                          label=label)
+            position.plot(f_space, y_plot, linestyle='--', color=get_color(k, len(self.states)))
 
         position.legend()
         return
 
     def _plot_dhs_analysis(self, position):
-        self.dhs_results = {}
+        # setting the scene
         position.set_title('Dudko-Hummer-Szabo lifetime')
         position.set_xlabel('Rupture force [pN]')
         position.set_ylabel('State lifetime [s]')
+        position.set_ylim(top=1000)
         position.set_yscale('log')
-        if not self.parameters['speed']:
-            self.parameters['speed'] = 1
-            if self.logger:
-                self.logger.info("Unknown extension speed. Set extension speed to 1. "
-                                 "You may set the speed using Experiment.set_speed() function")
 
-        k = 0
-        columns = ['l_prot', 'p_prot', 'k_prot', 'means', 'widths', 'heights', 'beg', 'end']
-        for index, row in self.forces_cofficients[columns].iterrows():
-            l_prot, p_prot, k_prot, mean, width, height, beg, end = tuple(row.to_numpy())
+        for k in range(len(self.dhs_states)):
+            beg, end, l_prot, force, lifetime = self.dhs_states[k]
             f_space = np.linspace(beg, end, 100)
-
-            force_load = get_force_load(f_space, self.parameters['speed'], l_prot, p_prot, k_prot)
-            probability = gauss(f_space, height, mean, width)
-            denominator = probability * force_load
-            nominator = integrate_gauss(f_space, mean, width)
-
-            # calculating the lifetime and fitting it
-            lifetime = nominator / denominator
-
-            f_space = f_space[lifetime < 10000]
-            lifetime = lifetime[lifetime < 10000]
-            parameters = dhs_feat(f_space, lifetime)
-            self.dhs_results[(round(float(row['l_prot']), 3), round(float(row['means']), 3))] = parameters
-            label = 'l_prot=' + str(round(float(row['l_prot']), 3)) + '; force=' + str(round(float(row['means']), 3))
-            position.plot(f_space, lifetime, label=label, color=get_color(k, len(self.forces_cofficients)))
-            k += 1
-
+            label = 'l_prot=' + str(round(l_prot, 3)) + '; force=' + str(round(force, 3))
+            position.plot(f_space, lifetime, label=label, color=get_color(k, len(self.dhs_states)))
         position.legend()
         return
 
-    def _make_histograms(self):
-        if self.logger:
-            self.logger.info("Making histograms.")
-        fig, axes = plt.subplots(2, 2, dpi=600, figsize=(10, 10))
+    # analyzing
+    def _analyze_rupture_forces(self):
+        """ Collecting and analyzing rupture forces"""
 
-        self._plot_total_contour_length_histo(axes[0, 0])   # the total contour length histogram
-        self._plot_overlaid_traces(axes[0, 1])              # the overlaid smoothed traces
-        # TODO take care of extremal cases with only one fit for the forces and Dudko
-        try:
-            self._plot_forces_histogram(axes[1, 0])             # the rupture forces histogram
-        except:
-            pass
-        try:
-            self._plot_dhs_analysis(axes[1, 1])               # Dudko analysis
-        except:
-            pass
+        # collecting forces
+        self.forces = pd.concat([t.parameters['l_prot'][['means', 'rupture_forces']].dropna() for t in self.traces],
+                                ignore_index=True)
+        self.max_f = self.forces['rupture_forces'].max()
 
-        fig.tight_layout()
-        if self.logger:
-            self.logger.info("Saving histograms figure to " + self.name + '_histograms.png')
-        plt.savefig(self.name + '_histograms.png')
-        return
+        # assigning a rupture force to the state from the list of cumulative states
+        # TODO - calculate it using Cauchy distribution
+        for index, row in self.parameters['l_prot'][['means', 'widths', 'heights']].iterrows():
+            mean, width, height = tuple(row.to_numpy())
+            self.forces['state_' + str(index)] = gauss(np.array(self.forces['means']), height, mean, width)
+            self.states.append('state_' + str(index))
 
-    # printing the data
-    def save_data(self):
-        oname = str(self.name) + '_results'
-        separator = '################\n'
+        # selecting the corresponding state
+        self.forces['state'] = self.forces[self.states].idxmax(axis=1)
+        return True
 
-        if self.logger:
-            self.logger.info("Saving output to " + oname)
-        result = []
+    def _analyze_dhs(self):
+        # TODO clean it up
+        """ Calculating the data for the Dudko-Hummer-Szabo analysis of the states lifetime"""
+        for k in range(len(self.states)):
+            state = self.states[k]
+            data = np.array(self.forces[self.forces['state'] == state]['rupture_forces'].dropna())
+            parameters, boundaries = decompose_histogram(data, significance=self.parameters['significance'])
+            state_index = int(state.strip('state_'))
+            l_prot = self.parameters['l_prot'].loc[state_index, 'means']
+            beg, end = boundaries
+            f_space = np.linspace(beg, end, 100)
 
-        # general info
-        result.append('General info:')
-        result.append('Name:\t\t\t' + str(self.name))
-        result.append('Residues:\t\t\t' + str(self.parameters['residues']))
-        result.append('Linker:\t\t\t' + str(self.parameters['linker']))
-        result.append('Unit:\t\t\t' + str(self.parameters['unit']))
-        result.append('Data source:\t\t' + str(self.parameters['source']))
-        result.append('Pulling speed:\t\t\t' + str(self.parameters['speed']))
-        result.append(separator)
+            for ind, row in parameters[['means', 'widths', 'heights']].iterrows():
+                mean, width, height = tuple(row.to_numpy())
 
-        # summary of individual curve
-        result.append('Summary of individual curves')
-        for t in self.traces:
-            result.append(t.summary())
-        result.append(separator)
+                force_load = get_force_load(f_space, self.parameters['speed'], l_prot,
+                                            self.parameters['p_prot'], self.parameters['k_prot'])
+                probability = gauss(f_space, height, mean, width)
+                denominator = probability * force_load
+                nominator = integrate_gauss(f_space, mean, width)
 
-        # summary of the cumulative statistics
-        result.append('Summary of the cumulative statistics')
-        result.append('p_Prot:\t\t' + str(self.coefficients['p_prot']))
-        result.append('p_DNA:\t\t' + str(self.coefficients['p_dna']))
-        result.append('k_Prot:\t\t' + str(self.coefficients['k_prot']))
-        result.append('k_DNA:\t\t' + str(self.coefficients['k_dna']))
-        result.append('l_DNA:\t\t' + str(self.coefficients['l_dna']))
-        result.append('Contour length\tgamma\tsigma^2')
-        result.append(self.coefficients['l_prot'].to_csv(sep='\t'))
-        result.append('Contour length boundaries')
-        result.append(str(self.coefficients['boundaries']))
-        result.append(separator)
-
-        # Dudko-Hummer-Szabo analysis
-        result.append('Dudko-Hummer-Szabo analysis')
-        result.append(self.forces_cofficients.to_csv(sep='\t'))
-        for key in self.dhs_results.keys():
-            for v in self.dhs_results[key].keys():
-                result.append(str(key) + '\t' + str(v) + '\t' + str(self.dhs_results[key][v]))
-        result.append(separator)
-
-        with open(oname, 'w') as ofile:
-            ofile.write('\n'.join(result))
-        # TODO make something intelligent with the loggers, to close it without the need to run 'save_data'
-        self._close_logs()
-        return
-
-    def get_info(self):
-        info = []
-        info.append('Experiment name ' + str(self.name))
-        info.append('Experiment source file ' + str(self.orig_input))
-        info.append('Number of traces: ' + str(len(self.traces)))
-        info.append('Details of traces: ' + str(len(self.traces)))
-        for t in self.traces:
-            info.append(t.get_info())
-        return '\n'.join(info)
+                # calculating the lifetime and fitting it
+                lifetime = nominator / denominator
+                self.dhs_states.append([beg, end, l_prot, mean, lifetime])
+                self.dhs_results[(round(l_prot, 3), round(mean, 3))] = dhs_feat(f_space, lifetime)
+        return True

@@ -2,18 +2,18 @@
 
 import pandas as pd
 import numpy as np
-from .default_parameters import default_parameters
+import logging
 import matplotlib.colors as mcolors
-from scipy.optimize import curve_fit, minimize, fmin
+from os import path
+from io import StringIO
+from scipy.optimize import curve_fit, minimize
 from scipy.special import erf
+from scipy.stats import cauchy, ks_2samp
+from scipy.signal import argrelextrema
 from sklearn.mixture import GaussianMixture
 from sklearn.neighbors import KernelDensity
-from scipy.signal import argrelextrema
 from colorsys import hsv_to_rgb
-from scipy.stats import cauchy, ks_2samp
-from matplotlib import pyplot as plt
-from mpl_toolkits import mplot3d
-from lmfit import Model
+from .default_parameters import default_parameters
 
 
 # preprocessing
@@ -21,7 +21,7 @@ def pack_parameters(filename, sheet_name=0, linker=None, unit='nm', speed=1, res
                     low_force_cutoff=0.1, plot_columns=4, initial_guess=None, separator=None):
 
     """ Filtering and packing the parameters for a clearer view."""
-    # TODO add filters of the input parameters
+    # TODO add filters of the input parameters, include all the paramters
     parameters = {
         'filename': filename,
         'sheet_name': sheet_name,
@@ -47,6 +47,68 @@ def running_average(x, y, window=None):
     x_smooth = np.convolve(x, np.ones((window,)) / window, mode='valid')
     y_smooth = np.convolve(y, np.ones((window,)) / window, mode='valid')
     return x_smooth, y_smooth
+
+
+# reading
+def read_dataframe(input_data, cases=None, columns=None):
+    if columns:
+        return input_data[columns]
+    elif cases:
+        allowed = [str(_) for _ in cases]
+        colnames = [name for name in list(input_data) if name.strip('dF_') in allowed]
+        return input_data[colnames]
+    else:
+        return input_data
+
+
+def read_from_file(input_data, cases, columns, parameters, name, debug):
+    if not input_data:
+        return pd.DataFrame(columns=['d', 'F'])
+    elif isinstance(input_data, str) and path.isfile(input_data) and '.xls' in input_data:
+        if debug:
+            logger = set_logger(name)
+            logger.info("Reading the file " + input_data + " as a xls file.")
+            close_logs(logger)
+        return read_excel(input_data, cases, columns, parameters)
+    elif isinstance(input_data, str) and path.isfile(input_data):
+        if debug:
+            logger = set_logger(name)
+            logger.info("Reading the file " + input_data + " as a csv file.")
+            close_logs(logger)
+        return read_csv(input_data, cases, columns, parameters)
+    else:
+        raise NotImplementedError("Either file not found, or data not given as Pandas Dataframe.")
+
+
+def read_excel(input_data, cases, columns, parameters):
+    data = pd.read_excel(input_data, sheet_name=parameters['sheet_name'])
+    return read_dataframe(data, cases=cases, columns=columns)
+
+
+def read_csv(input_data, cases, columns, parameters):
+    separator = parameters['separator']
+    with open(input_data, 'r') as myfile:
+        content = myfile.read().split("#")[-1].strip()
+    if separator != ' ':
+        data = pd.read_csv(StringIO(content), sep=separator, escapechar='#')
+    else:
+        data = pd.read_csv(StringIO(content), delim_whitespace=True, escapechar='#')
+    return read_dataframe(data, cases=cases, columns=columns)
+
+
+# logging
+def set_logger(name, mode='a'):
+    logging.basicConfig(filename=name + '.log', filemode=mode, level=logging.DEBUG,
+                        format='%(asctime)s %(message)s')
+    return logging.getLogger()
+
+
+def close_logs(logger):
+    handlers = logger.handlers[:]
+    for handler in handlers:
+        handler.close()
+        logger.removeHandler(handler)
+    return
 
 
 # calculations
@@ -106,12 +168,12 @@ def reduced_ewlc_np(x, p, k):
     return np.array([reduced_ewlc(point, p, k) for point in x])
 
 
-def ewlc_np(d, p, k, l):
-    return np.array([reduced_ewlc(point/l, p, k) for point in d])
+def ewlc_np(d, p, k, length):
+    return np.array([reduced_ewlc(point/length, p, k) for point in d])
 
 
-def wlc_np(d, p, l):
-    return np.array([reduced_wlc(point/l, p) for point in d])
+def wlc_np(d, p, length):
+    return np.array([reduced_wlc(point/length, p) for point in d])
 
 
 def reduced_wlc(x, p):
@@ -202,13 +264,13 @@ def get_color(k, max_value):
         return colors[k]
 
 
-def plot_decomposed_histogram(position, data, l_space, residue_distance):
+def plot_decomposed_histogram(position, data, bound, residue_distance):
     k = 0
+    l_space = np.linspace(0, bound, 1001)
     # TODO add Cauchy distribution
-    for index, row in data[['means', 'widths', 'heights', 'gammas']].iterrows():
-        mean, width, height, gamma = tuple(row.to_numpy())
+    for index, row in data[['means', 'widths', 'heights']].iterrows():
+        mean, width, height = tuple(row.to_numpy())
         y_plot = gauss(l_space, height, mean, width)
-        y_plot_cauchy = cauchy.pdf(l_space, mean, gamma)
         residues = 1 + int(mean / residue_distance)
         label = "L= " + str(round(mean, 3)) + ' (' + str(residues) + ' AA)'
         position.plot(l_space, y_plot, linestyle='--', label=label, color=get_color(k, len(data)))
@@ -216,7 +278,8 @@ def plot_decomposed_histogram(position, data, l_space, residue_distance):
     return
 
 
-def plot_trace_fits(position, coefficients, f_space, residue_distance):
+def plot_trace_fits(position, coefficients, max_f, residue_distance):
+    f_space = np.linspace(0.1, max_f)
     d_dna = get_d_dna(coefficients.get('p_dna', 0), coefficients.get('l_dna', 0),
                       coefficients.get('k_dna', None), f_space)
     x_prot = np.array([invert_wlc(f, coefficients.get('p_prot', 0), coefficients.get('k_prot', None))
@@ -234,89 +297,6 @@ def plot_trace_fits(position, coefficients, f_space, residue_distance):
 
 
 # postprocessing
-def decompose_histogram(data, significance, states=None):
-    # TODO take care of example with 1 observation...
-    if len(data) == 1:
-        parameters = pd.DataFrame({'means': np.array([float(data)]), 'widths': np.array([0]), 'heights': np.array(1)})
-        boundaries = [float(data), float(data)]
-        return parameters, boundaries
-    # finding the number of components
-    x = np.expand_dims(data, 1)
-    kde = KernelDensity().fit(x)
-    estimator = np.linspace(min(data), max(data), 1001)
-    kde_est = np.exp(kde.score_samples(estimator.reshape(-1, 1)))
-    maximas = [estimator[_] for _ in argrelextrema(kde_est, np.greater)[0] if kde_est[_] > significance]
-    if not states:
-        states = len(maximas)
-
-    # finding the range
-    # TODO clean it up
-    # TODO take care for the case with len(maximas) == 0
-    min_list = [estimator[_] for _ in range(len(estimator)) if kde_est[_] < significance and estimator[_] < maximas[0]]
-    max_list = [estimator[_] for _ in range(len(estimator)) if kde_est[_] < significance and estimator[_] > maximas[-1]]
-    if len(min_list) > 0:
-        min_boundary = max(min_list)
-    else:
-        min_boundary = min(estimator)
-    if len(max_list) > 0:
-        max_boundary = min(max_list)
-    else:
-        max_boundary = max(estimator)
-
-    # fitting Gaussians
-    x = np.expand_dims(data[(data > min_boundary) & (data < max_boundary)], 1)
-    gmm = GaussianMixture(n_components=states)  # gmm for two components
-    gmm.fit(x)
-    # finding parameters
-    ranges = [[0, 35], [35, 60], [60, 120]]
-    cauchy_mus = []
-    cauchy_gammas = []
-    pvalues = []
-    for x in gmm.means_:
-        for r in ranges:
-            if r[0] < x[0] < r[1]:
-                data_hist = data[(data >= r[0]) & (data <= r[1])]
-                mu, gamma = cauchy.fit(data_hist)
-                cauchy_gammas.append(gamma)
-                cauchy_mus.append(mu)
-                ensamble = cauchy.rvs(size=len(data_hist), loc=mu, scale=gamma)
-                pvalues.append(ks_2samp(ensamble, data_hist).pvalue)
-                break
-    parameters = pd.DataFrame({'means': np.array([x[0] for x in gmm.means_]),
-                               'widths': np.array([x[0][0] for x in gmm.covariances_]),
-                               'heights': np.array([np.exp(gmm.score_samples(np.array(u).reshape(-1, 1)))[0]
-                                                    for u in [x[0] for x in gmm.means_]]),
-                               'gammas': np.array(cauchy_gammas),
-                               'cauchy_mus': np.array(cauchy_mus),
-                               'pvalues': np.array(pvalues)})
-    parameters = parameters.sort_values(by=['means'])
-    boundaries = [min_boundary, max_boundary]
-    # print(parameters)
-    # print(parameters['gammas'].min(), parameters['pvalues'].max())
-    return parameters, boundaries
-
-
-# def implicite_elastic_wlc(data, l, k, p):
-#     d = np.array(data['d'])
-#     f = np.array(data['F'])
-#     x = d / l
-#     coefficients = [1,
-#                     -f * (3 / k + 1 / p) - 9 / 4,
-#                     f ** 2 * (3 / (k ** 2) + 2 / (k * p)) + f * (9 / (2 * k) + 2 / p) + 3 / 2,
-#                     -f ** 3 * (1 / (k ** 3) + 1 / (p * k ** 2)) - f ** 2 * (9 / (4 * k ** 2) + 2 / (k * p)) - f * (
-#                                 3 / (2 * k) + 1 / p)]
-#     return x ** 3 * coefficients[0] + x ** 2 * coefficients[1] + x * coefficients[2] + coefficients[3]
-#
-#
-# def implicite_elastic_wlc_amplitude(data, l, k, p):
-#     return np.abs(implicite_elastic_wlc(data, l, k, p))
-#
-#
-# def minimize_kp(df, length, init_k, init_p):
-#     ydata = np.zeros(len(df))
-#     popt, pcov = curve_fit(implicite_elastic_wlc_amplitude, df, ydata, bounds=(0, np.inf), p0=(length, init_k, init_p))
-#     return popt, pcov
-
 def find_state_boundaries(smooth_data, parameters, p, k, max_distance=0.3):
     begs = []
     ends = []
@@ -331,60 +311,6 @@ def find_state_boundaries(smooth_data, parameters, p, k, max_distance=0.3):
         if ends[-1] != np.NaN:
             last_end = ends[-1]
     return begs, ends, smooth_data
-
-
-def minimize_pk(data, data_smoothed, p, k, significance=0.01, max_distance=0.3):
-    p_new = [p, k, 0]
-    known_results = []
-    lmfitmodel = Model(ewlc_np)
-    params = lmfitmodel.make_params()
-    params['p'].min = 0.1
-    params['k'].min = 0.0
-    params['l'].min = 0.1
-    while True:
-        # finding the approximate contour length
-        known_results.append(p_new)
-        hist_values = data['d']/np.array([invert_wlc(f, p_new[0], p_new[1]) for f in data['F']])
-        parameters, boundaries = decompose_histogram(np.array(hist_values), significance)
-        means = [round(_, 2) for _ in parameters['means'].values]
-        if means in known_results:
-            break
-        else:
-            known_results.append(means)
-
-        # finding ranges of states
-        smoothed = pd.DataFrame({'d': data_smoothed['d'], 'F': data_smoothed['F']})
-        begs, ends, smoothed = find_state_boundaries(smoothed, parameters, p, k, max_distance)
-        parameters['begs'] = begs
-        parameters['ends'] = ends
-
-        # selecting the last state
-        row = parameters.dropna().sort_values(by='means', ascending=False).head(1)
-        beg, end, l_prot = row[['begs', 'ends', 'means']].to_numpy()[0]
-        fit_data = pd.DataFrame({'d': data_smoothed[data_smoothed['d'].between(beg, end)]['d'],
-                                 'F': data_smoothed[data_smoothed['d'].between(beg, end)]['F']})
-        fit_data = fit_data.dropna()
-
-        # fitting
-        if p_new[2] >= 0.1:
-            p_old = p_new
-        else:
-            p_old = [p_new[0], p_new[1], float(row['means'])]
-        result = lmfitmodel.fit(fit_data['F'], d=fit_data['d'], p=p_old[0], k=p_old[1], l=p_old[2])
-        # print(result.fit_report())
-        p_new = [round(result.params[key].value, 4) for key in ['p', 'k', 'l']]
-    return p_new[:-1]
-
-
-def implicit_elastic_wlc(data, p, k):
-    result = pd.DataFrame(columns=['0', '1', '2', '3', 'sum'])
-    result['3'] = data['x'] ** 3
-    result['2'] = (-1) * data['x'] ** 2 * (2.25 + data['F'] * (3 / k + 1 / p))
-    result['1'] = data['x'] * (data['F'] ** 2 * (3 / (k**2) + 2 / (k * p)) + data['F'] * (4.5 / k + 2 / p) + 1.5)
-    result['0'] = data['F'] * ((1 / (k**3) + 1 / (p * k**2)) * data['F'] ** 2 +
-                               (2.25 / (k**2) + 2 / (k * p)) * data['F'] + (1.5 / k + 1 / p))
-    result['sum'] = np.abs(result['3'] + result['2'] + result['1'] + result['0'])
-    return result['sum']
 
 
 def guess_states_number(hist_values, significance=0.01):
@@ -406,7 +332,7 @@ def guess_states_number(hist_values, significance=0.01):
     return maximas, support
 
 
-def decompose_histogram_cauchy(hist_values, states=None, significance=0.01):
+def decompose_histogram(hist_values, significance=0.01, states=None,):
     if not states:
         maximas, support = guess_states_number(hist_values, significance=significance)
         states = max(len(maximas), 1)
@@ -456,43 +382,51 @@ def decompose_histogram_cauchy(hist_values, states=None, significance=0.01):
     parameters['cauchy_means'] = np.array(cauchy_means)
     parameters['cauchy_gammas'] = np.array(cauchy_gammas)
     parameters['pvalues'] = np.array(pvalues)
-    return parameters
+    return parameters, support
 
 
-def fit_error(x, data, states=None, logger=None):
+# fitting
+def fit_error_prot(x, data, states=None, logger=None):
     if logger:
         logger.info(str(x))
     x_prot = invert_wlc_np(data['F'], x[0], x[1])
     hist_values = data['d']/x_prot
-    parameters = decompose_histogram_cauchy(hist_values, states=states)
+    parameters, support = decompose_histogram(hist_values, states=states)
     return parameters['cauchy_gammas'].min() - parameters['pvalues'].max()
 
 
-def fit_error_dna(x, data, states=None, logger=None):
-    if logger:
-        logger.info(str(x))
-    d_dna = x[4] * invert_wlc_np(data['F'], x[2], x[3])
-    x_prot = invert_wlc_np(data['F'], x[0], x[1])
+def fit_error(x, data, states, known, unknown_keys):
+    unknown = {unknown_keys[k]: x[k] for k in range(len(unknown_keys))}
+    parameters = {**known, **unknown}
+    d_dna = parameters.get('l_dna') * invert_wlc_np(data['F'], parameters.get('p_dna'), parameters.get('k_dna'))
+    x_prot = invert_wlc_np(data['F'], parameters.get('p_prot'), parameters.get('k_prot'))
     hist_values = (data['d'] - d_dna)/x_prot
     try:
-        parameters = decompose_histogram_cauchy(hist_values, states=states)
+        parameters, support = decompose_histogram(hist_values, states=states)
         return parameters['cauchy_gammas'].min() - parameters['pvalues'].max()
     except:
         return 999
 
 
-def fit_pk_linker_none(data, p, k, states=None, logger=None):
-    if logger:
-        logger.info("Fitting the parameters\np\tk")
-    x_opt = minimize(fit_error, x0=np.array([p, k]), args=(data, states, logger), bounds=((0.1, 100), (0, 1)))
-    p_opt, k_opt = x_opt.x
-    return p_opt, k_opt
+def fit_coefficients(data, parameters):
+    # templates
+    coefficients = ['p_prot', 'k_prot', 'p_dna', 'k_dna', 'l_dna']
+    linker_known = {'p_dna': 0, 'k_dna': 0, 'l_dna': 0}
+    bounds_template = {'p': (0.1, 100), 'k': (0, 1), 'l': (0, np.inf)}
 
+    # setting known values
+    known = {c: parameters[c] for c in coefficients if parameters[c] >= 0}
+    if not parameters['linker'] and not bool({'p_dna', 'l_dna', 'k_dna'} & set(known.keys())):
+        known = {**known, **linker_known}
 
-def fit_pk_linker_dna(data, p, k, p_dna, k_dna, l_dna, states=None, logger=None):
-    if logger:
-        logger.info("Fitting the parameters\np\tk")
-    x_opt = minimize(fit_error_dna, x0=np.array([p, k, p_dna, k_dna, l_dna]), args=(data, states, logger),
-                     bounds=((0.1, 100), (0, 1), (0.1, 100), (0, 1), (0, np.inf)))
-    p_opt, k_opt, p_dna_opt, k_dna_opt, l_dna_opt = x_opt.x
-    return p_opt, k_opt, p_dna_opt, k_dna_opt, l_dna_opt
+    # setting unknown values with initial guesses and bounds
+    unknown = {c: parameters['initial_guess'][c] for c in coefficients if c not in known.keys()}
+    if len(unknown.keys()) == 0:
+        return known
+    x0 = np.array(list(unknown.values()))
+    bounds = tuple([bounds_template[key[0]] for key in unknown.keys()])
+
+    x_opt = minimize(fit_error, x0=x0, args=(data, parameters['states'], known, list(unknown.keys())), bounds=bounds)
+    fitted = {list(unknown.keys())[k]: x_opt.x[k] for k in range(len(list(unknown.keys())))}
+    result = {**known, **fitted}
+    return result
