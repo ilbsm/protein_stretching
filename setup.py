@@ -5,7 +5,7 @@ with open("README.md", "r") as fh:
 
 setuptools.setup(
     name="Stretchme", # Replace with your own username
-    version="0.1",
+    version="0.2",
     author='Paweł Dąbrowski-Tumański',
     author_email='p.dabrowski-tumanski@uw.edu.pl',
     description="A package for analysis of stretching of proteins.",

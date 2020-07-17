@@ -16,6 +16,7 @@ Welcome to stretchme's!
    parameters.rst
    documentation.rst
    licence.rst
+   refs.rst
 
 
 

@@ -386,15 +386,6 @@ def decompose_histogram(hist_values, significance=0.01, states=None,):
 
 
 # fitting
-def fit_error_prot(x, data, states=None, logger=None):
-    if logger:
-        logger.info(str(x))
-    x_prot = invert_wlc_np(data['F'], x[0], x[1])
-    hist_values = data['d']/x_prot
-    parameters, support = decompose_histogram(hist_values, states=states)
-    return parameters['cauchy_gammas'].min() - parameters['pvalues'].max()
-
-
 def fit_error(x, data, states, known, unknown_keys):
     unknown = {unknown_keys[k]: x[k] for k in range(len(unknown_keys))}
     parameters = {**known, **unknown}
