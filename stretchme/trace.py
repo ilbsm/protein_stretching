@@ -1,6 +1,7 @@
 from .stretching_tools import *
 import pandas as pd
 from matplotlib import pyplot as plt
+from copy import deepcopy
 
 
 class Trace:
@@ -22,8 +23,8 @@ class Trace:
 
         # setting the trace parameters
         if not parameters:
-            self.parameters = default_parameters
-            self.parameters['initial_guess'] = default_parameters['initial_guess'][None]
+            self.parameters = deepcopy(default_parameters)
+            self.parameters['initial_guess'] = deepcopy(default_parameters['initial_guess'][None])
         else:
             self.parameters = parameters
 
@@ -96,10 +97,10 @@ class Trace:
         self.parameters = {**self.parameters, **coefficients}
 
         # transforming coordinates
-        self.data['x_prot'] = np.array([invert_wlc(f, self.parameters['p_prot'], self.parameters['k_prot'])
-                                        for f in self.data['F']])
+        self.data['x_prot'] = inverse_wlc(self.data['F'], self.parameters['p_prot'], k=self.parameters['k_prot'],
+                                          method=self.parameters['method'])
         self.data['d_dna'] = get_d_dna(self.parameters['p_dna'], self.parameters['l_dna'], self.parameters['k_dna'],
-                                       self.data['F'])
+                                       self.data['F'], method=self.parameters['method'])
         self.data['d_prot'] = self.data['d'] - self.data['d_dna']
         self.data['hist_values'] = self.data['d_prot'] / self.data['x_prot']
 
@@ -130,9 +131,8 @@ class Trace:
         for index, row in self.parameters['l_prot'].iterrows():
             state = 'state_' + str(index)
             l_prot = row['means']
-            self.smoothed[state] = \
-                np.array([ewlc(d, l_prot, self.parameters.get('p_prot', 0), self.parameters.get('k_prot', None))
-                          for d in list(self.smoothed['d'])])
+            self.smoothed[state] = wlc(list(self.smoothed['d']), l_prot, self.parameters.get('p_prot', 0),
+                                          k=self.parameters.get('k_prot', None), method=self.parameters['method'])
             data_close = self.smoothed[abs(self.smoothed['F'] - self.smoothed[state]) <= max_distance]
             data_close = data_close[data_close['d'] > last_end]['d']
             last_end = data_close.max()
@@ -260,14 +260,12 @@ class Trace:
         position.set_xlabel('Extension [nm]')
         position.set_ylabel('Counts')
         if not max_contour_length:
-            if self.boundaries:
-                max_contour_length = self.boundaries[1]
-            else:
-                max_contour_length = self.data['hist_values'].max()
+            max_contour_length = get_max_contour_length(self.data['hist_values'], self.parameters['significance'])
         position.set_xlim(0, max_contour_length)
 
         # whole histogram
-        position.hist(self.data['hist_values'], bins=500, density=True, alpha=0.5)
+        bins = 4 * int(self.data['hist_values'].max())
+        position.hist(self.data['hist_values'], bins=bins, density=True, alpha=0.5)
 
         # decomposed histogram
         plot_decomposed_histogram(position, self.parameters['l_prot'], max_contour_length,
@@ -291,7 +289,8 @@ class Trace:
         position.plot(self.smoothed['d'], self.smoothed['F'], label='Smoothed data')
 
         # plotting fits
-        plot_trace_fits(position, self.parameters, self.data['F'].max(), self.parameters['residues_distance'])
+        plot_trace_fits(position, self.parameters, self.data['F'].max(), self.parameters['residues_distance'],
+                        self.parameters['method'])
 
         position.legend()
         return

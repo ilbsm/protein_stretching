@@ -3,6 +3,7 @@ from .default_parameters import default_parameters
 from .trace import Trace
 from matplotlib import pyplot as plt
 import os
+from copy import deepcopy
 
 
 class Structure:
@@ -438,7 +439,7 @@ class Structure:
     def _set_parameters(self, **kwargs):
         """ The method of setting the parameters for the whole Structure """
         # filling in the default parameters
-        self.parameters = default_parameters
+        self.parameters = deepcopy(default_parameters)
 
         # substituting parameters
         for key in kwargs:
@@ -517,7 +518,8 @@ class Structure:
             max_f = max(max_f, t.data['F'].max())
 
         # plotting fits
-        plot_trace_fits(position, self.parameters, max_f, self.parameters['residues_distance'])
+        plot_trace_fits(position, self.parameters, max_f, self.parameters['residues_distance'],
+                        method=self.parameters['method'])
 
         position.legend()
         return

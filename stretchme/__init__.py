@@ -10,7 +10,7 @@ from .simulations import simulate_traces
 
 def analyze_experiment(filename, experiment_name=None, sheet_name=0, separator=',', linker=None, unit='nm', speed=1.0,
                        source='theory', cases=None, read_columns=None, residues_distance=0.365, low_force_cutoff=0.1,
-                       initial_guess=None, plot_columns=4, debug=False):
+                       initial_guess=None, plot_columns=4, method='marko-siggia', debug=False):
     """Main function for analysis all the data stored in one file. Creates the figures with each trace fitting, and the figure with analysis of all the data merged, including the histogram of rupture forces and the Dudko-Hummer-Szabo analysis of the states lifetimes.
 
 
@@ -39,6 +39,7 @@ def analyze_experiment(filename, experiment_name=None, sheet_name=0, separator='
             initial_guess (dict/None, optional): The dictionary with initial guesses for fitting the data. If None, the
                 default initial_guess will be used. Default: None.
             plot_columns (int, optional): The number of traces in one row in the plots. Default: 4.
+            method (str, optional): The name of the fitting function for the F(d) trace. Default: 'marko-siggia'.
             debug (bool, optional): The debug mode. In the debug mode the log file is created. Default: False.
 
         Returns:
@@ -49,7 +50,8 @@ def analyze_experiment(filename, experiment_name=None, sheet_name=0, separator='
 
     parameters = pack_parameters(filename=filename, sheet_name=sheet_name, linker=linker, unit=unit, speed=speed,
                                  residues_distance=residues_distance, low_force_cutoff=low_force_cutoff, source=source,
-                                 plot_columns=plot_columns, separator=separator, initial_guess=initial_guess)
+                                 plot_columns=plot_columns, separator=separator, initial_guess=initial_guess,
+                                 method=method)
     experiment = Structure(filename, cases=cases, columns=read_columns, parameters=parameters, name=experiment_name,
                            debug=debug)
     experiment.analyze()
@@ -58,7 +60,7 @@ def analyze_experiment(filename, experiment_name=None, sheet_name=0, separator='
 
 def simulate_experiment(traces=1, p_prot=0.7, k_prot=0.005, l_prots=(25, 50, 100), p_dna=0, k_dna=0, l_dna=350,
                         rupture_forces=(10, 15), force_range=(0.1, 20), position_blur=0.1, force_blur=1,
-                        rupture_forces_blur=0.1, relaxation=0.1):
+                        rupture_forces_blur=0.1, relaxation=0.1, method='marko-siggia'):
     """Simulating the stretching data.
 
 
@@ -84,6 +86,7 @@ def simulate_experiment(traces=1, p_prot=0.7, k_prot=0.005, l_prots=(25, 50, 100
                 Default: 0.1.
             relaxation (float, optional): The parameter determining how long it takes the protein to relax after
                 rupture, measured in the fraction of the contour length. Viable vales are between 0 and 1. Default: 0.1.
+            method (str, optional): The name of the fitting function for the F(d) trace. Default: 'marko-siggia'.
 
         Returns:
             Pandas Dataframe: Simulated distances and forces.
@@ -95,10 +98,10 @@ def simulate_experiment(traces=1, p_prot=0.7, k_prot=0.005, l_prots=(25, 50, 100
     return simulate_traces(traces=traces, p_prot=p_prot, k_prot=k_prot, l_prots=l_prots, p_dna=p_dna, k_dna=k_dna,
                            l_dna=l_dna, rupture_forces=rupture_forces, force_range=force_range,
                            position_blur=position_blur, force_blur=force_blur,  rupture_forces_blur=rupture_forces_blur,
-                           relaxation=relaxation)
+                           relaxation=relaxation, method=method)
 
 
-def analyze_trace(filename, case=0, columns=None, name=None, debug=False, **kwargs):
+def analyze_trace(filename, case=None, columns=None, name=None, debug=False, **kwargs):
     """Analyzing single trace. Creates a figure with contour length histogram and fit.
 
 
@@ -117,7 +120,8 @@ def analyze_trace(filename, case=0, columns=None, name=None, debug=False, **kwar
             bool: True if successful, False otherwise.
 
         """
-    experiment = Structure(filename, cases=[case], columns=columns, name=name, debug=debug, **kwargs)
+    experiment = Structure(filename, cases=case, columns=columns, name=name, debug=debug, **kwargs)
     experiment.traces[0].analyze()
     experiment.traces[0].plot()
+    del experiment
     return True

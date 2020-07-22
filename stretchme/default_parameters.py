@@ -17,9 +17,10 @@ default_parameters = {
     'separator': ',',
     'states': None,
     'low_force_cutoff': 0.1,
-    'significance': 0.001,
+    'significance': 0.0005,
     'max_distance': 0.3,
     'intervals': 1001,
+    'method': 'marko-siggia',
     'initial_guess': {None: {'p_prot': 0.7, 'p_dna': 0.1, 'k_prot': 0.005, 'k_dna': 0.005, 'l_dna': 345},
                       'theory': {'p_prot': 0.7, 'p_dna': 0.1, 'k_prot': 0.005, 'k_dna': 0.005, 'l_dna': 345},
                       'experiment': {'p_prot': 5.88, 'p_dna': 0.16, 'k_prot': 0, 'k_dna': 0.005, 'l_dna': 345}}

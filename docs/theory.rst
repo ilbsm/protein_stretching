@@ -46,7 +46,7 @@ When :math:`k=0` one recovers the original Marko-Siggia function.
 
 .. _theory_ewlc:
 
-Extensible WLC
+Extensible and stretch-adjusted WLC
 --------------
 
 .. _theory_linker:

@@ -8,17 +8,19 @@ from os import path
 from io import StringIO
 from scipy.optimize import curve_fit, minimize
 from scipy.special import erf
-from scipy.stats import cauchy, ks_2samp
+from scipy.stats import cauchy, ks_2samp, skew
 from scipy.signal import argrelextrema
 from sklearn.mixture import GaussianMixture
 from sklearn.neighbors import KernelDensity
 from colorsys import hsv_to_rgb
 from .default_parameters import default_parameters
+from copy import deepcopy
+from matplotlib import pyplot as plt
 
 
 # preprocessing
 def pack_parameters(filename, sheet_name=0, linker=None, unit='nm', speed=1, residues_distance=0.365, source='theory',
-                    low_force_cutoff=0.1, plot_columns=4, initial_guess=None, separator=None):
+                    low_force_cutoff=0.1, plot_columns=4, initial_guess=None, method='marko-siggia', separator=None):
 
     """ Filtering and packing the parameters for a clearer view."""
     # TODO add filters of the input parameters, include all the paramters
@@ -32,12 +34,13 @@ def pack_parameters(filename, sheet_name=0, linker=None, unit='nm', speed=1, res
         'residues_distance': residues_distance,
         'plot_columns': plot_columns,
         'separator': separator,
-        'low_force_cutoff': low_force_cutoff
+        'low_force_cutoff': low_force_cutoff,
+        'method': method
     }
     if initial_guess:
         parameters['initial_guess'] = initial_guess
     else:
-        parameters['initial_guess'] = default_parameters['initial_guess'][parameters['source']]
+        parameters['initial_guess'] = deepcopy(default_parameters['initial_guess'][parameters['source']])
     return parameters
 
 
@@ -120,20 +123,57 @@ def integrate_gauss(force, mean, width):
     return 0.5 * (1 - erf((force-mean)/(np.sqrt(width * 2))))
 
 
-def invert_wlc_np(forces, p, k=0):
-    return np.array([invert_wlc(f, p, k) for f in forces])
+# calculating F(d)
+def marko_siggia(d, length, p, k=0):
+    if k == 0 and d > 0.99 * length:
+        return 999
+    elif k == 0:
+        return p * (0.25 / ((1 - d / length) ** 2) - 0.25 + d / length)
+    else:
+        x = d/length
+        coefs = [-(k ** 3) - (k ** 2) / p,
+                 -(2.25 * (k ** 2)) - 2 * k / p + x * (3 * (k ** 2) + 2 * (k / p)),
+                 -(1.5 * k) - 1 / p + x * (4.5 * k + 2 / p) - x ** 2 * (3 * k + 1 / p),
+                 1.5 * x - 2.25 * x ** 2 + x ** 3]
+        result = np.roots(coefs)
+        result = np.real(result[np.isreal(result)])
+        result = result[result > 0]
+        return max(result)
 
 
-def invert_wlc(force, p, k=0):
+def stretch_adjusted_wlc(d, length, p, k=0, residues_distance=None):
+    if not residues_distance:
+        residues_distance = default_parameters['residues_distance']
+    x = d / length
+    g = k * residues_distance
+    coefs = [((4 * g**2 * x**2)/p + (4 * g**3 * x**3)),
+             ((8 * g * x) / p + (9 * g**2 * x**2) - (8 * g * x**2)/p - (12 * g**2 * x**3)),
+             (4/p + (6 * g * x) - (8 * x)/p - (18 * g * x**2) + (4 * x**2)/p + (12 * g * x**3)),
+             -6 * x + 9 * x**2 - 4*x**3]
+    result = np.roots(coefs)
+    result = np.real(result[np.isreal(result)])
+    result = result[result > 0]
+    return max(result)
+
+
+def wlc(distances, length, p, method=marko_siggia, k=0, residues_distance=None):
+    if not residues_distance:
+        residues_distance = default_parameters['residues_distance']
+    if method == 'stretch-adjusted':
+        return np.array([stretch_adjusted_wlc(d, length, p, k, residues_distance) for d in distances])
+    else:
+        return np.array([marko_siggia(d, length, p, k) for d in distances])
+
+
+# calculating d(F)
+def inverse_marko_siggia(f, p, k=0):
     if k == 0:
-        coefs = [1, -(2.25 + force / p), (1.5 + 2 * force / p), -force / p]
+        coefs = [1, -(2.25 + f / p), (1.5 + 2 * f / p), -f / p]
     else:
         coefs = [1,
-                 -(2.25 + force * (3*k + 1 / p)),
-                 (3 * (k ** 2) + 2 * (k / p)) * force ** 2 + ((4.5 * k) + (2 / p)) * force + 1.5,
-                 -force * (((k**3) + ((k**2) / p)) * (force ** 2) +
-                           (2.25 * (k**2) + 2 * (k / p)) * force +
-                           ((1.5 * k) + (1 / p)))]
+                 -(2.25 + f * (3*k + 1 / p)),
+                 (3 * (k ** 2) + 2 * (k / p)) * f ** 2 + ((4.5 * k) + (2 / p)) * f + 1.5,
+                 -f * (((k**3) + ((k**2) / p)) * (f ** 2) + (2.25 * (k**2) + 2 * (k / p)) * f + ((1.5 * k) + (1 / p)))]
     result = np.roots(coefs)
     result = np.real(result[np.isreal(result)])
     result = result[result > 0]
@@ -142,47 +182,32 @@ def invert_wlc(force, p, k=0):
     return min(result)
 
 
-def ewlc(d, length, p, k):
-    if k == 0:
-        if d < 0.99 * length:
-            return p * (0.25 / ((1 - d / length) ** 2) - 0.25 + d / length)
-        else:
-            return 999
-    else:
-        x = d/length
-        return reduced_ewlc(x, p, k)
-
-
-def reduced_ewlc(x, p, k):
-    coefs = [-(k**3) - (k**2)/p,
-             -(2.25 * (k**2)) - 2 * k/p + x * (3 * (k**2) + 2 * (k/p)),
-             -(1.5 * k) - 1/p + x * (4.5 * k + 2/p) - x**2 * (3 * k + 1/p),
-             1.5 * x - 2.25 * x**2 + x**3]
+def inverse_stretch_adjusted_wlc(f, p, k, residues_distance=None):
+    if not residues_distance:
+        residues_distance = default_parameters['residues_distance']
+    g = k * residues_distance
+    coefs = [(-4 + 12 * f * g - 12 * f**2 * g**2 + 4 * f**3 * g**3),
+             (9 - 18 * f * g + 9 * f**2 * g**2 + (4 * f)/p - (8 * f**2 * g)/p + (4 * f**3 * g**2)/p),
+             (-6 + 6 * f * g - (8 * f)/p + (8 * f**2 * g)/p),
+             4 * f/p]
     result = np.roots(coefs)
     result = np.real(result[np.isreal(result)])
     result = result[result > 0]
-    return max(result)
+    return min(result)
 
 
-def reduced_ewlc_np(x, p, k):
-    return np.array([reduced_ewlc(point, p, k) for point in x])
+def inverse_wlc(forces, p, method='marko_siggia', k=0, residues_distance=None):
+    if not residues_distance:
+        residues_distance = default_parameters['residues_distance']
+    if method == 'stretch-adjusted':
+        return np.array([inverse_stretch_adjusted_wlc(f, p, k, residues_distance) for f in forces])
+    else:
+        return np.array([inverse_marko_siggia(f, p, k) for f in forces])
 
 
-def ewlc_np(d, p, k, length):
-    return np.array([reduced_ewlc(point/length, p, k) for point in d])
-
-
-def wlc_np(d, p, length):
-    return np.array([reduced_wlc(point/length, p) for point in d])
-
-
-def reduced_wlc(x, p):
-    return p * (0.25 / ((1 - x) ** 2) - 0.25 + x)
-
-
-def get_d_dna(p_dna, l_dna, k_dna, f_space):
-    if p_dna > 0:
-        return l_dna * np.array([invert_wlc(f, p_dna, k_dna) for f in f_space])
+def get_d_dna(p_dna, l_dna, k_dna, f_space, method='marko-siggia'):
+    if l_dna > 0:
+        return l_dna * inverse_wlc(f_space, p_dna, k=k_dna, method=method)
     else:
         return np.zeros(len(f_space))
 
@@ -268,22 +293,25 @@ def plot_decomposed_histogram(position, data, bound, residue_distance):
     k = 0
     l_space = np.linspace(0, bound, 1001)
     # TODO add Cauchy distribution
-    for index, row in data[['means', 'widths', 'heights']].iterrows():
-        mean, width, height = tuple(row.to_numpy())
-        y_plot = gauss(l_space, height, mean, width)
+    for index, row in data[['means', 'widths', 'heights', 'cauchy_means', 'cauchy_gammas', 'factor']].iterrows():
+        mean, width, height, cauchy_means, cauchy_gammas, factor = tuple(row.to_numpy())
         residues = 1 + int(mean / residue_distance)
         label = "L= " + str(round(mean, 3)) + ' (' + str(residues) + ' AA)'
-        position.plot(l_space, y_plot, linestyle='--', label=label, color=get_color(k, len(data)))
+        # normal distribution
+        # y_gauss = factor * gauss(l_space, height, mean, width)
+        # position.plot(l_space, y_gauss, linestyle='--', linewidth=0.5, label=label, color=get_color(k, len(data)))
+        # cauchy distribution
+        y_cauchy = factor * cauchy.pdf(l_space, cauchy_means, cauchy_gammas)
+        position.plot(l_space, y_cauchy, linestyle='--', linewidth=0.5, label=label, color=get_color(k, len(data)))
         k += 1
     return
 
 
-def plot_trace_fits(position, coefficients, max_f, residue_distance):
+def plot_trace_fits(position, coefficients, max_f, residue_distance, method='marko-siggia'):
     f_space = np.linspace(0.1, max_f)
     d_dna = get_d_dna(coefficients.get('p_dna', 0), coefficients.get('l_dna', 0),
-                      coefficients.get('k_dna', None), f_space)
-    x_prot = np.array([invert_wlc(f, coefficients.get('p_prot', 0), coefficients.get('k_prot', None))
-                       for f in f_space])
+                      coefficients.get('k_dna', None), f_space, method=method)
+    x_prot = inverse_wlc(f_space, coefficients.get('p_prot', 0), k=coefficients.get('k_prot', None), method=method)
     k = 0
     for index, row in coefficients['l_prot'].iterrows():
         l_prot = row['means']
@@ -297,13 +325,13 @@ def plot_trace_fits(position, coefficients, max_f, residue_distance):
 
 
 # postprocessing
-def find_state_boundaries(smooth_data, parameters, p, k, max_distance=0.3):
+def find_state_boundaries(smooth_data, parameters, p, k, max_distance=0.3, method='marko-siggia'):
     begs = []
     ends = []
     last_end = 0
     for index, row in parameters.iterrows():
         l_prot = row['means']
-        smooth_data['state_' + str(index)] = np.array([ewlc(d, l_prot, p, k) for d in list(smooth_data['d'])])
+        smooth_data['state_' + str(index)] = wlc(list(smooth_data['d']), l_prot, p, k=k, method=method)
         data_close = smooth_data[abs(smooth_data['F'] - smooth_data['state_' + str(index)]) <= max_distance]
         data_close = data_close[data_close['d'] > last_end]['d']
         begs.append(data_close.min())
@@ -332,14 +360,28 @@ def guess_states_number(hist_values, significance=0.01):
     return maximas, support
 
 
-def decompose_histogram(hist_values, significance=0.01, states=None,):
+def get_max_contour_length(data, significance):
+    if isinstance(data, np.ndarray):
+        series = pd.Series(data)
+    elif isinstance(data, pd.DataFrame):
+        series = data['hist_values']
+    else:
+        series = data
+    hist_values = series.astype(int).value_counts(normalize=True)
+    hist_values = hist_values[hist_values > significance].sort_index()
+    max_contour_length = hist_values.index[-1] + 20
+    return max_contour_length
+
+
+def decompose_histogram(hist_values, significance=None, states=None):
+    if not significance:
+        significance = default_parameters['significance']
+
     if not states:
         maximas, support = guess_states_number(hist_values, significance=significance)
         states = max(len(maximas), 1)
     else:
-        # TODO check if this is enough
-        significant = [x for x in hist_values if x >= significance]
-        support = [min(significant), max(significant)]
+        support = [0, get_max_contour_length(hist_values, significance)]
 
     # fitting Gaussians
     trimmed_data = hist_values[(hist_values > support[0]) & (hist_values < support[1])]
@@ -369,43 +411,68 @@ def decompose_histogram(hist_values, significance=0.01, states=None,):
     cauchy_means = []
     cauchy_gammas = []
     pvalues = []
-    boundary_means = [0] + list(parameters['means'].values) + [max(trimmed_data)]
+    skewness = []
+    factors = []
+    products = []
+    means = np.array(parameters['means'].values)
+    middles = means[:-1] + 0.5 * np.diff(means)
+    boundaries = [0] + list(middles) + [max(trimmed_data)]
     for k in range(len(states_names)):
         state = states_names[k]
-        bounds = [boundary_means[k], boundary_means[k+2]]
-        matching = states[(states['state'] == state) & (states['d'].between(bounds[0], bounds[1]))]['d']
-        mu, gamma = cauchy.fit(matching.to_numpy())
+        bounds = [boundaries[k], boundaries[k+1]]
+        matching = states[(states['state'] == state) & (states['d'].between(bounds[0], bounds[1]))]['d'].to_numpy()
+        factors.append(float(len(matching))/len(states))
+        mu, gamma = cauchy.fit(matching)
         ensamble = cauchy.rvs(size=len(matching), loc=mu, scale=gamma)
         cauchy_means.append(mu)
         cauchy_gammas.append(gamma)
+        skewness.append(skew(matching))
         pvalues.append(ks_2samp(ensamble, matching).pvalue)
     parameters['cauchy_means'] = np.array(cauchy_means)
     parameters['cauchy_gammas'] = np.array(cauchy_gammas)
+    parameters['skewness'] = np.array(skewness)
     parameters['pvalues'] = np.array(pvalues)
+    parameters['factor'] = np.array(factors)
     return parameters, support
 
 
+def valid_parameters(parameters):
+    bounds_template = {'p': (0, 100), 'k': (0, 0.1), 'l': (0, np.inf)}
+    for key in parameters.keys():
+        if parameters[key] < bounds_template[key[0]][0] or parameters[key] > bounds_template[key[0]][1]:
+            return False
+    return True
+
+
 # fitting
-def fit_error(x, data, states, known, unknown_keys):
+def fit_skew(x, data, states, known, unknown_keys, method='marko-siggia'):
     unknown = {unknown_keys[k]: x[k] for k in range(len(unknown_keys))}
     parameters = {**known, **unknown}
-    d_dna = parameters.get('l_dna') * invert_wlc_np(data['F'], parameters.get('p_dna'), parameters.get('k_dna'))
-    x_prot = invert_wlc_np(data['F'], parameters.get('p_prot'), parameters.get('k_prot'))
-    hist_values = (data['d'] - d_dna)/x_prot
-    try:
-        parameters, support = decompose_histogram(hist_values, states=states)
-        return parameters['cauchy_gammas'].min() - parameters['pvalues'].max()
-    except:
+
+    # validation
+    if not valid_parameters(parameters):
         return 999
+
+    # data calculation
+    d_dna = get_d_dna(parameters.get('p_dna'), parameters.get('l_dna'), parameters.get('k_dna'), (data['F']),
+                      method=method)
+    x_prot = inverse_wlc(data['F'], parameters.get('p_prot'), k=parameters.get('k_prot'), method=method)
+    hist_values = (data['d'] - d_dna)/x_prot
+
+    # parameter calculation
+    parameters, support = decompose_histogram(hist_values, states=states)
+    skewness = parameters['skewness'].abs().mean()
+    return skewness
 
 
 def fit_coefficients(data, parameters):
     # templates
     coefficients = ['p_prot', 'k_prot', 'p_dna', 'k_dna', 'l_dna']
     linker_known = {'p_dna': 0, 'k_dna': 0, 'l_dna': 0}
-    bounds_template = {'p': (0.1, 100), 'k': (0, 1), 'l': (0, np.inf)}
 
     # setting known values
+    states = parameters['states']
+    method = parameters['method']
     known = {c: parameters[c] for c in coefficients if parameters[c] >= 0}
     if not parameters['linker'] and not bool({'p_dna', 'l_dna', 'k_dna'} & set(known.keys())):
         known = {**known, **linker_known}
@@ -415,9 +482,8 @@ def fit_coefficients(data, parameters):
     if len(unknown.keys()) == 0:
         return known
     x0 = np.array(list(unknown.values()))
-    bounds = tuple([bounds_template[key[0]] for key in unknown.keys()])
 
-    x_opt = minimize(fit_error, x0=x0, args=(data, parameters['states'], known, list(unknown.keys())), bounds=bounds)
+    x_opt = minimize(fit_skew, x0=x0, args=(data, states, known, list(unknown.keys()), method), method='Nelder-Mead')
     fitted = {list(unknown.keys())[k]: x_opt.x[k] for k in range(len(list(unknown.keys())))}
     result = {**known, **fitted}
     return result
