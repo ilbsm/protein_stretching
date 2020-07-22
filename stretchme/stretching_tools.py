@@ -413,7 +413,6 @@ def decompose_histogram(hist_values, significance=None, states=None):
     pvalues = []
     skewness = []
     factors = []
-    products = []
     means = np.array(parameters['means'].values)
     middles = means[:-1] + 0.5 * np.diff(means)
     boundaries = [0] + list(middles) + [max(trimmed_data)]

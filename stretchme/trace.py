@@ -109,6 +109,7 @@ class Trace:
                                                  significance=self.parameters['significance'])
         self.boundaries = bounds
         self.parameters['l_prot'] = parameters
+        print(parameters['skewness'].abs().mean())
         if self.debug:
             logger = set_logger(self.experiment_name)
             logger.info("Contour length fitted. Coefficient got:\n" + str(coefficients))

@@ -1,0 +1,244 @@
+
+<!DOCTYPE html>
+
+<html lang="Python3">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Theory &#8212; stretchme 0.1 documentation</title>
+    <link rel="stylesheet" href="_static/alabaster.css" type="text/css" />
+    <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+    <script id="documentation_options" data-url_root="./" src="_static/documentation_options.js"></script>
+    <script src="_static/jquery.js"></script>
+    <script src="_static/underscore.js"></script>
+    <script src="_static/doctools.js"></script>
+    <script src="_static/language_data.js"></script>
+    <script async="async" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.7/latest.js?config=TeX-AMS-MML_HTMLorMML"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="Default parameters" href="parameters.html" />
+    <link rel="prev" title="Quick start" href="start.html" />
+   
+  <link rel="stylesheet" href="_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <div class="section" id="theory">
+<span id="id1"></span><h1>Theory<a class="headerlink" href="#theory" title="Permalink to this headline">¶</a></h1>
+<div class="section" id="freely-jointed-chain">
+<span id="theory-fjc"></span><h2>Freely-jointed chain<a class="headerlink" href="#freely-jointed-chain" title="Permalink to this headline">¶</a></h2>
+<p>One of the simplest models of the polymer is the freely-jointed chain.</p>
+</div>
+<div class="section" id="worm-like-chain-model">
+<span id="theory-wlc"></span><h2>Worm-Like Chain model<a class="headerlink" href="#worm-like-chain-model" title="Permalink to this headline">¶</a></h2>
+<p>The work-like chain model may be viewed as the generalization of the freely-jointed chain model with the bond length <span class="math notranslate nohighlight">\(b\rightarrow 0\)</span>.</p>
+</div>
+<div class="section" id="the-force-extension-dependence-in-wlc-model">
+<span id="theory-fd"></span><h2>The force-extension dependence in WLC model<a class="headerlink" href="#the-force-extension-dependence-in-wlc-model" title="Permalink to this headline">¶</a></h2>
+<p>The stretching of the WLC polymer results in reduction of conformational space available for the polymer.</p>
+<p>The exact form of the <span class="math notranslate nohighlight">\(F(d)\)</span> dependency is not known. Most usually, the Marko-Siggia approximation is used (citation):</p>
+<div class="math notranslate nohighlight" id="equation-marko-siggia">
+<span class="eqno">(1)<a class="headerlink" href="#equation-marko-siggia" title="Permalink to this equation">¶</a></span>\[F(d;L,p) = p\left( \frac{1}{4\cdot(1-\frac{d}{L})^2} - \frac{1}{4} + \frac{d}{L} \right)\]</div>
+<p>The Marko-Siggia function commes from ...
+Because of the construction, Marko-Siggia function agrees well with experiment in low- and high-force regime.
+For the intermediate force up to 17% of discrepancy was reported (citation).</p>
+<p>To decrease the error, some correction were proposed. In particular, the Petrosyan function:</p>
+<div class="math notranslate nohighlight" id="equation-petrosyan">
+<span class="eqno">(2)<a class="headerlink" href="#equation-petrosyan" title="Permalink to this equation">¶</a></span>\[F(d;L,p) = p\left( \frac{1}{4\cdot(1-\frac{d}{L})^2} - \frac{1}{4} + \frac{d}{L} - 0.8\cdot(\frac{d}{L})^{2.15} \right)\]</div>
+<p>was reported to decrease the error to 1% (citation).</p>
+</div>
+<div class="section" id="including-the-bond-stretching">
+<span id="theory-ewlc"></span><h2>Including the bond stretching<a class="headerlink" href="#including-the-bond-stretching" title="Permalink to this headline">¶</a></h2>
+<p>The theory of the Worm-Like chain model assumes that the polymer is not extendible.
+However, this is not the case in some real polymers. For example, upon stretching, the distances between the residues get stretched too.
+The same is observed in case of <em>in silico</em> coarse-grained analysis, where the beads representing the polymer are confined with (extensible) harmonic spring.
+To account for the stretching, the Elastic WLC model (eWLC) was introduced (citation).</p>
+<p>In the eWLC, the expansion of the bond is included by introducing the elasticity <span class="math notranslate nohighlight">\(k\)</span>.
+Then, the relative extension <span class="math notranslate nohighlight">\(x\)</span> is modified by the factor <span class="math notranslate nohighlight">\(x \rightarrow x-\frac{F}{k}\)</span>:</p>
+<div class="math notranslate nohighlight" id="equation-reduced-ewlc">
+<span class="eqno">(3)<a class="headerlink" href="#equation-reduced-ewlc" title="Permalink to this equation">¶</a></span>\[F(x;p,k) = p\left( \frac{1}{4\cdot(1-x+\frac{F}{k})^2} - \frac{1}{4} + x - \frac{F}{k} \right)\]</div>
+<p>This simple modification is widely used e.g. in the analysis of stretching of DNA chains (citations).
+However, such modification remains constant regardless of the chain contour length.
+In fact, the chain with <span class="math notranslate nohighlight">\(N_L\)</span> bonds, each of the same spring constant <span class="math notranslate nohighlight">\(k\)</span>, under the force <span class="math notranslate nohighlight">\(F\)</span> should exhibit additional expansion of <span class="math notranslate nohighlight">\(N\cdot\frac{F}{k}\)</span>.
+Then, the contour length (the maximal extension of the chain) increases as:</p>
+<div class="math notranslate nohighlight" id="equation-chain-length-increase">
+<span class="eqno">(4)<a class="headerlink" href="#equation-chain-length-increase" title="Permalink to this equation">¶</a></span>\[L \rightarrow L + N_L\cdot\frac{F}{k}\]</div>
+<p>This should result in changing the WLC response as:</p>
+<div class="math notranslate nohighlight" id="equation-stretch-adjust1">
+<span class="eqno">(5)<a class="headerlink" href="#equation-stretch-adjust1" title="Permalink to this equation">¶</a></span>\[F(d;L,p,k) = p\left( \frac{1}{4\cdot(1-\frac{d}{L + N_L\cdot\frac{F}{k}})^2} - \frac{1}{4} + \frac{d}{L + N_L\cdot\frac{F}{k}} \right)\]</div>
+<p>This equation is rather unpleasant in manipulation, therefore, the extension can be expanded into series:</p>
+<div class="math notranslate nohighlight" id="equation-stretch-adjust-series">
+<span class="eqno">(6)<a class="headerlink" href="#equation-stretch-adjust-series" title="Permalink to this equation">¶</a></span>\[\frac{d}{L + N_L\cdot\frac{F}{k}} = \frac{d}{L} \frac{1}{1 + \frac{N_LF}{Lk}} \simeq x\cdot(1-\frac{N_L}{L}\frac{F}{k})\]</div>
+<p>as from definition <span class="math notranslate nohighlight">\(L = N_l \cdot b\)</span> where <span class="math notranslate nohighlight">\(b\)</span> is the bond length, the equation <a class="reference internal" href="#equation-stretch-adjust1">(5)</a> can be presented as:</p>
+<div class="math notranslate nohighlight" id="equation-stretch-adjust2">
+<span class="eqno">(7)<a class="headerlink" href="#equation-stretch-adjust2" title="Permalink to this equation">¶</a></span>\[F(x;p,k) = p\left( \frac{1}{4\cdot(1-x\cdot\left(1-b\frac{F}{k})\right)^2} - \frac{1}{4} + x\cdot\left(1-b\frac{F}{k}\right) \right)\]</div>
+<p>This is the form of the <strong>stretch-adjusted</strong> wlc model introduced in the StretchMe package.</p>
+</div>
+<div class="section" id="influence-of-the-linker">
+<span id="theory-linker"></span><h2>Influence of the linker<a class="headerlink" href="#influence-of-the-linker" title="Permalink to this headline">¶</a></h2>
+<p>It is common, that the polymer of interest (e.g. protein) is attached to the beads which are pulled with a linker.
+The linker itself can also be a polymer (e.g. DNA), which could be modelled again by WLC model.
+In such a case, the system may be compared to a series of springs.
+As the force on each two ends of the spring is equal, the same force <span class="math notranslate nohighlight">\(F\)</span> stretches each spring.
+As a result, the total distension <span class="math notranslate nohighlight">\(d\)</span> registered in the system of a protein connected by two DNA linkers is equal:</p>
+<div class="math notranslate nohighlight">
+\[d(F) = d_{DNA_1}(F,L_{DNA_1},p_{DNA_1},{DNA_1}) + d_{PROT}(F,L_{PROT},p_{PROT},k_{PROT}) + d_{DNA_2}(F,l_{DNA_2},p_{DNA_2},k_{DNA_2})\]</div>
+<p>where <span class="math notranslate nohighlight">\(L\)</span> is the contour length, <span class="math notranslate nohighlight">\(p\)</span> persistence length, and <span class="math notranslate nohighlight">\(k\)</span> is elasticity.
+Usually, the DNA linkers on each side are identical in structure, therefore, their distensions are equal and one can neglect the last term, introducing the 'effective' parameters for DNA:</p>
+<div class="math notranslate nohighlight">
+\[d(F) = d_{DNA}(F,L_{DNA},p_{DNA},{DNA}) + d_{PROT}(F,L_{PROT;i},p_{PROT},k_{PROT}) + d_{DNA}(F,l_{DNA},p_{DNA},k_{DNA})\]</div>
+</div>
+<div class="section" id="inverting-the-force-extension-dependence">
+<span id="theory-inverting"></span><h2>Inverting the force-extension dependence<a class="headerlink" href="#inverting-the-force-extension-dependence" title="Permalink to this headline">¶</a></h2>
+<p>It is often needed to calculate the extension of the chain, knowing the force acting on it.
+This problem also does not have a analytic solution. Usually, one neglects the behavior of the chain for small forces, and inverts the strong-force regime part, where the extension scales as square root of the force:</p>
+<div class="math notranslate nohighlight" id="equation-simple-inverting-marko-siggia">
+<span class="eqno">(8)<a class="headerlink" href="#equation-simple-inverting-marko-siggia" title="Permalink to this equation">¶</a></span>\[d(F;L,p_l) = L * \left(1-\frac{1}{2}\sqrt{\frac{Fp_L}{k_BT}}\right)\]</div>
+<p>This approach is invalid outside the strong-force regime, e.g. when one protein state is ruptured in relatively low forces.
+However, the <em>Marko-Siggia</em> function, after reduction to a polynomial is cubic in <span class="math notranslate nohighlight">\(d\)</span> and therefore may be computationally easy inverted.
+Namely, the value of <span class="math notranslate nohighlight">\(d(F;L,p,k)\)</span> is the real root of the appropriate polynomial, lying in the interval <span class="math notranslate nohighlight">\((0,L)\)</span>.
+The polynomials used are written explicitly in <a class="reference internal" href="#theory-stretchme-functions"><span class="std std-ref">The exact form of functions used in StretchMe</span></a>.</p>
+<p>This approach is valid, as one can show, that the derivative of the <em>Marko-Siggia</em> function is strictly positive in the interval <span class="math notranslate nohighlight">\((0,L)\)</span>, mapping the interval into positive real numbers (for positive <span class="math notranslate nohighlight">\(p\)</span> and <span class="math notranslate nohighlight">\(k\)</span>).
+Therefore, it is a bijection of these intervals, and therefore for each force there is only one <span class="math notranslate nohighlight">\(d\)</span> within this interval.
+In case of eWLC model, with non-zero elasticity <span class="math notranslate nohighlight">\(k\)</span> one needs to use the implicit function theorem <a class="reference internal" href="#theory-appendices-ift"><span class="std std-ref">Implicit Function Theorem</span></a>.</p>
+</div>
+<div class="section" id="finding-contour-length">
+<span id="theory-contour-length"></span><h2>Finding contour length<a class="headerlink" href="#finding-contour-length" title="Permalink to this headline">¶</a></h2>
+<p>Usually, the contours are found by global fitting of the curves.</p>
+</div>
+<div class="section" id="the-expected-chain-reduction-upon-knotting">
+<span id="theory-knotting"></span><h2>The expected chain reduction upon knotting<a class="headerlink" href="#the-expected-chain-reduction-upon-knotting" title="Permalink to this headline">¶</a></h2>
+<p>Upon knotting, the maximum length of the chain (contour length) gets decreased compared to the unknotted, stretched chain, as a portion of the chain is used to create a knot.</p>
+</div>
+<div class="section" id="the-exact-form-of-functions-used-in-stretchme">
+<span id="theory-stretchme-functions"></span><h2>The exact form of functions used in StretchMe<a class="headerlink" href="#the-exact-form-of-functions-used-in-stretchme" title="Permalink to this headline">¶</a></h2>
+<p>In the computations, the form of the <span class="math notranslate nohighlight">\(F(d)\)</span> dependencies are not suitable for calculations.
+In particular, usually the basic quantity is the relative extension <span class="math notranslate nohighlight">\(x=\frac{d}{L}\)</span>, but not the distance <span class="math notranslate nohighlight">\(d\)</span>, nor the contour length <span class="math notranslate nohighlight">\(L\)</span>.
+Similarly, both in experiment and in the simulations, the temperature <span class="math notranslate nohighlight">\(T\)</span> is constant, as well as the persistence length <span class="math notranslate nohighlight">\(p_L\)</span>.
+As a result, their quotient is constant and can be written as a single parameter <span class="math notranslate nohighlight">\(p=\frac{k_BT}{p_L}\)</span>.
+Finally, as the inextensible chain can be viewed as a chain can be viewed as an extensible chain with its parameter <span class="math notranslate nohighlight">\(k\rightarrow\infty\)</span>.
+This is, however, computationally uncomfortable and it is much better to operate with inverse of elasticity.</p>
+<p>Therefore, the exact form of the methods used in the StretchMe package are as follows:</p>
+<p><em>Marko-Siggia</em></p>
+<div class="math notranslate nohighlight" id="equation-real-marko-siggia">
+<span class="eqno">(9)<a class="headerlink" href="#equation-real-marko-siggia" title="Permalink to this equation">¶</a></span>\[F(x;p,k) = p\left( \frac{1}{4\cdot\left(1 - x + kF)\right)^2} - \frac{1}{4} + x - kF \right)\]</div>
+<p>This implicit function is calculated by forming a polynomial, cubic both in <span class="math notranslate nohighlight">\(F\)</span> and in <span class="math notranslate nohighlight">\(x\)</span>:</p>
+<div class="math notranslate nohighlight" id="equation-marko-siggia-polynomial">
+<span class="eqno">(10)<a class="headerlink" href="#equation-marko-siggia-polynomial" title="Permalink to this equation">¶</a></span>\[\begin{split}-\frac{F^3}{k^3}-\frac{F^3}{k^2 p}+\frac{3 F^2 x}{k^2}-\frac{2.25 F^2}{k^2}+\frac{2 F^2 x}{k p}-\frac{2 F^2}{k p}-\frac{3 F x^2}{k}+\frac{4.5 F x}{k}-\frac{1.5 F}{k}+\\
+\frac{F x^2}{p}+\frac{2 F x}{p}-\frac{F}{p}+x^3-2.25 x^2+1.5 x = 0\end{split}\]</div>
+<p>this allows for calculating both <span class="math notranslate nohighlight">\(F(x;p,k)\)</span> as the sole real, positive root of this polynomial, as well as <span class="math notranslate nohighlight">\(x(F;p,k)\)</span> as the sole real root lying within the interval <span class="math notranslate nohighlight">\((0,1)\)</span>.</p>
+<p><em>Stretch-adjusted</em></p>
+<div class="math notranslate nohighlight" id="equation-real-stretch-adjusted">
+<span class="eqno">(11)<a class="headerlink" href="#equation-real-stretch-adjusted" title="Permalink to this equation">¶</a></span>\[F(x;p,k) = p\left( \frac{1}{4\cdot\left(1 - x\cdot(1-kF)\right)^2} - \frac{1}{4} + x\cdot(1-kF) \right)\]</div>
+<p>with the exact values of <span class="math notranslate nohighlight">\(F(x;p,k)\)</span> and <span class="math notranslate nohighlight">\(x(F;p,k)\)</span> calculated as the roots of the polynomial:</p>
+<div class="math notranslate nohighlight" id="equation-stretch-adjusted-polynomial">
+<span class="eqno">(12)<a class="headerlink" href="#equation-stretch-adjusted-polynomial" title="Permalink to this equation">¶</a></span>\[\begin{split}\frac{4 F^3 k^3 x^3}{b^3}+\frac{4 F^3 k^2 x^2}{b^2 p}-\frac{12 F^2 k^2 x^3}{b^2}+\frac{9 F^2 k^2 x^2}{b^2}-\frac{8 F^2 k x^2}{b p}+\frac{8 F^2 k x}{b p}+\frac{12 F k x^3}{b} + \\
+-\frac{18 F k x^2}{b}+\frac{6 F k x}{b}+\frac{4 F x^2}{p}-\frac{8 F x}{p}+\frac{4 F}{p}-4 x^3+9 x^2-6 x = 0\end{split}\]</div>
+</div>
+<div class="section" id="appendices">
+<span id="theory-appendices"></span><h2>Appendices<a class="headerlink" href="#appendices" title="Permalink to this headline">¶</a></h2>
+<div class="section" id="implicit-function-theorem">
+<span id="theory-appendices-ift"></span><h3>Implicit Function Theorem<a class="headerlink" href="#implicit-function-theorem" title="Permalink to this headline">¶</a></h3>
+</div>
+</div>
+</div>
+
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="index.html">stretchme</a></h1>
+
+
+
+
+
+
+
+
+<h3>Navigation</h3>
+<p class="caption"><span class="caption-text">Contents:</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="overview.html">Stretchme overview</a></li>
+<li class="toctree-l1"><a class="reference internal" href="start.html">Quick start</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Theory</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#freely-jointed-chain">Freely-jointed chain</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#worm-like-chain-model">Worm-Like Chain model</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#the-force-extension-dependence-in-wlc-model">The force-extension dependence in WLC model</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#including-the-bond-stretching">Including the bond stretching</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#influence-of-the-linker">Influence of the linker</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#inverting-the-force-extension-dependence">Inverting the force-extension dependence</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#finding-contour-length">Finding contour length</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#the-expected-chain-reduction-upon-knotting">The expected chain reduction upon knotting</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#the-exact-form-of-functions-used-in-stretchme">The exact form of functions used in StretchMe</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#appendices">Appendices</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="parameters.html">Default parameters</a></li>
+<li class="toctree-l1"><a class="reference internal" href="documentation.html">Documentation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="licence.html">Licence</a></li>
+<li class="toctree-l1"><a class="reference internal" href="refs.html">References</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="index.html">Documentation overview</a><ul>
+      <li>Previous: <a href="start.html" title="previous chapter">Quick start</a></li>
+      <li>Next: <a href="parameters.html" title="next chapter">Default parameters</a></li>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" />
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script>$('#searchbox').show(0);</script>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2020, pdabrowskitumanski.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 3.1.2</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+      
+      |
+      <a href="_sources/theory.rst.txt"
+          rel="nofollow">Page source</a>
+    </div>
+
+    
+
+    
+  </body>
+</html>

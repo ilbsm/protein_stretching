@@ -9,13 +9,12 @@ Installation
 ------------
 The installation of the package is as simple as writing::
 
-    python3 -m pip install --index-url https://test.pypi.org/simple/ --no-deps strechme
+    pip3 install stretchme
 
-It is distributed (yet) at the test.pypi.org::
+It is distributed (yet) at the pypi.org::
 
-    https://test.pypi.org/project/Stretchme
+    https://pypi.org/project/Stretchme
 
-As this is still a test version, it is maintained at a test server. In nearest future it will be provided at the real pypi.
 
 .. _start_requirements:
 
