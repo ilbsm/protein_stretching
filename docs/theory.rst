@@ -132,6 +132,48 @@ Finding contour length
 ----------------------
 
 Usually, the contours are found by global fitting of the curves.
+In such approach, each trace has to be divided into parts corresponding to the states, and for each part a separate fitting of the contour length has to be done.
+In each fits, the persistence length and the elasticity has to be the same.
+
+This approach fails, if the transitions between the states are not clear, i.e. the difference in contour length is small.
+Moreover, even after proper division of states, the number of parameters to be fitted is :math:`N+2`, where :math:`N` is the number of states (:math:`N` contour lengths, persistence length and elasticity).
+Each fitted parameter introduces own error, therefore, for a structures with only a few states, the results may not be reliable.
+
+However, more important is the case when the polymer of choice (e.g. protein) is connected with the pulled bead with a linker (e.g. DNA).
+In such a case, usually one assumes, that in the first pulling phase only the linker is stretched.
+Then, one may fit the first phase obtaining the parameters of the linker and use it to subtract the linker impact on total extension :math:`d`.
+This method, however, fails if the polymer of interest is stretched simultaneously with the linker.
+Such situation happens e.g. when the protein connected with DNA linker has two, loosely bound subdomains.
+Then, the domains are stretched apart in the first pulling phase, along with the DNA.
+
+To solve this problem, one may generalize the method proposed by Puchner (citation).
+In the original method, knowing the persistence length, one may invert the observed force to obtain the relative stretch :math:`x=\frac{d}{L}` for each force registered.
+Next, one may plot the histogram of the values :math:`l=\frac{d}{x}` i.e. the quotient of the extension :math:`d` and the :math:`x` calculated for the corresponding force.
+For the ideal measurement, these values should be equal one of the contour lengths :math:`L_i`.
+In reality, as both measured force :math:`F` and measured extension :math:`d` are subjected to some errors, the histogram plotted shows a set of picks, centered at the values :math:`L_i`.
+Therefore, this allows to obtain all the contour lengths :math:`L_i` from the histogram, knowing only the persistence length.
+It is then straightforward to include also the elasticity :math:`k`, as it only changes the function, which has to be inverted in order to find the relative extension :math:`x`.
+
+In practice, this method can be used to fit efficiently the traces, as it only requires fitting two parameters (persistence length and elasticity) to obtain all needed parameters, including the contour length :math:`L_i`.
+Now the question arises, when does the parameters fit the trace best?
+Assuming the Gaussian error in measurement of both forces and extensions, the relative extension :math:`x` is also calculated roughly with Gaussian error.
+The quotient of two Gaussian distributions is a Cauchy distribution (:ref:`theory_appendices_probability`).
+Therefore, for each pick, one may calculate the p-value, i.e. probability, that the resulting distribution comes from corresponding Cauchy distribution.
+Or even simpler, one can calculate the mean skewness of the picks, as the Cauchy distribution is symmetrical around its mean (has 0 skewness).
+
+Observe also, that this technique in principle allows to deal with simultaneous stretching of polymer and linker, as in the pessimistic case it requires fitting of 5 parameters (3 for linker and 2 for polymer), but simultaneous stretching is not a problem.
+
+.. _theory_dhs:
+
+The Dudko-Hummer-Szabo approach to state life-time
+--------------------------------------------------
+During polymers stretching, each state has a mechanical resistance, resulting in a characteristic distribution of forces needed to rupture the polymer, and as a result transfer it to the next state.
+Dudko, Hummer, and Szabo described the method, allowing to transform the distribution of forces to the lifetime of the states, and to calculate the energy barrier on rupture, as well as the stretch distance at which the rupture should occur (citation).
+
+.. math::
+    \tau(F) = \tau_0 \left(1-\frac{\nu Fx \ddagger}{\Delta G\ddagger}\rigth)^{1-1/\nu} e^{-\Delta G\ddagger [1-(1-\nu Fx\ddagger/\Delta G\ddagger)^{1/v}]
+    :label: dhs_time
+
 
 .. _theory_knotting:
 
@@ -191,5 +233,10 @@ Appendices
 .. _theory_appendices_ift:
 
 Implicit Function Theorem
++++++++++++++++++++++++++
+
+.. _theory_appendices_probability:
+
+Probability distributions
 +++++++++++++++++++++++++
 
