@@ -171,7 +171,7 @@ During polymers stretching, each state has a mechanical resistance, resulting in
 Dudko, Hummer, and Szabo described the method, allowing to transform the distribution of forces to the lifetime of the states, and to calculate the energy barrier on rupture, as well as the stretch distance at which the rupture should occur (citation).
 
 .. math::
-    \tau(F) = \tau_0 \left(1-\frac{\nu Fx \ddagger}{\Delta G\ddagger}\right)^{1-1/\nu} e^{-\Delta G\ddagger [1-(1-\nu Fx\ddagger/\Delta G\ddagger)^{1/v}]
+    \tau(F) = \tau_0 \left(1-\frac{\nu Fx \ddagger}{\Delta G\ddagger}\right)^{1-1/\nu} e^{-\Delta G\ddagger [1-(1-\nu Fx\ddagger/\Delta G\ddagger)^{1/v}]}
     :label: dhs_time
 
 .. _theory_knotting:
