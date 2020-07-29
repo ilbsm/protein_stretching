@@ -16,6 +16,7 @@ from colorsys import hsv_to_rgb
 from .default_parameters import default_parameters
 from copy import deepcopy
 from matplotlib import pyplot as plt
+from symfit import Model, Parameter, Variable, Fit
 
 
 # preprocessing
@@ -54,7 +55,9 @@ def running_average(x, y, window=None):
 
 # reading
 def read_dataframe(input_data, cases=None, columns=None):
-    if columns:
+    if columns and all([isinstance(c, int) for c in columns]):
+        return input_data.iloc[:, columns]
+    elif columns and not all([isinstance(c, int) for c in columns]):
         return input_data[columns]
     elif cases:
         allowed = [str(_) for _ in cases]
@@ -115,8 +118,19 @@ def close_logs(logger):
 
 
 # calculations
-def gauss(x, height, mean, width):
-    return height * np.exp(-((x - mean) ** 2) / (2 * width))
+def single_gaussian(x, height, mean, width):
+    if height < 0 or mean < 0:
+        return 999
+    return height * np.exp(-(x - mean)**2/(2*width**2))
+
+
+def multiple_gaussian(x, *args):
+    """ The function expects 3*states parameters (height1, center1, width1, height2, center2, width2, ..."""
+    result = np.zeros(len(x))
+    for k in range(0, len(args), 3):
+        height, mean, width = args[k], args[k + 1], args[k + 2]
+        result += single_gaussian(x, height, mean, width)
+    return result
 
 
 def integrate_gauss(force, mean, width):
@@ -156,7 +170,7 @@ def stretch_adjusted_wlc(d, length, p, k=0, residues_distance=None):
     return max(result)
 
 
-def wlc(distances, length, p, method=marko_siggia, k=0, residues_distance=None):
+def wlc(distances, length, p, method='marko_siggia', k=0, residues_distance=None):
     if not residues_distance:
         residues_distance = default_parameters['residues_distance']
     if method == 'stretch-adjusted':
@@ -212,53 +226,56 @@ def get_d_dna(p_dna, l_dna, k_dna, f_space, method='marko-siggia'):
         return np.zeros(len(f_space))
 
 
-def get_force_load(force, speed, l_prot, p_prot, k_prot=None):
-    numerator = 2 * (l_prot/p_prot) * (1 + force/p_prot)
-    denominator = 3 + 5 * force/p_prot + 8 * (force/p_prot)**(5/2)
-    factor = numerator/denominator
-    if k_prot:
-        factor += 1/k_prot
+def get_force_load(force, parameters):
+    speed = parameters['speed']
+    l_dna, p_dna, k_dna = parameters['l_dna'], parameters['p_dna'], parameters['k_dna']
+    k_spring = parameters['spring_constant']
+    if float(k_spring) == 0.0:
+        raise NotImplementedError("Cannot deal with no-spring case right now")
+    if l_dna > 0:
+        # TODO include k_dna
+        dna_part = (2 * (l_dna/p_dna) * (1 + force/p_dna)) / (3 + 5 * force/p_dna + 8 * (force/p_dna)**(5/2))
+    else:
+        dna_part = np.zeros(len(force))
+    factor = 1/k_spring + dna_part
     return speed/factor
 
 
-def dhs_feat_05(force, x, t0, g):
-    return t0 / (1 - 0.5 * x/g * force) * np.exp(-g*(1-(1-0.5 * x/g * force)**2))
+def dhs_feat_cusp(force, x, t0, g):
+    if 1 - 0.5 * force.max() * x/g < 0 or t0 < 0:
+        return np.array([999 for _ in range(len(force))])
+    return np.log(t0) - x*force - np.log(1 - 0.5 * force * x/g) + ((0.5*force*x)**2) / g
 
 
-def dhs_feat_066(force, x, t0, g):
+def dhs_feat_linear_cubic(force, x, t0, g):
     return t0 / (1 - 2 * x/g * force/3)**(1/2) * np.exp(-g*(1-(1-2 * x/g * force/3)**(3/2)))
 
 
-def dhs_feat_1(force, x, t0):
-    return t0 * np.exp(-x*force)
+def dhs_feat_bell(force, x, t0):
+    if t0 < 0:
+        return np.array([999 for _ in range(len(force))])
+    return np.log(t0) - x*force
 
 
-def dhs_feat(f_space, lifetime):
+def dhs_feat(data, init_x):
     coefficients = {}
-    # # v = 1
-    # p0 = (1, lifetime[0])
-    # try:
-    #     popt, pcov = curve_fit(dhs_feat_1, f_space, lifetime, p0=p0)
-    #     coefficients['1'] = {'x': popt[0], 't0': popt[1], 'covariance': pcov}
-    # except RuntimeError:
-    #     coefficients['1'] = None
+    init_lifetime = data['lifetime'].head(1).values[0]
 
-    # # v = 2/3
-    # p0 = (0.1, lifetime[0], 10)
-    # try:
-    #     popt, pcov = curve_fit(dhs_feat_066, f_space, lifetime, p0=p0)
-    #     coefficients['2/3'] = {'x': popt[0], 't0': popt[1], 'g': popt[2], 'covariance': pcov}
-    # except RuntimeError:
-    #     coefficients['2/3'] = None
+    # v = 1
+    p0 = (init_x, init_lifetime)
+    popt, pcov = curve_fit(dhs_feat_bell, data['forces'], np.log(data['lifetime']), p0=p0)
+    coefficients['bell'] = {'x': popt[0], 't0': popt[1]}   #'covariance': pcov}
 
     # v = 1/2
-    p0 = (1, lifetime[0], 1)
+    p0 = (coefficients['bell']['x'], coefficients['bell']['t0'], coefficients['bell']['x']*data['forces'].max())
+    plt.plot(data['forces'], np.log(data['lifetime']))
+    plt.show()
     try:
-        popt, pcov = curve_fit(dhs_feat_05, f_space, lifetime, p0=p0)
-        coefficients['1/2'] = {'x': popt[0], 't0': popt[1], 'g': popt[2], 'covariance': pcov}
+        popt, pcov = curve_fit(dhs_feat_cusp, data['forces'], np.log(data['lifetime']), p0=p0)
+        result = {'x': popt[0], 't0': popt[1], 'g': popt[2]}   #, 'covariance': pcov}
     except RuntimeError:
-        coefficients['1/2'] = None
-
+        result = None
+    coefficients['cusp'] = result
     return coefficients
 
 
@@ -292,17 +309,13 @@ def get_color(k, max_value):
 def plot_decomposed_histogram(position, data, bound, residue_distance):
     k = 0
     l_space = np.linspace(0, bound, 1001)
-    # TODO add Cauchy distribution
-    for index, row in data[['means', 'widths', 'heights', 'cauchy_means', 'cauchy_gammas', 'factor']].iterrows():
-        mean, width, height, cauchy_means, cauchy_gammas, factor = tuple(row.to_numpy())
+    data = data[data['widths'] < 50]
+    for index, row in data[['means', 'widths', 'heights']].iterrows():
+        mean, width, height = tuple(row.to_numpy())
         residues = 1 + int(mean / residue_distance)
         label = "L= " + str(round(mean, 3)) + ' (' + str(residues) + ' AA)'
-        # normal distribution
-        # y_gauss = factor * gauss(l_space, height, mean, width)
-        # position.plot(l_space, y_gauss, linestyle='--', linewidth=0.5, label=label, color=get_color(k, len(data)))
-        # cauchy distribution
-        y_cauchy = factor * cauchy.pdf(l_space, cauchy_means, cauchy_gammas)
-        position.plot(l_space, y_cauchy, linestyle='--', linewidth=0.5, label=label, color=get_color(k, len(data)))
+        y_gauss = single_gaussian(l_space, height, mean, width)
+        position.plot(l_space, y_gauss, linestyle='--', linewidth=0.5, label=label, color=get_color(k, len(data)))
         k += 1
     return
 
@@ -313,11 +326,12 @@ def plot_trace_fits(position, coefficients, max_f, residue_distance, method='mar
                       coefficients.get('k_dna', None), f_space, method=method)
     x_prot = inverse_wlc(f_space, coefficients.get('p_prot', 0), k=coefficients.get('k_prot', None), method=method)
     k = 0
-    for index, row in coefficients['l_prot'].iterrows():
+    parameters = coefficients['l_prot'][coefficients['l_prot']['widths'] < 50]
+    for index, row in parameters.iterrows():
         l_prot = row['means']
         residues = 1 + int(l_prot / residue_distance)
         d_prot = l_prot * x_prot
-        d_plot = d_dna + d_prot
+        d_plot = d_prot + d_dna
         label = 'Fit L=' + str(round(l_prot, 3)) + ' (' + str(residues) + ' AA)'
         position.plot(d_plot, f_space, label=label, color=get_color(k, len(coefficients['l_prot'])))
         k += 1
@@ -338,7 +352,7 @@ def find_state_boundaries(smooth_data, parameters, p, k, max_distance=0.3, metho
         ends.append(data_close.max())
         if ends[-1] != np.NaN:
             last_end = ends[-1]
-    return begs, ends, smooth_data
+    return begs, ends
 
 
 def guess_states_number(hist_values, significance=0.01):
@@ -373,65 +387,88 @@ def get_max_contour_length(data, significance):
     return max_contour_length
 
 
-def decompose_histogram(hist_values, significance=None, states=None):
+def transform_guesses(guesses, states):
+    p0 = []
+    k = 0
+    for ind, row in guesses.iterrows():
+        if k == states:
+            break
+        k += 1
+        p0 += list(row.values)
+    return tuple(p0)
+
+
+def transform_fit_results(results):
+    parameters = pd.DataFrame({'heights': np.array([results[k] for k in range(0, len(results), 3)]),
+                               'means': np.array([results[k+1] for k in range(0, len(results), 3)]),
+                               'widths': np.array([abs(results[k+2]) for k in range(0, len(results), 3)])})
+    parameters = parameters.sort_values(by=['means'])
+    return parameters
+
+
+def decompose_histogram(hist_values, significance=None, states=None, bandwidth=None):
     if not significance:
         significance = default_parameters['significance']
 
-    if not states:
-        maximas, support = guess_states_number(hist_values, significance=significance)
-        states = max(len(maximas), 1)
-    else:
-        support = [0, get_max_contour_length(hist_values, significance)]
+    if not bandwidth:
+        bandwidth = default_parameters['bandwidth']
 
-    # fitting Gaussians
-    trimmed_data = hist_values[(hist_values > support[0]) & (hist_values < support[1])]
-    x = np.expand_dims(trimmed_data, 1)
-    gmm = GaussianMixture(n_components=states)
-    gmm.fit(x)
+    # finding the density from histogram
+    x = np.expand_dims(hist_values, 1)
+    kde = KernelDensity(bandwidth=bandwidth).fit(x)
+    estimator = np.linspace(min(hist_values), max(hist_values), 1001)
+    kde_est = np.exp(kde.score_samples(estimator.reshape(-1, 1)))
+    significant = [estimator[_] for _ in range(len(estimator)) if kde_est[_] > significance]
+    support = [min(significant), max(significant)]
+    trimmed_data = hist_values[(hist_values >= support[0]) & (hist_values <= support[1])]
 
-    # defining parameters
-    parameters = pd.DataFrame({'means': np.array([x[0] for x in gmm.means_]),
-                               'widths': np.array([x[0][0] for x in gmm.covariances_])})
-    parameters['heights'] = 1/(parameters['widths'] * np.sqrt(2*np.pi))
-    parameters = parameters.sort_values(by=['means'])
+    # finding the local maxima of the histogram = number of states and their heights and widths
+    means = np.array([estimator[_] for _ in argrelextrema(kde_est, np.greater)[0] if kde_est[_] > significance])
+    if states:
+        missing = max(states - len(means), 0)
+        if missing > 0:
+            intervals = missing + 1
+            beg, end = min(means), max(means)
+            additional = np.array([beg * (intervals - i)/intervals + end * i/intervals for i in range(1, intervals)])
+            means = np.append(means, additional)
+    heights = np.exp(kde.score_samples(means.reshape(-1, 1)))
+    guesses = pd.DataFrame({'heights': heights, 'means': means, 'widths': np.ones(len(means))})
+    guesses = guesses.sort_values(by=['heights'], ascending=False)
 
+    # for small number of points:
+    if len(hist_values) <= 5:
+        states = 1
+
+    # fitting
+    p0 = transform_guesses(guesses, states)
+    try:
+        popt, pcov = curve_fit(multiple_gaussian, estimator, kde_est, p0=p0)
+    except RuntimeError:
+        raise ValueError("Optimal parameters in fitting with a required number of states "
+                         + str(states) + " not found. Maybe you set to high number of states?")
+    parameters = transform_fit_results(popt)
+
+    # calculating the probability the value corresponds to a given state
     states = pd.DataFrame({'d': trimmed_data})
     states_names = []
 
     for ind, row in parameters.iterrows():
         states_names.append('state_' + str(ind))
         mean, width, height = row[['means', 'widths', 'heights']].values
-        states[states_names[-1]] = gauss(trimmed_data, height, mean, width)
-    parameters['states_names'] = np.array(states_names)
+        states[states_names[-1]] = single_gaussian(trimmed_data, height, mean, width)
 
-    # assigning the best matching state
+    # assigning the best matching state for each value
     states['state'] = states[states_names].idxmax(axis=1)
 
-    # fitting Cauchy
-    cauchy_means = []
-    cauchy_gammas = []
-    pvalues = []
-    skewness = []
-    factors = []
-    means = np.array(parameters['means'].values)
-    middles = means[:-1] + 0.5 * np.diff(means)
-    boundaries = [0] + list(middles) + [max(trimmed_data)]
+    # searching for the begin and end of each state
+    begs, ends, skewness = [], [], []
     for k in range(len(states_names)):
         state = states_names[k]
-        bounds = [boundaries[k], boundaries[k+1]]
-        matching = states[(states['state'] == state) & (states['d'].between(bounds[0], bounds[1]))]['d'].to_numpy()
-        factors.append(float(len(matching))/len(states))
-        mu, gamma = cauchy.fit(matching)
-        ensamble = cauchy.rvs(size=len(matching), loc=mu, scale=gamma)
-        cauchy_means.append(mu)
-        cauchy_gammas.append(gamma)
+        matching = states[(states['state'] == state)]['d']
+        begs.append(matching.min())
+        ends.append(matching.max())
         skewness.append(skew(matching))
-        pvalues.append(ks_2samp(ensamble, matching).pvalue)
-    parameters['cauchy_means'] = np.array(cauchy_means)
-    parameters['cauchy_gammas'] = np.array(cauchy_gammas)
-    parameters['skewness'] = np.array(skewness)
-    parameters['pvalues'] = np.array(pvalues)
-    parameters['factor'] = np.array(factors)
+    parameters['begs'], parameters['ends'], parameters['skewness'] = begs, ends, skewness
     return parameters, support
 
 

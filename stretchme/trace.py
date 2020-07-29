@@ -291,7 +291,7 @@ class Trace:
 
         # plotting fits
         plot_trace_fits(position, self.parameters, self.data['F'].max(), self.parameters['residues_distance'],
-                        self.parameters['method'])
+                        method=self.parameters['method'])
 
         position.legend()
         return

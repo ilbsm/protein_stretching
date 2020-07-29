@@ -22,9 +22,9 @@ def simulate_single_trace(p_prot=0.7, k_prot=200, p_dna=0, k_dna=0, position_blu
     result = pd.DataFrame(columns=['d', 'F'])
     real_rupture_forces = list(np.array(rupture_forces) + np.random.normal(0, rupture_forces_blur, len(l_prots)-1))
     real_rupture_forces.append(force_range[-1])
-    d_prot_rupture = [l_prots[_] * (inverse_wlc([real_rupture_forces[_]], p_prot, k=k_prot, method=method) + relaxation)
-                      for _ in range(len(l_prots) - 1)]
-    start_forces = [force_range[0]] + [wlc([d_prot_rupture[_]], l_prots[_ + 1], p_prot, k=k_prot, method=method)
+    d_prot_rupture = [l_prots[_] * (inverse_wlc([real_rupture_forces[_]], p_prot, k=k_prot, method=method)[0] +
+                                    relaxation) for _ in range(len(l_prots) - 1)]
+    start_forces = [force_range[0]] + [wlc([d_prot_rupture[_]], l_prots[_ + 1], p_prot, k=k_prot, method=method)[0]
                                        for _ in range(len(d_prot_rupture))]
     part_forces = [[start_forces[_], real_rupture_forces[_]] for _ in range(len(real_rupture_forces))]
 
@@ -38,7 +38,7 @@ def simulate_single_trace(p_prot=0.7, k_prot=200, p_dna=0, k_dna=0, position_blu
 
 def simulate_single_length(p_prot=0.7, k_prot=200, p_dna=0, k_dna=None, position_blur=0.1, force_blur=1, l_dna=350,
                           l_prot=25, force_range=(0.1, 20), method='marko-siggia'):
-    # TODO f_space cannot by < 0.1
+    # TODO f_space cannot be < 0.1
     f_space = np.linspace(force_range[0], force_range[1], 10000)
     f_mixed = f_space + np.random.normal(0, force_blur, 10000)
     d_prot = l_prot * inverse_wlc(f_space, p_prot, k=k_prot, method=method)

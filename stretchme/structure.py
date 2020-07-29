@@ -57,7 +57,7 @@ class Structure:
                 """
 
         n = len(self.traces)
-        self._read_data(filename, cases=cases, columns=columns, **kwargs)
+        self._read_data(filename, cases=cases, columns=columns, trace_name=n, **kwargs)
         names = [str(x) for x in range(n, len(self.traces))]
         return names
 
@@ -92,7 +92,7 @@ class Structure:
                 """
 
         self.make_histograms()
-        self.make_partial_plots()
+        # self.make_partial_plots()
         return True
 
     def make_partial_plots(self, output=None):
@@ -137,7 +137,7 @@ class Structure:
             close_logs(logger)
 
         plt.savefig(ofile)
-        plt.close(fig)
+        plt.close()
         return True
 
     def make_histograms(self, output=None):
@@ -340,8 +340,8 @@ class Structure:
 
         result = [self._get_general_info(separator),
                   self._get_traces_info(separator),
-                  self._get_cummulative_statistics(separator),
-                  self._get_force_analysis_info(separator)]
+                  self._get_cummulative_statistics(separator)]  #,
+#                  self._get_force_analysis_info(separator)]
 
         with open(oname, 'w') as ofile:
             ofile.write('\n'.join(result))
@@ -361,7 +361,7 @@ class Structure:
                 'Low force cutoff\t' + str(self.parameters['low_force_cutoff']),
                 'Significance\t' + str(self.parameters['significance']),
                 'Fit initial guess\t' + str(self.parameters['initial_guess']),
-                'Residue distance (nm)\t' + str(self.parameters['residue_distance']),
+                'Residue distance (nm)\t' + str(self.parameters['residues_distance']),
                 'Sheet name\t' + str(self.parameters['sheet_name']),
                 'Separator\t' + str(self.parameters['separator']),
                 separator]
@@ -391,7 +391,7 @@ class Structure:
         return '\n'.join(separator)
 
     # reading
-    def _read_data(self, input_data=None, cases=None, columns=None, **kwargs):
+    def _read_data(self, input_data=None, cases=None, columns=None, trace_name=None, **kwargs):
         """ Reading the data and splitting them into Traces """
         parameters = {**self.parameters, **kwargs}
 
@@ -412,17 +412,19 @@ class Structure:
         # dividing data into traces
         headers = list(data)
         for k in range(len(headers) % 2, len(headers), 2):    # if the first column is the index
-            if headers[k][0] == 'd':
+            if not trace_name and headers[k][0] == 'd':
                 trace_name = headers[k].strip('d_')
-            else:
+            elif not trace_name:
                 trace_name = str(int(k/2))
+            else:
+                pass
             trace_data = data[[headers[k], headers[k + 1]]]
             new_headers = {headers[k]: 'd', headers[k + 1]: 'F'}
             trace_data = trace_data.rename(columns=new_headers)
             if parameters['unit'] == 'A':
                 trace_data['d'] = trace_data['d'] / 10
             self.traces.append(Trace(trace_name, trace_data, input_data, experiment_name=self.name, debug=self.debug,
-                                     parameters=self.parameters))
+                                     parameters=parameters))
         return True
 
     # setting
@@ -508,24 +510,27 @@ class Structure:
         position.set_xlabel('Distension [nm]')
         position.set_ylabel('Force [pN]')
         position.set_title('All smoothed traces overlaid')
-        max_f = 0
-        position.set_ylim(0, max_f)
+        max_f, min_d, max_d = 0, 0, 0
 
         # plotting overlaid smoothed traces
         for k in range(len(self.traces)):
             t = self.traces[k]
             position.plot(t.smoothed['d'], t.smoothed['F'], color=get_gray_shade(k, len(self.traces)))
             max_f = max(max_f, t.data['F'].max())
+            min_d = min(min_d, t.data['d'].min())
+            max_d = max(max_d, t.data['d'].max())
 
         # plotting fits
         plot_trace_fits(position, self.parameters, max_f, self.parameters['residues_distance'],
                         method=self.parameters['method'])
 
+        position.set_ylim(0, max_f)
+        position.set_xlim(min_d, max_d)
         position.legend()
         return
 
     def _plot_forces_histogram(self, position):
-        if not self.forces:
+        if len(self.forces) == 0:
             if self.debug:
                 logger = set_logger(self.name)
                 logger.debug("Structure.forces empty, nothing to plot. Did you run .analyze() or "
@@ -548,17 +553,20 @@ class Structure:
         for k in range(len(self.states)):
             state = self.states[k]
             data_to_plot = np.array(self.forces[self.forces['state'] == state]['rupture_forces'].dropna())
+            if len(data_to_plot) < 2:
+                continue
             # TODO the line below is redundant with _analyze_dhs
             parameters, boundaries = decompose_histogram(data_to_plot, significance=self.parameters['significance'])
 
+            label = '; '.join([str(round(x, 3)) for x in list(parameters['means'].values)]) + ' pN'
+            bins = max(int(10*(max(data_to_plot) - min(data_to_plot))), 1)
+            position.hist(data_to_plot, bins=bins, color=get_color(k, len(self.states)), alpha=0.5, density=True,
+                          label=label)
+            # TODO plot Gaussian here
             y_plot = np.zeros(len(f_space))
             for index, row in parameters.iterrows():    # if there is more than 1 contour length for this force
-                y_plot += gauss(f_space, row['heights'], row['means'], row['widths'])
-
-            label = '; '.join([str(round(x, 3)) for x in list(parameters['means'].values)]) + ' pN'
-            position.hist(data_to_plot, bins=20, color=get_color(k, len(self.states)), alpha=0.5, density=True,
-                          label=label)
-            position.plot(f_space, y_plot, linestyle='--', color=get_color(k, len(self.states)))
+                y_plot += single_gaussian(f_space, row['heights'], row['means'], row['widths'])
+            position.plot(f_space, y_plot, linestyle='--', linewidth=0.5, color=get_color(k, len(self.states)))
 
         position.legend()
         return
@@ -568,14 +576,13 @@ class Structure:
         position.set_title('Dudko-Hummer-Szabo lifetime')
         position.set_xlabel('Rupture force [pN]')
         position.set_ylabel('State lifetime [s]')
-        position.set_ylim(top=1000)
+        # position.set_ylim(top=1000)
         position.set_yscale('log')
 
         for k in range(len(self.dhs_states)):
-            beg, end, l_prot, force, lifetime = self.dhs_states[k]
-            f_space = np.linspace(beg, end, 100)
+            beg, end, l_prot, force, dhs_data = self.dhs_states[k]
             label = 'l_prot=' + str(round(l_prot, 3)) + '; force=' + str(round(force, 3))
-            position.plot(f_space, lifetime, label=label, color=get_color(k, len(self.dhs_states)))
+            position.plot(dhs_data['forces'], dhs_data['lifetime'], label=label, color=get_color(k, len(self.dhs_states)))
         position.legend()
         return
 
@@ -589,10 +596,9 @@ class Structure:
         self.max_f = self.forces['rupture_forces'].max()
 
         # assigning a rupture force to the state from the list of cumulative states
-        # TODO - calculate it using Cauchy distribution
         for index, row in self.parameters['l_prot'][['means', 'widths', 'heights']].iterrows():
             mean, width, height = tuple(row.to_numpy())
-            self.forces['state_' + str(index)] = gauss(np.array(self.forces['means']), height, mean, width)
+            self.forces['state_' + str(index)] = single_gaussian(np.array(self.forces['means']), height, mean, width)
             self.states.append('state_' + str(index))
 
         # selecting the corresponding state
@@ -605,6 +611,8 @@ class Structure:
         for k in range(len(self.states)):
             state = self.states[k]
             data = np.array(self.forces[self.forces['state'] == state]['rupture_forces'].dropna())
+            if len(data) < 2:
+                continue
             parameters, boundaries = decompose_histogram(data, significance=self.parameters['significance'])
             state_index = int(state.strip('state_'))
             l_prot = self.parameters['l_prot'].loc[state_index, 'means']
@@ -613,15 +621,17 @@ class Structure:
 
             for ind, row in parameters[['means', 'widths', 'heights']].iterrows():
                 mean, width, height = tuple(row.to_numpy())
-
-                force_load = get_force_load(f_space, self.parameters['speed'], l_prot,
-                                            self.parameters['p_prot'], self.parameters['k_prot'])
-                probability = gauss(f_space, height, mean, width)
-                denominator = probability * force_load
-                nominator = integrate_gauss(f_space, mean, width)
+                dhs_data = pd.DataFrame({'forces': f_space,
+                                         'force_load': get_force_load(f_space, self.parameters),
+                                         'probability': single_gaussian(f_space, height, mean, width),
+                                         'nominator': integrate_gauss(f_space, mean, width)})
+                dhs_data['denominator'] = dhs_data['probability'] * dhs_data['force_load']
+                dhs_data = dhs_data[dhs_data['denominator'] > 0.1]
+                dhs_data['lifetime'] = dhs_data['nominator'] / dhs_data['denominator']
+                if len(dhs_data) < 5:
+                    continue
 
                 # calculating the lifetime and fitting it
-                lifetime = nominator / denominator
-                self.dhs_states.append([beg, end, l_prot, mean, lifetime])
-                self.dhs_results[(round(l_prot, 3), round(mean, 3))] = dhs_feat(f_space, lifetime)
+                self.dhs_states.append([beg, end, l_prot, mean, dhs_data])
+                self.dhs_results[(round(l_prot, 3), round(mean, 3))] = dhs_feat(dhs_data, l_prot)
         return True

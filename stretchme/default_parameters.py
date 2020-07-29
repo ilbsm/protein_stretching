@@ -20,6 +20,8 @@ default_parameters = {
     'significance': 0.0005,
     'max_distance': 0.3,
     'intervals': 1001,
+    'spring_constant': 1,
+    'bandwidth': 0.5,
     'method': 'marko-siggia',
     'initial_guess': {None: {'p_prot': 0.7, 'p_dna': 0.1, 'k_prot': 0.005, 'k_dna': 0.005, 'l_dna': 345},
                       'theory': {'p_prot': 0.7, 'p_dna': 0.1, 'k_prot': 0.005, 'k_dna': 0.005, 'l_dna': 345},
