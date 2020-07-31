@@ -93,7 +93,8 @@ class Trace:
                 """
 
         # fitting coefficients
-        coefficients = fit_coefficients(self.data, self.parameters)
+        coefficients = fit_coefficients(self.data, self.smoothed, self.parameters)
+        print(coefficients)
         self.parameters = {**self.parameters, **coefficients}
 
         # transforming coordinates
@@ -109,6 +110,7 @@ class Trace:
                                                  significance=self.parameters['significance'])
         self.boundaries = bounds
         self.parameters['l_prot'] = parameters
+
         print(parameters['skewness'].abs().mean())
         if self.debug:
             logger = set_logger(self.experiment_name)
@@ -163,9 +165,11 @@ class Trace:
             logger = set_logger(self.experiment_name)
             pd.set_option('display.max_columns', None)
             pd.set_option('display.max_rows', None)
+            pd.set_option('display.width', None)
             logger.info("Rupture forces found. These are:\n" + str(self.parameters['l_prot']))
             pd.reset_option('display.max_columns')
             pd.reset_option('display.max_rows')
+            pd.reset_option('display.width')
             close_logs(logger)
         return True
 

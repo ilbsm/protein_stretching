@@ -268,8 +268,6 @@ def dhs_feat(data, init_x):
 
     # v = 1/2
     p0 = (coefficients['bell']['x'], coefficients['bell']['t0'], coefficients['bell']['x']*data['forces'].max())
-    plt.plot(data['forces'], np.log(data['lifetime']))
-    plt.show()
     try:
         popt, pcov = curve_fit(dhs_feat_cusp, data['forces'], np.log(data['lifetime']), p0=p0)
         result = {'x': popt[0], 't0': popt[1], 'g': popt[2]}   #, 'covariance': pcov}
@@ -441,11 +439,14 @@ def decompose_histogram(hist_values, significance=None, states=None, bandwidth=N
 
     # fitting
     p0 = transform_guesses(guesses, states)
-    try:
-        popt, pcov = curve_fit(multiple_gaussian, estimator, kde_est, p0=p0)
-    except RuntimeError:
-        raise ValueError("Optimal parameters in fitting with a required number of states "
-                         + str(states) + " not found. Maybe you set to high number of states?")
+    popt = tuple()
+    while len(popt) < len(p0):
+        try:
+            popt, pcov = curve_fit(multiple_gaussian, estimator, kde_est, p0=p0)
+        except RuntimeError:
+            p0 = p0[:-3]
+            print("I reduced the number of states from expected (" + str(int((len(p0) + 3)/3)) + ") to " +
+                  str(int(len(p0)/3)))
     parameters = transform_fit_results(popt)
 
     # calculating the probability the value corresponds to a given state
@@ -469,6 +470,7 @@ def decompose_histogram(hist_values, significance=None, states=None, bandwidth=N
         ends.append(matching.max())
         skewness.append(skew(matching))
     parameters['begs'], parameters['ends'], parameters['skewness'] = begs, ends, skewness
+    parameters = parameters[parameters['heights'] > 0.001]
     return parameters, support
 
 
@@ -501,25 +503,58 @@ def fit_skew(x, data, states, known, unknown_keys, method='marko-siggia'):
     return skewness
 
 
-def fit_coefficients(data, parameters):
+def find_last_range(data, data_smooth):
+    extremas = argrelextrema(data_smooth[data_smooth['d'] < data_smooth['d'].max() - 3]['F'].to_numpy(), np.less)[0]
+    local_minimum = data_smooth.loc[extremas[-1], 'd']
+    end = data_smooth['d'].max()
+    data_range = data[data['d'].between(local_minimum + 1, end - 1)]
+    last_range = (data_range.loc[data_range['F'].idxmin(), 'd'], data_range['d'].max())
+    return last_range
+
+
+def fit_last(x, data, last_range, residues, known, unknown_keys, method='marko-siggia', residues_distance=None):
+    if not residues_distance:
+         residues_distance = default_parameters['residues_distance']
+
+    unknown = {unknown_keys[k]: x[k] for k in range(len(unknown_keys))}
+    parameters = {**known, **unknown}
+
+    # validation
+    if not valid_parameters(parameters):
+        return 9999
+
+    fit_data = data[data['d'].between(last_range[0], last_range[1])]
+    length = residues_distance * (residues - 1)
+    fit_f = wlc(fit_data['d'], length, parameters['p_prot'], method=method, k=parameters['k_prot'],
+                residues_distance=residues_distance)
+    return np.linalg.norm(fit_f - fit_data['F'].to_numpy())
+
+
+def fit_coefficients(data, data_smooth, parameters):
     # templates
     coefficients = ['p_prot', 'k_prot', 'p_dna', 'k_dna', 'l_dna']
     linker_known = {'p_dna': 0, 'k_dna': 0, 'l_dna': 0}
 
     # setting known values
-    states = parameters['states']
     method = parameters['method']
+    residues = parameters['residues']
+    residues_distance = parameters['residues_distance']
+    last_range = find_last_range(data, data_smooth)
     known = {c: parameters[c] for c in coefficients if parameters[c] >= 0}
     if not parameters['linker'] and not bool({'p_dna', 'l_dna', 'k_dna'} & set(known.keys())):
         known = {**known, **linker_known}
+
 
     # setting unknown values with initial guesses and bounds
     unknown = {c: parameters['initial_guess'][c] for c in coefficients if c not in known.keys()}
     if len(unknown.keys()) == 0:
         return known
-    x0 = np.array(list(unknown.values()))
 
-    x_opt = minimize(fit_skew, x0=x0, args=(data, states, known, list(unknown.keys()), method), method='Nelder-Mead')
+    x0 = np.array(list(unknown.values()))
+    x_opt = minimize(fit_last, x0=x0, args=(data, last_range, residues, known, list(unknown.keys()), method,
+                                            residues_distance), method='Nelder-Mead')
+    # x_opt = minimize(fit_skew, x0=x0, args=(data, states, known, list(unknown.keys()), method), method='Nelder-Mead')
     fitted = {list(unknown.keys())[k]: x_opt.x[k] for k in range(len(list(unknown.keys())))}
     result = {**known, **fitted}
     return result
+

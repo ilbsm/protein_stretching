@@ -92,7 +92,7 @@ class Structure:
                 """
 
         self.make_histograms()
-        # self.make_partial_plots()
+        self.make_partial_plots()
         return True
 
     def make_partial_plots(self, output=None):
@@ -340,8 +340,8 @@ class Structure:
 
         result = [self._get_general_info(separator),
                   self._get_traces_info(separator),
-                  self._get_cummulative_statistics(separator)]  #,
-#                  self._get_force_analysis_info(separator)]
+                  self._get_cummulative_statistics(separator),
+                  self._get_force_analysis_info(separator)]
 
         with open(oname, 'w') as ofile:
             ofile.write('\n'.join(result))
