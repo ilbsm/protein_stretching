@@ -1,0 +1,64 @@
+% Chapter 03 - Methods
+\chapter{Methods}
+\label{chap:methods}
+
+%%%% proteins %%%%
+\section{The proteins analyzed}
+\label{sec:methods_proteins}
+In the experiment, three proteins were investigated:
+\begin{enumerate}
+    \item TrmD, $+3_1$-knotted tRNA (guanine-N(1)-)-methyltransferase, from \textit{Haemophilus influenzae} bacteria, classified as a member of SPOUT Methyltransferase superfamilly;
+    \item Tm1510, the protein of unknown function from \textit{Thermotoga maritima} bacteria, putatively $3_1$ knotted protein;
+    \item Their fusion TrmD-Tm1510, which is expected to have a composite knot $3_1 \# 3_1$.
+\end{enumerate}
+The sequences of the analyzed proteins:
+
+No crystal structure is present for the exact sequences, therefore they were modelled using Modeller by homologous modelling, with structure with PDB code 5wyr used as a homologue for TrmD and 3dcm for Tm1510.
+The resulting structures with the knot shown in red (TrmD) and blue (Tm1510) are shown in Fig.\ref{fig:methods_proteins}.
+
+\begin{figure}
+    \includegraphics[width=\linewidth]{methods_proteins.png}
+    \caption{The modelled crystal structures of investigated proteins: TrmD, Tm1510, and their fusion TrmD-Tm1510.
+    The color indicate the knotted core.}
+    \label{fig:methods_proteins}
+\end{figure}
+
+%%%% maps %%%%
+\section{The maps used}
+\label{sec:methods_maps}
+In the simulations, different protein structures were used:
+\begin{enumerate}
+    \item model of TrmD;
+    \item knot-less structure with the sequence of TrmD;
+    \item slipknot structure with the sequence of TrmD;
+    \item TrmD homologue with PDB code 5wyr.
+\end{enumerate}
+
+In the analysis, different maps were used:
+\begin{enumerate}
+    \item $C\alpha$ map, where the amino acids are in contact if their $C\alpha$ atoms are in vicinity of $6AA$ cutoff;
+    \item Tsai map, where the contact between residues is specified based on the overlapping of the van der Walls spheres of heavy atoms;
+    \item Shadow map, where the contact is specified by the cutoff, subjected to the condition, that one residue cannot shadow the other contact.
+\end{enumerate}
+
+The maps were used mostly in case of TrmD in conditions differing in temperature and spring constant. The names of the simulation models used are stored in the Tab.\ref{tab:methods_maps}:
+
+\begin{table}
+    \begin{tabular}{c|c|c|c|c|c}
+        Map & $T=0.5$ & $T=0.6$ & $T=0.4$ & $T=0.5$, $\kappa_S=0$ & $T=0.3$ \\\hline
+        $C\alpha$ & CA & CB & CC & CD & CE\\\hline
+        Tsai & PA & PB & PC & PD & ---\\\hline
+        Smog & SA & SB & SC & SD & ---\\\hline
+    \end{tabular}
+    \caption{The names of the model used differing in maps and conditions.}
+    \label{tab:methods_maps}
+\end{table}
+
+%%%% software %%%%
+\section{The software prepared}
+\label{sec:methods_software}
+As a byproduct of working on this project a standalone Python 3 package called StretchMe was created.
+StretchMe can be downloaded by invoking \textit{pip3 install stretchme}.
+It is also equipped with the manual, present at https://jsulkowska.cent.uw.edu.pl/pawel/stretchme.
+All the data and plots presented in this report were created using StretchMe.
+The subsection App.\ref{subsec:appendices_code} contains the exemplary code used to create some plots.
