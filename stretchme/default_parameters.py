@@ -23,6 +23,7 @@ default_parameters = {
     'spring_constant': 1,
     'bandwidth': 0.5,
     'method': 'marko-siggia',
+    'residues': 200,
     'initial_guess': {None: {'p_prot': 0.7, 'p_dna': 0.1, 'k_prot': 0.005, 'k_dna': 0.005, 'l_dna': 345},
                       'theory': {'p_prot': 0.6, 'p_dna': 0.1, 'k_prot': 0.006, 'k_dna': 0.005, 'l_dna': 345},
                       'experiment': {'p_prot': 5.88, 'p_dna': 0.16, 'k_prot': 0, 'k_dna': 0.005, 'l_dna': 345}}
