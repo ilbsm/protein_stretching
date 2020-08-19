@@ -6,7 +6,7 @@ import logging
 import matplotlib.colors as mcolors
 from os import path
 from io import StringIO
-from scipy.optimize import curve_fit, minimize
+from scipy.optimize import curve_fit, minimize, fsolve
 from scipy.special import erf
 from scipy.stats import cauchy, ks_2samp, skew
 from scipy.signal import argrelextrema
@@ -16,7 +16,7 @@ from colorsys import hsv_to_rgb
 from .default_parameters import default_parameters
 from copy import deepcopy
 from matplotlib import pyplot as plt
-from symfit import Model, Parameter, Variable, Fit
+
 
 
 # preprocessing
@@ -155,11 +155,18 @@ def marko_siggia(d, length, p, k=0):
         return max(result)
 
 
-def improved_marko_siggia(d, length, p):
-    if d > 0.99 * length:
+def func(f, p, k, length, d):
+    first_part = 0.25 / ((1 - d / length + f * k) ** 2) - 0.25 + d / length - f * k
+    return p * (first_part - 0.8 * np.power(d / length - f * k, 2.15)) - f
+
+
+def improved_marko_siggia(d, length, p, k=0):
+    if k == 0 and d > 0.99 * length:
         return 999
-    else:
+    elif k == 0:
         return p * (0.25 / ((1 - d / length) ** 2) - 0.25 + d / length - 0.8 * np.power(d / length, 2.15))
+    else:
+        return fsolve(func, marko_siggia(d, length, p, k), args=(p, k, length, d))
 
 
 def stretch_adjusted_wlc(d, length, p, k=0, residues_distance=None):
@@ -183,7 +190,7 @@ def wlc(distances, length, p, method='marko_siggia', k=0, residues_distance=None
     if method == 'stretch-adjusted':
         return np.array([stretch_adjusted_wlc(d, length, p, k, residues_distance) for d in distances])
     if method == 'improved_marko_siggia':
-        return np.array([improved_marko_siggia(d, length, p) for d in distances])
+        return np.array([improved_marko_siggia(d, length, p, k) for d in distances])
     else:
         return np.array([marko_siggia(d, length, p, k) for d in distances])
 
@@ -205,10 +212,16 @@ def inverse_marko_siggia(f, p, k=0):
     return min(result)
 
 
-def inverse_improved_marko_siggia(f, p):
-    exponent = np.power(f, 0.25)
-    return 4 / 3 - 4 / (3 * np.sqrt(f + 1)) - 10 * np.exp(exponent) / (np.sqrt(f) * (np.exp(exponent) - 1)**2) + np. \
-        power(f, 1.62) / (3.55 + 3.8 * np.power(f, 2.2))
+def inverse_improved_marko_siggia(f, p, k=0):
+    exponent = np.power(900 * p / f, 0.25)
+    if k == 0:
+        return 4 / 3 - 4 / (3 * np.sqrt(f / p + 1)) - \
+               10 * np.exp(exponent) / (np.sqrt(f / p) * (np.exp(exponent) - 1)**2) + \
+               np.power(f / p, 1.62) / (3.55 + 3.8 * np.power(f / p, 2.2))
+    else:
+        return 4 / 3 - 4 / (3 * np.sqrt(f / p + 1)) - \
+               10 * np.exp(exponent) / (np.sqrt(f / p) * (np.exp(exponent) - 1)**2) + \
+               np.power(f / p, 1.62) / (3.55 + 3.8 * np.power(f / p, 2.2)) + f * k
 
 
 def inverse_stretch_adjusted_wlc(f, p, k, residues_distance=None):
@@ -231,7 +244,7 @@ def inverse_wlc(forces, p, method='marko_siggia', k=0, residues_distance=None):
     if method == 'stretch-adjusted':
         return np.array([inverse_stretch_adjusted_wlc(f, p, k, residues_distance) for f in forces])
     if method == 'improved_marko_siggia':
-        return np.array([inverse_improved_marko_siggia(f, p) for f in forces])
+        return np.array([inverse_improved_marko_siggia(f, p, k) for f in forces])
     else:
         return np.array([inverse_marko_siggia(f, p, k) for f in forces])
 
