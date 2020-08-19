@@ -526,6 +526,7 @@ def find_last_range(data, data_smooth):
     end = data_smooth['d'].max()
     data_range = data[data['d'].between(local_minimum + 1, end - 1)]
     last_range = (data_range.loc[data_range['F'].idxmin(), 'd'], data_range['d'].max())
+    print(last_range)
     return last_range
 
 
