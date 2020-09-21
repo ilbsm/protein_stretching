@@ -1,220 +1,198 @@
 % Chapter 02 - Theory
 \chapter{Theory}
-\label{chap:theory}
+\label{ch:theory}
+In this chapter, the survey on mechanical stretching of proteins, along with the theory is described.
 
-%%%% FJC %%%%
-\section{Freely-jointed chain}
-\label{sec:theory_fjc}
-One of the simplest models of the polymer is the freely-jointed chain (the \textit{ideal chain}), composed of $N$ stick rods of a length $b$ (the \textit{Kuhn length}), which can freely rotate (Fig. \ref{fig:theory_fjc}).
-In other words, it is a random walk, which, although assuming completely no interaction between the rods, gives some insights into the physics of the polymers.
+\section{Single-molecule protein stretching}
+\label{sec:theory-single}
+Stretching of single molecules became available by the the tremendous advance in tools used.
+In particular, it became possible to attach and precisely move a group of atoms by means of different techniques.
+The most common techniques are utilization of atomic force microscope (AFM), optical, and magnetic tweezers\cite{neuman2008single}.
+In all the techniques, one end of the molecule is anchored to the stationary bead or surface, while the other is attached to a force sensor.
+As a result, the distance between the stationary bead and the sensor is measured, as a function of the applied force.
 
-\begin{figure}
-    \includegraphics{ideal_chain.png}
-    \caption{The scheme of freely-jointed chain (Wikipedia).}
-    \label{fig:theory_fjc}
-\end{figure}
+In case of the AFM, the role of the sensor is fulfilled by the micron-sized cantilever, where the force is proportional to the displacement of the cantilever.
+In case of tweezers, the position of the movable bead is trapped in the magnetic field, or by the radiation of the precise laser ray.
+The protein of interest is either connected directly, or through the linker (DNA), which can be easily attached to larger beads (nanoparticles) trapped by the laser ray.
+Slight changes of the ray position, or the magnetic field shift the movable bead.
 
-The ideal chain is also called \textit{Gaussian}, as the distribution of it's end-to-end distance is given by the Gaussian function:
-
-\begin{equation}
-    P_{3D}(R, N) = \left( \frac{3}{2\pi N b^2}\right)^\frac{3}{2} e^{-\frac{3R^2}{2Nb^2}}
-\end{equation}
-
-As a result, one can show, that the mean end-to-end distance $<R>=0$, but the fluctuations $<R^2>=Nb^2$.
-Therefore, the average size of the polymer (radius of gyration) should scale as:
+To a very good approximation, the trapping force is harmonic with the typical stiffness constants of the trap in range 0.001-0.1 pN/nm, which is around $10^2-10^4$ times smaller than in AFM\cite{neuman2004optical}.
+As follows, the force resolution of the optical tweezers is at least 10 times better than in case of AFM\@.
+The precision in force measurement, however, costs the precision in the distance measurement.
+As one can show\cite{kumar2010biomolecules}:
 
 \begin{equation}
-    \boxed{R_g \sim <R^2>^\frac{1}{2}=b\sqrt{N}}
+    \sqrt{\langle\delta x^2\rangle}\sqrt{\langle\delta f^2\rangle}\approx k_{B}T
+    \label{eq:afm-precision}
 \end{equation}
+Therefore, the product of uncertainties is independent on the spring constant and better force resolution result in worse distance resolution in optical tweezers compared to AFM\@.
 
-%%%% WLC %%%%
-\section{Theory of worm-like chain}
-\label{sec:theory_wlc}
-One of the generalizations of the ideal chain is the worm-like chain (WLC), called also Kratky\-Porod model \cite{kratky1949rontgenuntersuchung}.
-This model may be viewed as the limit of FJC with $b\rightarrow 0, N\rightarrow\infty$ keeping $N\cdot b= L$ fixed.
-In such a case, the chain is described as the vector $\overrightarrow{r}(s)$ parametrized by $s\in (0,L)$.
-Additionally, one includes the bending energy, dependent on the change of the tangent vector $\frac{\partial\overrightarrow{r}(s)}{\partial s}$ and the persistence length $P_L$:
+\subsection{Constant velocity vs constant force}
+\label{subsec:theory-single-constant}
+The measurement can be consistently performed in one of two ways, differing in control parameter.
+The control parameter is either the force, or the extension.
+Usually in the experiments, the force is measured, while the end of the polymer is moved with constant velocity $v$, determining its position.
+As the pulling speed is typically very small, such system may be considered as quasi-equilibrium ensemble of constant distance.
+Alternatively, one can measure the mean distance for a constant force system.
+In such case, one must wait sufficiently long to neglect the thermal fluctuation.
+In thermodynamic limit (when the waiting times are extended to infinity, and the ensembles are infinite), both approaches are equivalent, however, in reality, stalling in force-extension curves corresponding to stalling of the unzipping of DNA chains were observed\cite{weeks2005pause}.
+
+\section{Proteins under stretching}
+\label{sec:theory-single-proteins}
+Proteins form their 3D structure as a result of non-covalent interaction of amino acids.
+During stretching, these contacts are broken, and as a result the protein spatial structure is destroyed.
+The force is therefore acting similarly to the a denaturant.
+
+During such mechanical denaturation, rupture of some bonds is more important than others.
+In particular,
+
+\section{The WLC and other models}
+\label{sec:theory-wlc}
+\graffito{The WLC model is also called Kratky\-Porod model\cite{kratky1949rontgenuntersuchung}.}
+To explain the observed force-extension dependency, one usually describes the polymers by the Worm-Like Chain model.
+In this model, the chain is treated as a continuous rod of a constant length $L$, and the position of the chain element is described as the vector $\overrightarrow{r}(s)$ with $s\in (0,L)$.
+The energy landscape is governed by the bending energy dependent on the change of the tangent vector $\frac{\partial\overrightarrow{r}(s)}{\partial s}$ and the persistence length $P_L$ (eq.\ref{eq:wlc-hamiltonian}):
 
 \begin{equation}
     \boxed{E_{elast}={\frac {1}{2}}k_{B}T\int _{0}^{L_{0}}P\cdot \left({\frac {\partial ^{2}{\vec {r}}(s)}{\partial s^{2}}}\right)^{2}ds}
+    \label{eq:wlc-hamiltonian}
 \end{equation}
 
-%%%% F-d %%%%
-\section{Force-extension dependence in WLC}
-\label{sec:theory_fd}
-To analyze the dependence between the force and the extension of the chain, one considers the effective Hamiltionian:
+To obtain the force-extension dependency, one analyzes the effective Hamiltonian modified with the elastic energy:
 
 \begin{equation}
     H=H_{elastic}+H_{external}={\frac {1}{2}}k_{B}T\int _{0}^{L_{0}}P\cdot \left({\frac {\partial ^{2}{\vec {r}}(s)}{\partial s^{2}}}\right)^{2}ds - zF
+    \label{eq:wlc-effective-hamiltonian}
 \end{equation}
 
-with the force acting in the $z$ direction. Conversely to the FJC, in case of WLC model no analytic expression for $F(d)$ dependence exists.
-One of the most commonly used approximations is the Marko-Siggia expression \cite{marko1995statistical} (derived in \ref{subsec:appendices_marko-siggia}):
+\graffito{The Marko-Siggia expression was derived by joining the small and high forces regime.}
+with the force acting in the $z$ direction.
+There is, however, no simple analytic expression on the $F(d)$ dependence in the WLC model.
+Usually, one applies the Marko-Siggia approximation\cite{marko1995statistical}, which is correct for large and high forces regime:
 
 \begin{equation}
-    \boxed{F(d)=\frac{k_BT}{P_L}\left({\frac {1}{4}}\frac{1}{(1-{\frac {d}{L}})^{2}}-{\frac {1}{4}}+{\frac {d}{L}}\right)}
+    \boxed{F(d)=\frac{k_{B}T}{P_L}\left({\frac {1}{4}}\frac{1}{(1-{\frac {d}{L}})^{2}}-{\frac {1}{4}}+{\frac {d}{L}}\right)}
+    \label{eq:marko-siggia}
 \end{equation}
 
-This equation was created by merging the relations for large and small force regimes.
-As a result, it introduces an error in the medium forces regime, estimated on about 15\%.
-Therefore some corrections have been introduced. In particular, the following formula gives approximately 1\% of error for the intermediate forces \cite{petrosyan2017improved}:
+For intermediate forces, the Marko-Siggia expression introduces error of around 15\%\cite{petrosyan2017improved}.
+Therefore, different expressions were introduced to facilitate the calculations (through analytic expressions), or to obtain more exact results.
+The commonly used expressions are grouped in Tab.\ref{tab:theory-wlc}.
 
-\begin{equation}
-    F(d)=\frac{k_BT}{P_L}\left({\frac {1}{4}}\frac{1}{(1-\frac {x}{L})^{2}}-{\frac {1}{4}}+{\frac {x}{L}}-0.8\left({\frac {x}{L}}\right)^{2.15}\right)
-\end{equation}
+\graffito{RHMM stands for Rosa-Hoang-Marenduzzo-Maritan.}
+\begin{table}
+    \begin{tabular}{c|c|c}
+        \textbf{Model} & \textbf{Formula} & \textbf{Reference}\\\hline
+        Marko-Siggia & $F(d)=\frac{k_{B}T}{P_L}\left({\frac {1}{4}}\frac{1}{\left(1-{\frac {d}{L}}\right)^{2}}-{\frac {1}{4}}+{\frac {d}{L}}\right)$ &\cite{marko1995statistical}\\
+        Petrosyan & $F(d)=\frac{k_{B}T}{P_L}\left({\frac {1}{4}}\frac{1}{\left(1-\frac {x}{L}\right)^{2}}-{\frac {1}{4}}+{\frac {x}{L}}-0.8\left({\frac {x}{L}}\right)^{2.15}\right)$ &\cite{petrosyan2017improved}\\
+        Elastic WLC & $F(d)=\frac{k_{B}T}{P_L}\left({\frac {1}{4}}\frac{1}{\left(1-{\frac {x}{L}}+{\frac {F}{k}}\right)^{2}}-{\frac {1}{4}}+{\frac {x}{L}}-{\frac {F}{k}}\right)$ &\cite{wang1997stretching}\\
+        FJC & $d(F)=L\left(\coth\frac{Fb}{k_{B}T} - \frac{k_{B}T}{Fb}\right)$ &---\\
+        Elastic FJC & $d(F)=L\left(\coth\frac{Fb}{k_{B}T} - \frac{k_{B}T}{Fb}\right)\left(1+F/k\right)$ & \cite{smith1996overstretching}\\
+        Heterogeneous FJC & $d(F)=N_{f}L_{f}\left(\coth\frac{Fb_f}{k_{B}T} - \frac{k_{B}T}{Fb_f}\right) + N_{u}L_{u}\left(\coth\frac{Fb_u}{k_{B}T} - \frac{k_{B}T}{Fb_u}\right)$ &\cite{su2009mechanics}\\
+        Exact WLC & $F(d)=\frac{k_{B}T}{P_L}\left({\frac {1}{4}}\frac{1}{\left(1-{\frac {d}{L}}\right)^{2}}-{\frac {1}{4}}+{\frac {d}{L}} + \sum_{i=2}^{i\leq 7}\alpha_i (\frac{d}{L})^i\right)$ &\cite{bouchiat1999estimating}\\
+        Thick chain model & $F(d)=\frac{k_{B}T}{a(1-d/L)}\tanh\left(\frac{k_1(d/L)^{3/2} + k_2(d/L)^2 + k_3(d/L)^3}{1-d/L}\right)$ &\cite{toan2005inferring}\\
+        Freely rotating chain & $d(F)=L-L\left( F_{WLC}\left(\frac{Fb}{k_{B}T}\right)^{-1} + \left( \frac{cFb}{k_{B}T}^\beta \right)\right)^{-\beta} + \frac{Lf}{\lambda}$ &\cite{livadaru2003stretching}\\
+        RHMM & $F(d)=\frac{2k_{B}TL_P}{b^2}\left( \sqrt{1+(\frac{b}{2L_P})^2\frac{1}{(1-d/L)^2}} - \sqrt{1+\left(\frac{b}{2L_P}\right)^2} \right) + \frac{k_{B}T}{b}\left( 3\frac{1-yL_P/B}{1+yL_P/B} -\frac{b/2L_P}{\sqrt{1+(\frac{b}{2L_P})^2}}\right)\frac{d}{L}$&\cite{rosa2003elasticity}\\
+    \end{tabular}
+    \label{tab:theory-wlc}
+\end{table}
 
-%%%% Stretching proteins %%%%
-\section{Proteins under rupture}
-\label{sec:theory_proteins}
-During stretching, proteins undergo rupture of some crucial non-bonding interactions.
-This results in the change of the contour length $L_1 \xrightarrow{\text{rupture}} L_2 > L_1$ and a characteristic shape of the force-extension dependence.
-In this dependence, the following steps occur one after another (Fig.\ref{fig:theory_proteins_curve}):
+\graffito{The function $f(x)=\coth(x)-1/x$ is called Langevin function.}
+FJC stands for Freely-rotating chain.
+In this model, the chain is build of rods of constant length $b$, which can freely move around each other.
+In this model, one can analytically solve the $F(d)$ dependency.
+This derivation may be found in App.\ref{ch:fjc}.
+
+The elastic WLC/FJC was introduced to overcome the constant length of the chain in the model.
+In fact, for some polymers (like DNA) the distance between the monomers is dependent on the force acting.
+To take this effect into account, the relative extension $x=\frac{d}{L}$ is decreased by a factor dependent on the force $x\rightarrow x-\frac{F}{k}$.
+In the equations in Tab.\ref{tab:theory-wlc}, $d$ denotes the measured extension under the force $F$, $b$ is the bond length, $P_L$ is the persistence length and $k$ is the elasticity of the bond.
+Other parameters are described in the source articles.
+
+\section{Analyzing the obtained traces}
+\label{sec:theory-analysis}
+The normal way of analyzing the stretching traces is to fit the WLC function (usually in Marko-Siggia approximation), to find the contour lengths $L_i$ in each stage of stretching.
+The fitting is done for each stage of stretching, but the parameters $P$ (persistence length) and $k$ (bond elasticity) have to stay constant throughout whole the experiment.
+Therefore, mathematically, fitting the curve consisting of $N$ stretching stages is equivalent to finding $N+2$ parameters ($N$ contour lengths, persistence length and elasticity), fitting $N$ WLC equations.
+Usually, when fitting protein traces, the bond length is invariant in the used range of forces, therefore $k=0$ (in experiment).
+As a result, a global fit of $N+1$ parameters must be done.
+
+Such an approach immediately creates three problems:
 \begin{enumerate}
-    \item stretching visible as a steep increase of the force;
-    \item rupture of crucial bonds changing the protein contour length;
-    \item relaxation of the force;
+    \item There might be arbitrary large number of parameters, and the more parameters are fitted, the less accurate the fit is;
+    \item The ranges of the fitting have to be decided, which introduces additional ambiguity influencing the final results;
+    \item Global fitting of $N$ related equations is rarely implemented in existing tools.
 \end{enumerate}
 
-As a result, the consecutive states of the protein during stretching can be labeled by their characteristic contour length, describing how long can be the chain stretched.
-Finally, if no non-bonding interaction is holding the protein chain together, the contour length should be equal to the length of the totally stretched chain.
-As the length of single protein bond upon stretching is estimated as $0.365 nm$ \cite{}, the final contour length for protein with $N$ residues should be equal:
+Solution to the last problem may be either writing own code for the global fitting, or using Python packgage SymFit.
+However, even when using the published tools, the other two problems remain unsolved.
+
+In this context, interesting innovation was introduced in the work of Puchner et al.\cite{puchner2008comparing}, where only the persistence length (assuming no elasticity of the bond) is enough to determine the contour lengths in each stretching state.
+In the original work, when knowing the persistence length $P$, one can invert the WLC equation to find the relative extension $x(F)=\frac{d(F)}{L}$.
+One can show (App.\ref{ch:functions}) that there is a unique solution in the interval $(0,1)$.
+In theory, the quotient $d(F)/x(F)$ should be equal to the corresponding contour length $L$.
+In practice, the measured $d$ and $F$ are subjected to errors, therefore the value of the quotient is not perfectly matching the contour length.
+Nevertheless, one can plot the histogram of the quotients which allows to determine the lengths of the consecutive contour length, as the centers of the picks in the histogram (Fig\ref{fig:theory-analysis-puchner})
+
+%\begin{figure}
+%    \includegraphics[width=\textwidth]{theory-analysis-puchner.png}
+%    \caption{}
+%    \label{fig:theory-analysis-puchner}
+%\end{figure}
+
+In this technique one performs only one fit (to the histogram), independently on the number of stages.
+Moreover, the number of stretching stages can be also deduced from the histogram, as the number of picks.
+This technique cannot be, however, used to analyze polymers with elasticity, as in the eWLC model the force is given as implicit function (on both sides of the equation).
+It also cannot be used directly, when the protein of interest is stretched by the linker.
+
+In case, there is a linker, the situation is more complex.
+In such case, the system can be treated as a set of a few springs connected in series.
+On each spring acts the same force $F$, which is the result of a force balance.
+Each spring $i$ has then the length $d_i(F)$, and the total extension is then $d(F) = \sum_{i=1}^{N} d_i$.
+In case of protein, both ends of the chain are usually connected to two identical copies of the linker (DNA).
+Then the total distance measured at force $F$ is equal:
 
 \begin{equation}
-    \boxed{L_{tot} = 0.365\cdot(N-1) nm}
+    d_{TOT}(F) = d_{PROT}(F) + d_{DNA}(F)
+    \label{eq:theory-analysis-sumd}
 \end{equation}
 
-(as there are $N-1$ bonds).
-
-%%%% knotting %%%%
-\section{The expected chain reduction upon knotting}
-\label{sec:theory_knotting}
-For various reasons, the final length of the polymer may be shorter than expected.
-One reason is, that the forces applied were to small to fully stretch the polymer.
-Alternatively, the polymer may got tighten somewhere.
-One case can be the existence of knot or slipknot in the polymer.
-In case of knot, the shortening of the chain would be observed in any experiment.
-In case of slipknot, the shortening may exist depending on the speed of stretching and the final force, as in principle such structure could be fully stretched.
-
-The topologically non-trivial polymers were stretched both in theory and in experiment.
-In particular, experimental stretching of $3_1$ slipknot \cite{he2012mechanically,wang2019mechanical,he2019direct}, interconversion of $3_1$ slipknot into trefoil knot \cite{he2014mechanically}, stretching of $3_1$, $4_1$, and $5_2$ knotted proteins \cite{ziegler2016knotting, dzubiella2009sequence} were performed.
-In particular, the shortening of approximately 5 nm (13-15 AA) for $3_1$ knot, 7 nm (20 AA) for $4_1$ knot, and 14.6 nm (40 AA) for $5_2$ knot was observed.
-
-In the theory, the shortening of the chain was studied e.g. by SONO algorithm \cite{pieranski2001tight}.
-
-%%%% elasticity %%%%
-\section{Elasticity of the chain}
-\label{sec:theory_ewlc}
-In the WLC model the chain is inextensible upon the force. This is, however, not the case in real polymers (e.g. DNA), as the bond between consecutive bases may got stretched for large force.
-Usually, to take this effect into account, one introduces so-called \textit{elastic} WLC model \cite{}, where the relative extension $x=\frac{d}{L}$ is changed into $x=\frac{d}{L}\rightarrow \frac{d}{L}-\frac{F}{k}$ where $k$ is the elasticity of the chain.
-As a consequence, the force-extension dependency becomes:
+To invert the WLC dependence, one usually assumes the high-force regime.
+Then, to a good approximation:
 
 \begin{equation}
-    \boxed{F(d)=\frac{k_BT}{P_L}\left({\frac {1}{4}}\frac{1}{(1-{\frac {x}{L}}+{\frac {F}{k}})^{2}}-{\frac {1}{4}}+{\frac {x}{L}}-{\frac {F}{k}}\right)}
+    d(F)=L\left(1-{\frac {1}{2}}\left({\frac {k_{B}T}{FP_L}}\right)^{1/2}+{\frac {F}{K}}\right)
+    \label{eq:theory-analysis-invert}
 \end{equation}
 
-However, such modification is oblivious to the possible change of contour length and is constant independently on the relative extension of the chain $x=\frac{d}{L}$.
-Moreover, it allows the extension of the chain $d$ become larger than the contour length $L$ which should be regarded as the maximal extension in a given state.
-This makes understanding of the sense of contour length value more vague, as it cannot be converted into the number of monomers constituting given state.
-In fact, during stretching, the contour length composed of $N_L$ bonds gets increased by a known value $L\rightarrow L+N_L\cdot\frac{F}{k}$ where $k$ is the spring constant of a single bond. Then, the relative extension:
+This allows to calculate the influence of the DNA, provided one knows the DNA contour length, persistence length and elasticity.
+Commonly, these parameters are obtained by fitting the first stage of stretching, when one assumes that only DNA is getting stretched.
+This assumption is reasonable in most cases, but not in the case the protein has some loose parts, which can get stretched with the DNA\@.
+This assumption is discussed in greater detail in App.\ref{ch:effective-parameters}.
 
-\begin{equation}
-    x=\frac{d}{L+N_L\cdot\frac{F}{k}}=\frac{d}{L}\frac{1}{1+\frac{N_LF}{kL}}\simeq\frac{d}{L}(1-\frac{N_L}{L}\frac{F}{k}
-\end{equation}
-
-As from definition $L=N_L\cdot b$ where $b$ is the (unextended) bond length, the relative extension $x$ becomes:
-
-\begin{equation}
-    x\rightarrow x\cdot \left( 1-b\frac{F}{k}\right)
-\end{equation}
-
-and the whole force-extension dependency:
-
-\begin{equation}
-    \boxed{F(d)=\frac{k_BT}{P_L}\left(\frac{1}{4\cdot(1-\frac{d}{L}(1-b\frac{F}{k}))^2} - \frac{1}{4} + \frac{d}{L}(1-b\frac{F}{k})\right)}
-\end{equation}
-
-This model is called \textit{stretch-adjusted} WLC.
-In both models the Marko-Siggia approximation is restored by assuming stiff bonds, i.e. by taking $k\rightarrow \infty$.
-
-%%%% linker %%%%
-\section{Presence of the linker and inverting WLC}
-\label{sec:theory_linker}
-The presence of the linker modifies the plot $F(d)$, as upon the force $F$ both the linker and the protein gets stretched.
-In particular, the total, measured extension $d_{tot}$ is equal to the extension of both protein and linker:
-
-\begin{equation}
-    d_{tot}(F) = d_{prot}(F) + d_{linker}(F)
-\end{equation}
-
-as the forces acting on both linker and protein are equal due to the force balance.
-Therefore, if the stretched chain is composed of polymer of interest and a linker, it is crucial to invert the force-extension dependency.
-However, there is no analytic expression on the inverse function of $F(d)$ even in the Marko-Siggia approximation (eq \ref{}) and especially in any form including the elasticity parameter $k$, which results in an implicit function (the force $F$ is on both sides of the equation).
-Usually, one concentrates only on the high force regime, where the extension should scale as the inverse root square of the force:
-
-\begin{equation}
-    d=L\left(1-{\frac {1}{2}}\left({\frac {k_{B}T}{FP_L}}\right)^{1/2}+{\frac {F}{K}}\right)
-\end{equation}
-
-However, in such case, one has to arbitrary decide, which part of the curve applies to the high force regime.
-And as a consequence, some ruptures may not be analyzed, as they may appear for low, or medium forces.
-
-Alternatively, one can use some approximation, e.g. the approximate inverse function to the Petrosyan approximation \cite{petrosyan2017improved}:
-
-\begin{equation}
-    {\frac {x}{L_{0}}}={\frac {4}{3}}-{\frac {4}{3{\sqrt {{\frac {FP}{k_{B}T}}+1}}}}-{\frac {10e^{\sqrt[{4}]{900{\frac {k_{B}T}{FP}}}}}{{\sqrt {\frac {FP}{k_{B}T}}}\left(e^{\sqrt[{4}]{900{\frac {k_{B}T}{FP}}}}-1\right)^{2}}}+{\frac {\left({\frac {FP}{k_{B}T}}\right)^{1.62}}{3.55+3.8\left({\frac {FP}{k_{B}T}}\right)^{2.2}}}+{\frac {F}{K_{0}}}
-\end{equation}
-
-Nevertheless, one can approximate the inverse function $d(F)$ numerically, as it requires solving a cubic equation.
-The exact analysis of this problem is presented in App.\ref{subsec:appendices_stretchme}.
-
-There is, however, additional problem while dealing with the linker. As during stretching both polymer of interest and the linker are stretched, it is in principle impossible to separate both influences.
-Usually, one assumes, that during the first stage, only the flexible linker extends.
-This allows to fit the linker parameters, and as a result subtract the linker influence from the further stages of stretching.
-This approach is valid only, if the polymer of interest can be stretched only in mediate- and high-force regime.
-This is, however, not the case if the polymer has subdomains, or any unstructured, loose fragment, which could get stretched in the beginning.
-
-%%%% Contour length %%%%
-\section{Finding the contour length}
-\label{sec:theory_cl}
-As mentioned before, the states of the polymer of interest (protein) can be labeled by the contour lengths.
-Therefore, the sequence of contour lengths during stretching is the main information, which can be extracted from the analysis.
-In particular, if the sequence of contour lengths differ between stretching experiments, it means, that the mechanical unfolding follows different paths in these experiments.
-Moreover, the largest contour length should correspond to the totally stretched chain (provided, that the chain is in its final state), therefore indicates the total length of the chain.
-As a result, as argued in subsec.\ref{theory_knotting}, such measure can indicate the presence of knot in the chain.
-
-Usually, finding the contour length is done by fitting Marko-Siggia expression (eq.\ref{}) to experimental data.
-The fit has to be done for each stretching stage separately, but the persistence length and elasticity should agree globally for all fits.
-This tactic creates numerous problems:
+To sum up, the whole algorithm of dealing with the case, when the protein is stretched using the linker is as follows:
 \begin{enumerate}
-    \item One has to manually select the ranges of particular stretching stages;
-    \item There are as many fits as stages;
-    \item One has to perform the global fit, keeping persistence length and elasticity fixed among the fits, which is troublesome;
-    \item The fit is as good as large is the amount of data points in a given stage. In particular, if the stage is very short, it may not be fitted accurately.
-    \item In case of the presence of the linker, one assumes that in the first stage only the linker gets stretched, which may not be the case.
+    \item Divide the trace into stages (somehow). Usually it can be done manually, as one clearly sees the ``jumps'' of the trace.
+    \item Fit the elastic WLC model to the first stage, obtaining the effective parameters characterizing the linker. This assumes that the protein is not extended in the fist stage of stretching.
+    \item Calculate the influence of the DNA, i.e.\ the stretch distance $d_{DNA}(F)$ as a function of the force. Usually, this is done assuming the high-force regime, which is not valid throughout whole the trace.
+    \item Subtract the influence of the DNA obtaining the extension of the protein.
+    \item Fit globally the curve, obtaining $N+1$ parameters - protein persistence length and $N$ contour lengths, characterizing subsequent stages of stretching.
+    \item As the raw contour lengths are subjected to errors, one is usually interested in the differences between the contour lengths, i.e. contour lengths gains.
+    \item Knowing the initial end-to-end distance (from the crystal structure) and the contour length gains, one calculates the values of interest, in particular the total length.
 \end{enumerate}
 
-Due to these problems, the technique of fitting individual parts of the curve may not be reliable, and is for sure hard to implement.
-Alternatively, one can look again into the theory of the WLC.
-In particular, knowing the persistence length and elasticity, one can invert the force-extension dependence, to find the relative extension $x=\frac{d}{L}$ (see App.\ref{subsec:appendices_stretchme}). Next, one can calculate the distribution of the following quantity:
+As can be seen, the algorithm of analysing the data is subjected to many assumptions, and requires some initial information, like the end-to-end distance in the crystal structure.
+In case of the analyzed protein no crystal structure is available.
+Moreover, TrmD is built out of two subdomains connected with a flexible linker of length of around 30 residues.
+Therefore in case of TrmD (and therefore the fusion), these assumptions are not fulfilled, and searching for alternative roads of reliable analysis became unexpectedly one of the largest task in this project.
 
-\begin{equation}
-    \boxed{\frac{d}{x(F,P_L,k)}}
-\end{equation}
-
-For a given contour length $L$, this quantity should equal $L$.
-As the measurement of the distance $d$ and the force $F$ is subjected to some error, the distribution of $\frac{d}{x(F,P_L,k)}$ is a collection of peaks, centered in the consecutive contour lengths $L_i$.
-Therefore, knowing only two parameters (persistence length and elasticity), one can obtain all the contour length without numerous fittings.
-This method was first proposed by Puchner et al \cite{puchner2008comparing}.
-This method can be generalized to calculate the contour length also in the case, when the polymer of interest gets stretched simultaneously with the linker.
-
-%%%% dhs %%%%
-\section{Dudko-Hummer-Szabo analysis of lifetime of a state}
-\label{sec:theory_dhs}
-The ensemble of the stretching curves can be also used to extract thermodynamic features of the polymer of interest.
-In particular, the distribution $p(F)$ of rupture forces for a given state can be used to calculate the lifetime of this state \cite{dudko2006intrinsic}:
+\section{Stretching kinetics}
+\label{sec:theory-kinetics}
+Knowing the number of states represented during stretching (visible by the number of stages in the trace), one can ask about the stability and the lifetime of each stage.
 
 \begin{equation}
     \boxed{\tau(F) = \frac{1}{\dot{F}p(F)}\int_F^\infty p(f)df}
+    \label{eq:theory-kinetics-lifetime}
 \end{equation}
 
 where $\dot{F}$ is the force loading rate (see App.\ref{subsec:appendices_dhs} for derivation).
@@ -222,7 +200,86 @@ On the other hand, the state lifetime is dependent on the thermodynamical values
 
 \begin{equation}
     \boxed{\tau(F) = \tau_0 \left(1-\frac{\nu Fx^\ddagger}{\Delta G^\ddagger}\right)^{1-1/\nu} e^{-\Delta G^\ddagger [1-(1-\nu Fx^\ddagger/\Delta G^\ddagger)^{1/v}]}}
+    \label{eq:theory-kinetics-dhs-lifetime}
 \end{equation}
 
-where $x^\ddagger$ is the extension for which rupture occurs with $F=0$ and $\Delta G^\ddagger$ is the energy barrier for rupture (measured in the $k_BT$ units).
-The parameter $\nu$ describes the potential type. For $\nu=\frac{1}{2}$ one deals with cusp potential, for $\nu=\frac{2}{3}$ it is the linear-cubic potential, and for $\nu=1$ one recovers fenomenological Bell's equation for the state lifetime.
+\section{Modelling the protein stretching}
+\label{sec:theory-modelling}
+
+\subsection{Validity of protein models}
+\label{subsec:theory-modelling-validity}
+
+\section{Stretching of complex topology proteins}
+\label{sec:theory-knotted}
+\graffito{The bond distance in stretched protein is equal to 0.365 nm\cite{dietz2004exploring}.}
+Complex topology proteins under stretching behave just like the ordinary proteins, except for the fact, that the chain may get tightened on in the place where the (slip)knot reside.
+As a result, the final length of the fully stretched protein may be smaller than the expected length.
+The loss of the total length is then the hallmark of the (slip)knot of the protein.
+
+What is the reduction of the chain?
+In general it depends on the place, where the knot tightens.
+If it tightens in the region of bulky residues, it may ``consume'' more amino acids.
+It was shown, that contrary to polymers, in case of proteins the knot jumps to a well defined location delimited by sharp turns\cite{sulkowska2008tightening}.
+Such locations are characteristic for proteins and follow from their primary and secondary structure.
+The observed chain reduction upon the knot presence observed in experiments were collected in Tab.\ref{tab:theory-knotted}.
+
+\begin{table}
+    \begin{tabular}{c|c|c|c}
+        \textbf{Knot type} & \textbf{Chain reduction [nm]} & \textbf{Residues} & \textbf{Reference}\\\hline
+        \multirow{4}{*}{$3_1$} & 5.7 & 16 &\cite{ziegler2016knotting}\\
+                               & 4.7 & 13 &\cite{dzubiella2009sequence}\\
+                               & 4.7 & 13 &\cite{he2014mechanically}\\
+                               & 7.0 & 19 &\cite{rivera2020mechanical}\\\hline
+        \multirow{2}{*}{$4_1$} & 6.9 & 19 &\cite{dzubiella2009sequence}\\
+                               & 6.2 & 17 &\cite{bornschlogl2009tightening}\\\hline
+        $5_2$ & 14.6 & 40 &\cite{ziegler2016knotting}\\\hline
+    \end{tabular}
+    \label{tab:theory-knotted}
+\end{table}
+
+\graffito{SONO is Shrink On No Overlaps\cite{pieranski1998search}.}
+Apart from the experiments, the reduction of the chain was probed on the ``ideal chain''.
+In particular, one may ask, what is the reduction of the chain, if the chain diameter was maximal, which the chain still non-overlapping?
+This leads to the notion of ``tight open knots''\cite{pieranski2001tight}.
+The chain reduction for such ideal cases, normalized by the chain diameter, were measured using variation of SONO algorithm for finding ideal conformations of the knots.
+The values of $\Lambda_O$ for measured knots are contained in the Tab.\ref{tab:theory-knotted2}.
+\graffito{$\Lambda_O=\frac{\Delta L}{D}$ where $\Delta L$ is the chain reduction and $D$ is chain diameter.}
+
+\begin{table}
+    \begin{tabular}{c|c}
+        \textbf{Knot type} & $\Lambda_O$ \\\hline
+        $3_1$ & 10.1 \\
+        $4_1$ & 13.7 \\
+        $5_1$ & 17.3 \\
+        $5_2$ & 18.4 \\
+        $6_3$ & 20.7 \\\hline
+    \end{tabular}
+    \label{tab:theory-knotted2}
+\end{table}
+
+In particular, one can deduce, that the expected reduction of the chain length for the $4_1$ knot should be equal $13.7/10.1=1.36$ of the reduction for the $3_1$ knot.
+In fact, as the reduction for the $3_1$ knot is around $4.7$ nm, one would expect the reduction of $6.4$ nm, which is close to the measured value of $6.9$ nm.
+For $5_2$ knot one would expect $8.6$ nm of chain reduction, which is much smaller, than the measured value.
+However, the measured value turns out to be dependent on the force and one observes the further knot tightening for higher forces\cite{ziegler2016knotting}.
+
+Apart from the analysis of the full contour length of the proteins, the experiments on the untangling and refolding of (slip)knots were performed.
+In particular, it was shown, that the natively $5_2$ shallowly knotted UCH-L protein can spontaneously fold back to its native state, however the refolding speed depends on the initial topology.
+It is the fastest, when the starting structure is $5_2$ knotted, and the slowest for unknotted protein, with $3_1$ knotted as the intermediate case.
+Similarly, the $3_1$ slipknotted pyruvoyl-dependent arginine decarboxylase was mechanically unfolded to unknotted state, which could spontaneously return to its native form.
+As the refolding was performed with the force sensor attached, one could trace the intermediate contour length, which showed the existence of two- and three-state refolding pathway\cite{wang2019mechanical}.
+Likewise, the small $3_1$ slipknotted protein AFV3-109 was shown to refold spontaneously with two-state manner\cite{he2019direct} and two different pathways were shown to feature tightening of this protein\cite{he2014mechanically}.
+Some experiments were also supported by corresponding simulations.
+In particular, steered MD simulations with atomistic resolution was used to analyze the short subchains of $4_1$ knotted phytochrome\cite{bornschlogl2009tightening}.
+These simulations were used only to determine the chain reduction upon knotting.
+Similarly, stretching of the shallowly $3_1$-knotted Human Carbonic Anhydrase (HCA) III was analyzed by steered, explicit-water, all atom molecular dynamics in order to analyze the stability of the protein\cite{dzubiella2013tightening}.
+The unfolding pathways and the force-extension dependency was not analyzed in this case.
+The folding pathways were analyzed in case of $3_1$-slipknotted AFV3-109 protein, where the protein stretching was modelled in all atom CHARMM force field with TIP3P water.
+However, in this case, the general unfolding pathway was generated, but again, the theoretical force-extension dependency was not analyzed.
+Unfolding of the same protein was also analyzed in coarse-grained $C\alpha$ model\cite{sulkowska2009jamming}, however, without detailed analysis of the force-extension dependency.
+
+%\section{Kinetics and thermodynamics}
+%Bell-Evans-Richie
+%Friddle-de-Yoreo
+%Dudko-Hummer-Szabo
+%Jarzynski
+%Crooks

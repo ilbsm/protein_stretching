@@ -1,20 +1,68 @@
 % Chapter 01 - Introduction
 \chapter{Introduction}
-\label{chap:intro}
+\label{ch:intro}
 
 The aim of this project was to analyze the experimental and theoretical stretching curves of some knotted proteins.
-As a result of the analysis, the model best matching the experimental data had to be selected.
-Based on the result of this model, the states visible in the experimental data were to be described.
+As a result of this analysis, the model which best matches the experimental data had to be selected.
+This model had to be then further investigated to show, what is the putative unfolding pathway observed in the experiment.
 
-Quickly it turned out, that the analysis of the data is much more complex than in the standard case.
-In particular, in case of experiment, the protein gets stretched simultaneously with DNA linker, which is assumed not to happen in standard analysis.
-Moreover, it turned out, that the protein may not feature the knot in every case.
+Usually, such task is solved by fitting of numerous curves, and comparing the obtained parameters.
+However, it quickly turned out, that the standard ways of pursuing such task are not sufficient.
+In particular, the usual treatment of the experimental data requires the protein to be much more rigid than the linker.
+As a result, in the first part of stretching only the linker is extended.
+This in consequence allows to separate out the influence of the linker.
+However, the analyzed proteins are build of subdomains, which easily get separated with a small force.
+Therefore, the protein is being stretched simultaneously with the linker even for small forces.
 
-In case of the analysis of the simulated stretching, the meticulous analysis of the curves revealed the need to include the elasticity of the bonds between the residues, which was not applied previously.
-The more detailed analysis showed, that the commonly used method of including the elasticity (eWLC method) gives some mismatch with the data observed.
-To fix this, alternative method, called stretch-adjusted WLC was introduced.
+\graffito{Contour length is the largest part of the chain, which can currently be stretched.}
+Moreover, usually the changes of protein contour length are extracted from the experiment.
+These, along with the initial distance between the termini is used to determine the final length of the stretched protein.
+The initial distance is taken usually from the crystal structure.
+However, in this case no crystal (neither any other structure) is available, although it may be crucial for the analysis of the results.
 
-As a byproduct, the analysis resulted in a software called StretchMe Python 3 package, which is capable of analysing such cases.
+Furthermore, until now, no thorough \textit{in silico} analysis of protein stretching, where the exact protein contour lengths was calculated, was done so far.
+Usually, the theoretical analysis concentrates on the common patterns of stretching curves, not on the particular numbers.
+However, to select the best model, the emerging pattern of the curve is not informative enough.
+This leads to the previously unknown problem of appropriate description if theoretical data.
+In particular, such analysis have to take into account the unphysical effect, that \textit{in silico}, for large enough forces, the chain may pass through itself allowing the knot to disappear.
 
-This report describes the theory of protein stretching, the obtained results and possible ways of improving further results in the discussion.
-It also contains all the plots obtained, derivation of some equations, parameters used, and exemplary code needed to recreate the plots in the Appendix section.
+All the problems mentioned, can, however, be solved, and this is the content of this report.
+In particular, the report introduces:
+\begin{enumerate}
+    \item alternative method of fitting the curves, which reduces the number of fits substantially;
+    \item the solution of the problem of simultaneous protein and linker stretching;
+    \item alternative way of estimating the protein total length, without prior knowledge of the initial end-to-end distance;
+    \item new approach to analysis of the theoretical data on protein stretching;
+    \item new extension of the commonly used WLC model, which gives more reliable results.
+\end{enumerate}
+
+In particular, the ability to estimate the total protein length allowed to determine the topology of the protein.
+Surprisingly, not all the proteins were shown to be knotted.
+This phenomenon is treated in greater detail in further parts of the report.
+
+\graffito{PyPi is the standard source of Python package.}
+During the analysis, many new techniques (described in Chap.\ref{ch:methods}) were introduced.
+These techniques were not implemented anywhere else so far.
+Therefore, to facilitate the work, they were written from scratch.
+As a result, a byproduct - the Python3 package called StretchMe was created.
+The fully functional package can be download and installed from PyPi server.
+
+The report is organized as follows:
+\graffito{WLC is the Worm-Like Chain model, used commonly in the description of protein stretching.}
+Chapter\ref{ch:theory} contains the survey of the most important information about mechanical stretching of proteins.
+It includes the short review of the literature concerning stretching of proteins with complex topology, description of the WLC model, the effect of the knot on the stretching curves, and more advanced ways of the analysis, such as Dudko-Hummer-Szabo analysis of states lifetime.
+
+Chapter\ref{ch:methods} contains information about the methods used.
+In particular, within the chapter, the proteins investigated are described along with the experimental setup.
+It also contains th the information on different maps used in \textit{in silico} analysis and new techniques introduced in this work.
+Finally, it contains the short description of the StretchMe package.
+
+Chapter\ref{ch:results} contains the results of the project.
+In particular, the topological analysis of the proteins is described.
+It also contains the description of the theoretical results, along with the comparison with the experiment.
+As a result, the most promising models are indicated for further analysis.
+Finally, based on the models chosen, the possible experimental unfolding pathway of TrmD is described.
+
+Chapter\ref{ch:discussion} contains the discussion of the results, their possible causes and the proposition of further experiments which can be done to answer the new questions.
+
+The report ends with a set of appendices, which include the exact fitted parameters, derivation of most important formulas and the exact form of functions used in StretchMe package.

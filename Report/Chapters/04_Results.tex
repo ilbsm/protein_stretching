@@ -1,19 +1,602 @@
 % Chapter 04 - Results
 \chapter{Results}
-\label{chap:results}
+\label{ch:results}
+The aim of the work was to analyze the experimental and theoretical traces of stretching of complex topology proteins, and decide, which theoretical setup matches the experiment best.
+The analysis, however, could not be done with the use of standard method, described in\ref{sec:theory-analysis}.
+In particular, in the case of simulations, no analysis so far concentrated on the exact values of the contour length, rather, the general shape of the stretching curve was analyzed.
+Therefore, there was no clear algorithm of analyzing such results.
+The coarse analysis could not be applicable in this project, as the exact values of the contour length are the only parameters discriminating between the intermediate states, and allowing in principle grading the maps used, as compared to experiment.
+On the other hand, the standard pathway of analyzing experimental data required some assumptions, which were not fulfilled in this case, or additional data, which was not available.
+Therefore, the full analysis of the data required the answer on the following questions:
+\begin{itemize}
+    \item How to obtain reliable data from simulated stretching?
+    \item What intermediate states are visible in the simulated stretching of TrmD?
+    \item What are the thermodynamical properties of TrmD following from theory?
+    \item How to analyze the experimental data?
+    \item Do the analyzed proteins have knots?
+    \item Is the stretching of fusion the ``composition'' of stretching of monomers?
+    \item Can anything be established about the thermodynamics of analyzed proteins, with only a dozen of traces to study?
+    \item Which model in theory describes the stretching of TrmD best?
+\end{itemize}
 
-%%%% General %%%%
-\section{General remarks on stretching of analyzed proteins}
-\label{sec:results_general}
+As the analysis methodology introduced is a separate topic, it was placed in a separate section (Sec.\ref{sec:results-approach}).
+Next, follow the analysis of the simulated (Sec.\ref{sec:results-theory}) and experimental (Sec.\ref{sec:results-experiment}) results.
+The last section (Sec.\ref{sec:results-comparison}) contains remarks about the comparison of the simulated results with experiment.
 
-%%%% Experiment %%%%
-\section{Analysis of experimental data}
-\label{sec:results_experiment}
+
+%%%% Approach %%%%
+\section{Introduced methodology of studying stretching of complex topology proteins}
+\label{sec:results-approach}
+In the study of the data, many previously unanswered questions occurred.
+These are:
+\begin{itemize}
+    \item How to invert the implicit function like eWLC?
+    - Sec.\ref{subsec:results-approach-inverting}.
+    \item Does the eWLC model correctly describe the extension of bonds?
+    - Sec.\ref{subsec:results-approach-elasticity}.
+    \item How to decompose the histograms in automatically?
+    - Sec.\ref{subsec:results-approach-decomposition}
+    \item How to analyze the data from simulations correctly?
+    - Sec.\ref{subsec:results-approach-theory}
+    \item How to assign the ranges of the stages automatically?
+    - Sec.\ref{subsec:results-approach-ranges}
+    \item How to merge information from different traces (different measurements of the same structure)?
+    - Sec.\ref{subsec:results-approach-merging}.
+    \item How to deal with the presence of a linker?
+    - Sec.\ref{subsec:results-approach-linker}.
+\end{itemize}
+
+The answers for these questions are the topic of this section.
+
+\subsection{Inverting WLC}
+\label{subsec:results-approach-inverting}
+Inverting the implicit function, such as the Marko-Siggia expression for the WLC chain is needed e.g.\ for the Puchner-like analysis of the contour length (Sec.\ref{}).
+In fact, in case of Marko-Siggia function, there is only one extension $d$, which is physically possible for a given force $F$.
+This is visible the best in the graph of the Marko-Siggia function (Fig.\ref{fig:results-approach-inverting-MS}).
+
+\setcounter{fignums}{\value{figure}}
+\marginpar{\setcounter{figure}{\value{fignums}}
+  \includegraphics[width=0.95\marginparwidth]{results-approach-inverting-MS.png}
+  \captionof{figure}{The general plot of the Marko-Siggia function. The red dashed line denotes the asymptote.}
+  \label{fig:results-approach-inverting-MS}
+}
+
+Mathematically this can be proven by observing, that the first derivative of the Marko-Siggia approximation is always positive (for positive persistence length, contour length, and force), and that the function maps the interval $[0,L]$ to $[0,\infty]$.
+
+One can, therefore, leverage on the existence of only one physically allowed solution, to numerically invert the Marko-Siggia formula.
+In particular, its reduced form is equivalent to the following cubic polynomial (in the reduced form - Sec.\ref{}):
+
+\begin{equation}
+    \label{eq:results-approach-invertin}
+    x^3 - x^2 (2+f) + x (3/2 + 2f) - f = 0
+\end{equation}
+
+Numerical solution to this equation are three possible values of reduced extension $x$, but only one of them is contained in the interval $[0,1]$.
+
+\graffito{In the reduced equation $x=\frac{d}{L}$ and $f=\frac{F}{p}=\frac{Fp_L}{k_{B}T}$}
+
+Similarly, one can invert the eWLC by solving other (more complex) cubic equation.
+The exact form of the equations solved is contained in App.\ref{ch:functions}.
+In case of the eWLC function, however, it is not obvious \textit{a priori}, that there is also only one viable solution.
+Moreover, the absolute extension $d$ may be larger, than the contour length $L$ ($x>1$ in the reduced units).
+In this case, however, the true value is the smallest positive root of the equation, which also can be deduced from the contour plot of the cubic polynomial (App.\ref{ch:functions}).
+
+Similar approach can be also used to calculate the force $F$ in the eWLC method, where the force is present on both side of the equation\ref{}.
+Here, however, the maximal positive solution is taken (App.\ref{ch:functions}).
+
+\subsection{Stretch-adjusted WLC - better way of including elasticity}
+\label{subsec:results-approach-elasticity}
+Usually, the extension of the bond length is included by modifying the relative extension $x=\frac{d}{L}\rightarrow x-\frac{F}{k}$.
+In particular, this modification transforms WLC to eWLC\@.
+However, there are a few problems with such modification:
+\begin{enumerate}
+    \item The contour length $L$ looses its sense as the maximal length of the chain;
+    \item The value of the expression $\frac{d}{L}-\frac{F}{k}$ can be arbitrary large (the relative extension $x\gg1$), which creates problems in inverting the WLC equation (Sec.\ref{subsec:results-approach-inverting}).
+    \item The influence is exactly the same for small relative extension (small $\frac{d}{L}$) and for large;
+    \item Such modification does not describe, what is physically happening during stretching.
+\end{enumerate}
+
+The third problem influences the determination of the contour lengths in the method of Puchner et al (Sec.\ref{}).
+In particular, the force influence being the same for all extensions, and all contour length, results in skewness of some picks in the histogram (Fig.\ref{fig:results-approach-elasticity-comparison}).
+According to theory, the picks should not have any skewness.
+Manipulating the elasticity, ``straightens'' some picks, but slants the other, and therefore, in eWLC method there is no elasticity parameter, for which all the picks have vanishing skewness, even in the ideal case.
+As the picks are inclined, the fitting is disturbed, and therefore the fitting parameters are incorrect.
+
+\setcounter{fignums}{\value{figure}}
+\marginpar{\setcounter{figure}{\value{fignums}}
+  \includegraphics[width=0.95\marginparwidth]{results-approach-elasticity-comparison.png}
+  \captionof{figure}{The schematic depiction of the result of Puchner-like analysis with non-zero elasticity, when applying eWLC method. The picks are slanted left.}
+  \label{fig:results-approach-elasticity-comparison}
+}
+
+To justify the last remark, let us understand, what is happening with the elastic bond when it is stretched.
+The bonds can be treated as harmonic springs, each of the same initial length $b$ and spring constant $K$.
+When stretched, each bond gets stretch by $F/K$.
+If there are $N$ such bonds, than the total contour length $L$ is increased by $N\cdot\frac{F}{K}$.
+Then it is easy to understand, what would be the relative extension $x$:
+
+\begin{equation}
+    x = \frac{d}{L + N\cdot\frac{F}{K}}=\frac{d}{L}\frac{1}{1+\frac{NF}{LK}}\simeq\frac{d}{L}(1-\frac{N}{L}\frac{F}{K})
+    \label{eq:results-approach-elasticity-x}
+\end{equation}
+
+Where in the last step, the expression was expanded in Taylor expression with only the leading, linear term.
+The original contour length $L$ can be treated as the length of the chain with no force applied.
+From the definition, it is equal $L=N\cdot b$, so finally:
+
+\begin{equation}
+    x = \frac{d}{L}(1-\frac{F}{bK_0})
+    \label{eq:results-approach-elasticity-x2}
+\end{equation}
+
+Inserting this into WLC equation gives physically correct picture of the chain with the bonds stretched under applied force:
+
+\begin{equation}
+    \boxed{F(d)=\frac{k_{B}T}{P_L}\left(\frac{1}{4\cdot(1-\frac{d}{L}(1-\frac{F}{bK}))^2} - \frac{1}{4} + \frac{d}{L}(1-\frac{F}{bk})\right)}
+    \label{eq:results-approach-stretch-adjusted}
+\end{equation}
+
+This model will be called \textit{Stretch-adjusted} WLC\@.
+In this model, the effect of force is proportional to the relative extension $x$, i.e.\ it is large for large extensions and small for small extensions, therefore the problems introduced skewness of the picks is eliminated.
+Similarly as in case of eWLC, when $k\rightarrow\infty$, the model reduces to the standard Marko-Siggia expression.
+
+\subsection{Decomposing the histogram}
+\label{subsec:results-approach-decomposition}
+Many times in the analysis, the decomposition of the histograms is needed.
+In general, in Puchner-like analysis, the picks are expected to follow the Cauchy distribution (Sec.\ref{}), however, these may be well approximated by the Gaussian distribution.
+Therefore, it is enough to develop a method to decompose the histogram into an unknown number of Gaussians distributions.
+One could be tempted to use the Machine-Learning approach, e.g.\ the functions from the ScikitLearn Python package, like the Gaussian mixture.
+However, the test with various functions from the package did not show promissing results.
+Instead, it is better to find the smooth histogram distribution using KDE, with the kernels (the building blocks) being the Gaussian functions.
+\graffito{KDE is kernel density estimation - function delivered by the ScikitLearn package.}
+With this in hand, one can find the number $n$ of the maximas of the distribution, which is the number of Gaussian functions to fit.
+The StretchMe package automatically creates the sum of $n$ Gaussians and fit it with SciPy curve\_fit function.
+
+\subsection{Analyzing the data from simulations}
+\label{subsec:results-approach-theory}
+In simulations, the amino acids are modelled as beads, connected with (usually harmonic) spring.
+This approximation facilitates the calculations of the chain movement, however, with applied force, the bond lengths change visibly.
+As a result, the chains naively analyzed with plain WLC model seem to be much longer than in reality.
+\graffito{E.g. protein with 101 residues (100 bonds) should have the final length 36.5 nm, but in simulations, the final contour length measured can be even 50 nm.}
+
+\graffito{Surely I used stretch-adjusted WLC, this is why it was invented for.}
+To adjust for the changing bond length, one has to use some extension of the WLC model, like eWLC or stretch-adjusted WLC\@.
+On the other hand, using Puchner-like analysis seems to be a better choice, that global fitting of all stretching stages, especially, as in this case only the persistence length and the elasticity are needed to determine the contour lengths.
+To use the Puchner-like analysis, the stretch-adjusted WLC is better, as in this case the picks are not slanting, which eliminates one possible analysis error.
+
+So how to find the parameters of the chain?
+As the elasticity has the greatest impact in the high-force regime, it is best to fit the last stage of stretching.
+The last stage may be found as a part of the trace from the last minimum of the smoothed curve.
+The interval should be long enough (not 2 nm), to obtain reliable fit.
+However, it does not matter much which part of the trace will be used, as the fitted contour length does not matter - the contour length will be obtained from the histogram.
+
+So to sum up, the algorithm for analysis of the simulated data was established as follows:
+\begin{enumerate}
+    \item Find the last stage of stretching, as an interval from the last minimum of the smoothed trace.
+    \item If the stage is not long enough (less than 3 nm), analyze the previous interval, until the long enough interval is found.
+    \item If no interval is long enough, take the longest interval.
+    \item For the interval chosen, fit the stretch-adjusted WLC, obtaining parameters $p$, $k$, and the contour length of this stage $L$.
+    \item Using the parameters $p$ and $k$ invert the force, to obtain the relative extension $x$.
+    \item Make a histogram of the obtained contour length $L=d/x$.
+    \item Decompose the histogram into Gaussian functions (Sec.\ref{subsec:results-approach-decomposition}), obtaining in particular contour lengths (the positions of the picks)
+\end{enumerate}
+
+In StretchMe package, the default minimal length of the interval is set to 3 nm (see App.\ref{ch:parameters}), however, this value may be adjusted by the user.
+
+The results of this approach to the simulated data are covered in Sec.\ref{sec:results-theory}.
+
+\subsection{Assigning the ranges and rupture forces}
+\label{subsec:results-approach-ranges}
+\setcounter{fignums}{\value{figure}}
+\marginpar{\setcounter{figure}{\value{fignums}}
+  \includegraphics[width=0.95\marginparwidth]{results-approach-ranges-ex.png}
+  \captionof{figure}{The schematic depiction of the range assigning method - the pair $F,d$ corresponding to red cross may come either from the orange or blue distribution. However, it is more probable it comes from orange. Similarly, blue cross comes most probably from pink distribution.}
+  \label{fig:results-approach-ranges-ex}
+}
+Having the distribution of the contour lengths deconvoluted, it is easy to solve another problem, namely the ranges of the stages of stretching.
+If the data are ``smooth'', one can easily set the stage boundaries arbitrarily.
+However, if the there is no clear ``jump'' characteristic to rupture and change of the protein state, setting the limits by hand may introduce additional errors.
+Knowing the distribution of the contour length solves this problem, as to each pair $F,d$ one can prescribe the contour length $L=d/x(F)$ and calculate the probability for this contour length to fall in each pick of the histogram.
+The proper contour length is this, for which this probability is the highest (Fig.\ref{fig:results-approach-ranges-ex}).
+
+The ranges are needed mainly to calculate the rupture force.
+The rupture force may be defined as the highest force in the given range.
+Therefore, the rupture force for a given state is the highest force from the pairs $F,d$ which fall into state considered.
+
+
+\subsection{Merging information from the traces}
+\label{subsec:results-approach-merging}
+Similar methodology may be used in merging the information from all the traces in a given experiment.
+In particular, one needs to determine the values of the persistence length and the elasticity.
+Assuming, that the conditions of the experiment for all the traces were identical (e.g.\ the same temperature), one can determine these parameters by their best estimators, i.e.\ the average value over all the traces.
+Having the persistence length and elasticity for the experiment, one can merge all the pairs $F,d$ and create a single histogram, where all the states registered in individual traces will be present.
+This time, however, the expected number of states should be no less than the maximum of the number of stages observed in the individual traces, as not to miss any stage.
+Decomposition of this histogram results in final contour lengths $\mathbb{L}_i$
+
+Next, to each state, one has to assign its distribution of rupture forces.
+This is done similarly as in case of assigning ranges, namely:
+\begin{enumerate}
+    \item Each force is tied with the contour length of the state it ruptures.
+    \item The contour lengths may be assigned to one of the final contour length $\mathbb{L}_i$, based on the probability of coming from the distributions of $\mathbb{L}_i$.
+    \item Assigning the contour length assigns the rupture force from individual experiment to the state characterized by the final contour length $\mathbb{L}_i$.
+\end{enumerate}
+
+The distribution of the rupture forces for each state can then be further analyzed, e.g. with the Dudko-Hummer-Szabo method.
+
+\subsection{Dealing with linker in the experiment}
+\label{subsec:results-approach-linker}
+\begin{figure}
+    \includegraphics[width=\textwidth]{results-experiment-subtract.png}
+    \caption{Fitting the first stage of some TrmD measurements to extract the parameters of the DNA. Left panel - optimal fit. Right panel - the data after subtracting the fitted influence of the DNA.}
+    \label{fig:results-approach-linker-subtract}
+\end{figure}
+
+Analysis of the simulated data is an easy case.
+In the experiment, the existence of the linker prohibits easy analysis.
+As argued in Sec.\ref{}, usually, either the linker characteristic may be deduced from the first stage of stretching.
+However, such methodology breaks down, when the protein gets stretched simultaneously with DNA\@.
+This is the case of TrmD, which feature the existence of two subdomains, connected via flexible linker.
+In this case, fitting the first stage, and subtracting such obtained influence of the DNA results in a curve, which does not resemble the stretching curve (Fig.\ref{fig:results-approach-linker-subtract}).
+Moreover, the fit parameters obtained in such way are non-reliable.
+For example, in case of the first analyzed trace of the TrmD protein, the fitted DNA length is equal 386 nm which is longer than the maximal value of 370 nm.
+The DNA persistence length is equal to 9.77 nm, while the low limit for the this parameter is 20 nm.
+Moreover, after the transformation, the maximal protein extension measured is 44 nm, i.e.\ around half of the length of the fully stretched protein.
+This clearly shows, that the usual way of analysis of such traces cannot be utilized in this case.
+
+Alternatively, one could determine the contour length gains and utilize some known absolute length.
+Usually, one adds the contour length gains to the end-to-end distance taken from the crystal structure.
+As in this case the crystal structure is missing (and for Tm1570 and fusion even the structures of homologs are missing), one could use the length of the DNA linker.
+The total length of the linker (the sum of the linkers on two sides of protein) is suppoused to be 370 nm.
+However, fixing the linker length at this value results in too short, or in some cases negative protein lengths (Fig.\ref{fig:results-approach-linker-wrongfit2}).
+
+\begin{figure}
+    \centering
+    \includegraphics[width=\textwidth]{results-experiment-wrongfit2.png}
+    \caption{The results of fixing the DNA length at 370 nm, for the first trace of TrmD. Although the fit to the first to stages may be improved, the fit to the last stage was done seemingly correct. It indicates, that the TrmD protein (240 residues) has 154 in fact amino acids, which is obviously wrong.}
+    \label{fig:results-approach-linker-wrongfit2}
+\end{figure}
+
+\begin{figure}
+    \centering
+    \includegraphics[width=0.5\textwidth]{results-approach-linker-example.png}
+    \caption{The effect of changing the parameters on the curve.}
+    \label{fig:results-approach-linker-example}
+\end{figure}
+
+On the other hands, the methodology developed in case of simulated stretching cannot be used during analysis of experimental data.
+The reason is, that in case of simulated stretching the height of the curve is controlled by the persistence length, the position of asymptote by the contour length and the slope of the curve by the elasticity (Fig.\ref{fig:results-approach-linker-example}).
+
+In case of experiment, the asymptote is governed by the \textit{sum} of the contour lengths of DNA and protein, and the height of the curve is the function of both persistence length.
+In other words, there is no effect on the curve the protein may have, that the DNA cannot reduce and \textit{vice versa}.
+As a result, one can fit reliably any possible length of the protein, including the knotted, and unknotted (Fig.\ref{fig:results-approach-linker-wrongfit})
+
+\begin{figure}
+    \centering
+    \includegraphics[width=\textwidth]{results-experiment-wrongfit.png}
+    \caption{Fit of TrmD (the same experiment), with two outcomes - it is either knotted (contour length $82.5 nm$), or unknotted (contour length $87.6 nm$).}
+    \label{fig:results-approach-linker-wrongfit}
+\end{figure}
+
+To sum up:
+
+\fbox{%
+    \parbox{\textwidth}{%
+        With the information available, none reliable, unconstrained fit\\ can be done to obtain the parameters of the protein.
+    }%
+}
+Any other previous attempts to analyze the results, showing e.g.\ mixed topology of the protein were subjected to some flaws.
+These are described in detail in Sec.\ref{subsec:results-experiment-previous}.
+
+Therefore, to analyze the experimental results, some assumptions have to be made.
+First, the protein persistence length is usually set to 0.65 or 0.70 nm, while the persistence length of DNA is contained in the range 20--30 nm (Sec.\ref{}).
+The temperature of the experiment was $28^{o}C$.
+The maximal contour length is for protein equal to the length of the fully stretched, unknotted protein and for DNA is 370 nm (according to the experimental setup).
+The only parameter which actually can be fitted is the elasticity, as it is the only parameter which is responsible for the slope of the curve.
+In all fits the elasticity parameter was equal to $0.009 N^{-1}$.
+\graffito{In the StretchMe package, due to the computational reasons the elasticity parameter is taken as the inverse of the conventionally used elasticity (see App.\ref{ch:functions}).}
+This leaves only three parameters to fit (persistence length of DNA, contour length of DNA, contour length of protein), all of which are constrained to some intervals.
+Fitting only three parameters is feasible with these data.
+As the starting conditions, one may take for example:
+\begin{itemize}
+    \item Persistence length of DNA: 25 nm;
+    \item Contour length of DNA: 345 nm (the length most often occurring in reasonable fits);
+    \item Protein contour length: corresponding to the knotted (or doubly knotted in case of fusion) form.
+\end{itemize}
+We assume shortening of roughly 14 residues for each knot occurring in the chain (based on previous experimental results - Sec.\ref{}).
+
+Alternatively, one can also assume the protein contour length and fit the DNA persistence length to see.
+Obtained DNA persistence length way outside the expected interval (20-30 nm) denotes, that the assumed protein contour length is impossible.
+Both of the approaches are described in Sec.\ref{sec:results-experiment}
 
 %%%% Theory %%%%
-\section{Analysis of data from simulations}
-\label{sec:results_theory}
+\section{Simulated stretching results}
+\label{sec:results-theory}
+In total, 3 different protein structures were stretched \textit{in silico}:
+\begin{itemize}
+    \item the homologue of TrmD, with PDB code 5wyr;
+    \item the predicted structure of TrmD, with the same sequence as in experiment (based on homologous modelling with the 5wyr structure as model);
+    \item the structure of TrmD with the knot removed.
+\end{itemize}
+
+The base case for further study was the TrmD\@.
+
+\subsection{Simulated stretching of TrmD}
+\label{subsec:results-theory-trmd}
+TrmD structure was stretched as a coarse-grained model in 13 maps and conditions (described in detail in Chap.\ref{ch:methods}) and also in all atom simulations.
+The results obtain depend heavily both on the map generation algorithm and on the temperature of stretching.
+In particular, in the $C\alpha$ map, the transitions are very smooth, and it is very hard to separate different states (Fig.\ref{fig:results-theory-trmd-maps}).
+On the other hand, the results obtained in the SMOG map have clear transitions, as well as the clearly separable picks in the histogram.
+
+\begin{figure}
+    \centering
+    \includegraphics[width=0.75\linewidth]{results-theory-trmd-maps.png}
+    \caption{Comparison of the merged analysis of Trmd in different maps, in the same temperature ($T=0.5\epsilon$).}
+    \label{fig:results-theory-trmd-maps}
+\end{figure}
+
+As could be expected, this effect is modified by the temperature.
+Namely, in higher temperature as the protein structure fluctuate more, the transition between states became more smooth (Fig.\ref{fig:results-theory-trmd-temperature}).
+On the contrary, in lower temperatures the transitions are much better separable and the number of states is larger.
+
+\begin{figure}
+    \centering
+    \includegraphics[width=\linewidth]{results-theory-trmd-temperature.png}
+    \caption{The influence of the temperature showed on example of stretching of TrmD in $C\alpha$ map.}
+    \label{fig:results-theory-trmd-temperature}
+\end{figure}
+
+\graffito{The parameters fitted are $p=\frac{k_{B}T}{P_L}$ and $k$ which is roughly inverse of the standard elasticity parameter (Sec.\ref{ch:functions}).}
+To make this observations more concrete, Tab.\ref{tab:results-theory-trmd-general} contains the maximal number of states found in each map, along with the mean values of parameters and their standard deviations.
+In particular, the large standard deviation shows, that there was larger inconsistency between consecutive measurements, which indicates that the parameters may have been fitted incorrectly, which in turn indicates, that analysis of such model is more complicated.
+The values of the parameters for individual measurements (traces), along with the plots are contained in App.\ref{ch:fit-details}.
+
+\begin{table}
+    \centering
+    \caption{The comparison of the basic characteristic of the coarse grained models: number of states and fitted parameters $p$ and $k$.}
+    \label{tab:results-theory-trmd-general}
+    \begin{tabular}{c|c|c|c|c}
+        \textbf{temperature} & \textbf{parameter} & \textbf{$C\alpha$ map} & \textbf{Tsai map} & \textbf{SMOG map}\\\hline
+        \multirow{3}{*}{$0.3\epsilon$} & states: & 11 & --- & --- \\
+         & p & $0.2062\pm0.0027$ & --- & --- \\
+         & k & $0.0041\pm0.0001$ & --- & --- \\\hline
+        \multirow{3}{*}{$0.4\epsilon$} & states & 6 & 7 & 14\\
+         & p & $0.3367\pm0.0059$ & $0.3968\pm0.0149$ & $0.2312\pm0.0970$\\
+         & k & $0.0065\pm0.0003$ & $0.0048\pm0.0006$ & $0.0073\pm0.0029$\\\hline
+        \multirow{3}{*}{$0.5\epsilon$} & states & 6 & 6 & 8 \\
+         & p & $0.4642\pm0.0158$ & $0.4821\pm0.0360$ & $0.4815\pm0.0522$\\
+         & k & $0.0077\pm0.0007$ & $0.0072\pm0.0006$ & $0.0059\pm0.0010$\\\hline
+        \multirow{3}{*}{$0.6\epsilon$} & states & 4 & 5 & 6 \\
+         & p & $0.5861\pm0.0871$ & $0.6279\pm0.0216$ & $0.6131\pm0.0373$\\
+         & k & $0.0101\pm0.0021$ & $0.0092\pm0.0006$ & $0.0063\pm0.0019$\\\hline
+    \end{tabular}
+\end{table}
+
+From the data contained in Tab.\ref{tab:results-theory-trmd-general} one can clearly see, that with increase of the temperature the number of states observed decreases.
+When comparing the maps, in particular, the measured value of the $p$ parameter should rise in the same proportions as the temperature.
+The proportions for the analyzed maps are (where in all cases the temperature $T=0.5\epsilon$ was taken as the base case):
+\begin{itemize}
+    \item $C\alpha$ - 0.22 : 0.36 : 0.5 : 0.63
+    \item Tsai map - 0.41 : 0.5 : 0.65
+    \item SMOG map - 0.24 : 0.5 : 0.63
+\end{itemize}
+
+This shows, that the best proportions are recovered in the Tsai map.
+The Tsai map has also the smallest standard deviations of the elasticity $k$ parameter (compared to other maps in the same temperature).
+On the other hand, the smallest standard deviation for $p$ parameter is exhibited by the $C\alpha$ map.
+
+As the stretching curves overlay very well in their ascending part, one may conclude, that in each map only one unfolding path is observed.
+To make this statement more precise, one can compare the histograms of the measured contour length (Fig.\ref{fig:results-theory-trmd-cl}).
+
+%\begin{figure}
+%    \centering
+%    \includegraphics[width=\textwidth]{results-theory-trmd-cl.png}
+%    \caption{Comparison of the histograms of observed contour length}
+%    \label{fig:results-theory-trmd-cl}
+%\end{figure}
+
+Another case are the maps, where the pulling spring constant was set to 0.
+In such case the system is very rigid and have to react instantaneously on the stretching.
+As a result, there are more transitions and they are much sharper.
+Moreover, the traces are less reproducible (Fig.\ref{fig:results-theory-trmd-spring}).
+As a result, such models, which actually do not correspond to the physically possible experiments (the spring constant is always positive) where not analyzed further, as they do not add a value in analysis, but rather are very hard in understanding.
+
+\begin{figure}
+    \centering
+    \includegraphics[width=\textwidth]{results-theory-trmd-spring.png}
+    \caption{Comparison of the maps for very rigid models (with vanishing pulling spring constant).}
+    \label{fig:results-theory-trmd-spring}
+\end{figure}
+
+\subsection{Simulated stretching of TrmD homologue with PDB code 5wyr}
+\label{subsec:results-theory-5wyr}
+To check, how the stretching traces depend on the starting structure of the protein, the TrmD homologue with PDB code 5wyr was tested.
+Stretching of this structure was performed in 3 map-generating algorithm (Tsai, $C\alpha$, SMOG), each in 3 temperatures ($0.4$, $0.5$, and $0.6\epsilon$), as well as with the vanishing pulling spring constant (in total 12 models).
+In each case 15 stretching experiments were performed.
+
+\subsection{Simulated stretching of no-knot TrmD}
+\label{subsec:results-theory-no-knot}
+During the analysis of the experimental data, a hypothesis oppeared, that the TrmD analyzed may in fact be unknotted.
+Stretching of this structure was performed in the same conditions as in case of 5wyr, but only 5 traces were done for each of the 12 cases.
+
+%%%% Experiment %%%%
+\section{Experimental stretching results}
+\label{sec:results-experiment}
+In the experiment, three proteins were stretched - TrmD, Tm1570 and their fusion TrmD-Tm1570.
+The algorithm described in Sec.\ref{subsec:results-approach-linker} should in principle allow to determine the topology of the protein, favouring the knotted state (as this is the starting condition).
+
+\subsection{Analysis of TrmD}
+\label{subsec:results-experiment-trmd}
+In total, there were 39 available traces for TrmD\@.
+The plots of all traces, along with the fitted parameters are contained in App.\ref{sec:fit-details-trmd-experiment}.
+In most traces 3 stretching phases were visible (Fig.\ref{fig:results-experiment-trmd-histo}).
+
+\begin{figure}
+    \centering
+    \includegraphics[width=0.75\textwidth]{results-experiment-trmd-histo.png}
+    \caption{The analysis of the merged information from experimental stretching of TrmD.}
+    \label{fig:results-experiment-trmd-histo}
+\end{figure}
+
+The last pick of the hitogram corresponds to the fully stretched protein.
+In each trace its contour length corresponds to the unknotted structure ($87.6 nm$ vs $82.5 nm$ for knotted structure).
+As this is the result from fitting, where the initial guess was knotted structure, it seems, that the unknotted structure much better fits the data than the knotted one.
+This indicates, that the structure is \textit{unknotted} in the experiment.
+
+However, the width of the pick is suspicious, especially compared to other picks.
+Contrary to other contour length, it seems that the final contour length each time finish the fitting with almost the same value, i.e. the maximal allowed protein length, independent on the trace analyzed.
+In other words, the fitted protein length falls to longer lengths, and if there was no restriction on the maximal length (following from the number of residues), the fitted length may be even longer.
+This suspicious behaviour indicates, that either
+
+\begin{enumerate}
+    \item the protein was longer than expected,
+    \item there are additional problems with fitting, which very dependent on starting conditions.
+\end{enumerate}
+
+The first hypothesis can be checked with the crystal structure of the analyzed protein.
+As there is no crystal structure available at least to the author, one can fit the protein length without setting any constraints on its length.
+If the protein is in fact longer, and it can be seen in the fitting, such procedure should reveal much broader pick for some larger length.
+\graffito{Expected protein length is around 87 nm.}
+However, performing such analysis results in the protein length fitted to unrealistic values up to 500 nm.
+In singular fittings the values obtained are realistic, like 272 residues in TrmD, but this would require to deal with a protein around 30 residues longer than expected.
+This seems highly improbable, therefore this hypothesis was neglected.
+
+On the other hand, if the fitting procedure is highly dependent on the initial guesses of parameters, in may happen, that the protein was knotted, but due to some minor differences between fits, the fitting procedure gives wrong results.
+\graffito{In TrmD knotted state should have around $82.5 nm$.}
+To check this hypothesis, one may set the final protein contour length to the knotted state, and perform fitting of the last parameters, i.e.\ DNA contour length and persistence length.
+If the fit is reasonable and the DNA persistence length value is reasonable, it means that one cannot disprove the existence of the knot in TrmD based on the fitting result.
+And indeed, performing such analysis results in quite reasonable fittings with reasonable parameters (Fig:\ref{fig:results-experiment-trmd-histo-knotted})
+
+
+\begin{figure}
+    \centering
+    \includegraphics[width=0.75\textwidth]{results-experiment-trmd-histo-knotted.png}
+    \caption{The analysis of the TrmD protein, assuming it is knotted.}
+    \label{fig:results-experiment-trmd-histo-knotted}
+\end{figure}
+
+The exact fitting parameters are given in Sec.\ref{sec:fit-details-trmd-experiment}.
+The next question then is, which fit is better?
+In principle, one could measure the errors of each fit compared to measured values.
+However, in both cases the curves approximate the experimental values really good, and if one fails to match the experiment, the same applies to the second one.
+Therefore, although possible, such analysis would probably not provide any further clues.
+One can also analyze the fitting parameters (Tab.\ref{tab:results-experiment-trmd-knotted}).
+
+\begin{table}
+    \centering
+    \caption{Comparison of the fitting parameters for knotted and unknotted version of TrmD.}
+    \label{tab:results-experiment-trmd-knotted}
+    \begin{tabular}{c|c|c}
+        \textbf{Version} & \textbf{DNA persistence length} & \textbf{DNA contour length}\\\hline
+        \textbf{Knotted} & $27.604\pm5.119$ & $342.374\pm5.034$\\
+        \textbf{Unknotted} & $26.825\pm4.243$ & $339.438\pm4.378$\\\hline
+    \end{tabular}
+\end{table}
+
+Although slightly smaller standard deviations are observed in case of unknotted version of Trmd, the differences in both parameters, as well as between their standard deviations are too small to conclude anything decisively.
+Therefore, one may conclude only, that:
+
+\fbox{With the information supplied it is impossible to check, if the TrmD structure analyzed is knotted on not.}
+\graffito{Observe also, that in both cases the fitted DNA length is much smaller than expected 370 nm.}
+
+Nevertheless, independently on the topological state of the protein, one may analyze the common features of both cases.
+In particular, in the beginning of stretching, there are two phases, and the difference between their contour lengths is about 10 nm (e.g.\ Fig.\ref{fig:results-experiment-trmd-histo} top left).
+In some traces the picks on the histogram overlay in such a way, that more than two stages were identified automatically in this region.
+Moreover, the second stage, corresponding to 52 nm (in unknotted version) or 47 nm (in knotted version) is sometimes missing in the traces.
+This indicates, that the stability of this intermediate state is comparable to the stability of the state that is first ruptured.
+This is also visible in the histograms of rupturing forces (right-bottom panels), where the distribution corresponding to the intermediate state (green) is only slightly shifted towards larger forces, comparing to the first state (red).
+
+The first rupture corresponds to 40 nm (in case of knotted) or 45 nm (in case of unknotted) contour length of protein.
+Such a large value clarifies, why the influence of DNA cannot be extracted from the first stretching stage, as in this stage almost half of the protein is also stretched.
+Observe in particular, that in Fig.\ref{fig:results-approach-linker-subtract} the final contour length of protein was almost 50 nm, which means, that around 40 nm is missing, and this is exactly this 40 (or 45) nm being stretched in the first stage.
+Why such an effect is observed in TrmD, but is not in other knotted proteins?
+TrmD feature the existence of two subdomains connected with a flexible linker.
+The linker may easily get expanded during the first stage of stretching.
+However, the linker has roughly 30 residues, while the first rupture occurs for a contour length corresponding to 111 (knotted version) or 124 (unknotted) resiudues.
+This indicates, that in the first rupture, whole C-end subdomain, composed of few helices gets ruptured.
+If that was true, in knotted version the expanded structure would reach from C-terminus up to the knotted core, where the rupturing would require higher forces.
+In case the unknotted hypothesis was true, there is no knotted core, which would be a natural barrier for expansion of the chain, but further along the chain (counting from the C-terminus) there is a cluster of $\beta$-strands, which should stop chain expansion (Fig.\ref{fig:results-experiment-trmd-pathway}).
+The next state could occur after rupturing the N-terminal $\beta$-sheet.
+This could lead to further increase of the contour length of around 8 nm.
+The last rupture should be the rupture of the $\beta$-sheet core, which ``frees'' the whole chain, which can get expanded to its full length.
+
+Therefore, the whole suggested mechanism of mechanical unfolding depicted in Fig.\ref{fig:results-experiment-trmd-pathway} is as follows:
+\begin{enumerate}
+    \item (Stage 1) Expansion of the linker, the C-terminal subdomain (red in Fig.\ref{fig:results-experiment-trmd-pathway}) and part of N-terminal subdomain up to the knotted core, or the $\beta$-sheet core;
+    \item (Rupture 1) Detachement of the N-terminal $\beta$-sheet;
+    \item (Stage 2) the intermediate state of the protein is the $\beta$-sheet core without the N-terminal $\beta$-sheet, the N-terminal $\beta$-sheet and the C-terminal 120 residues are expanded;
+    \item (Rupture 2) Destruction of the $\beta$-sheet core;
+    \item (Stage 3) Most of the tertiary contacts are destroyed and the protein can get fully expanded.
+\end{enumerate}
+
+\begin{figure}
+    \centering
+    \includegraphics[width=\textwidth]{results-experiment-trmd-pathway.png}
+    \caption{The schematic depiction of the unfolding pathway of TrmD protein during stretching. The question mark in the final state denotes the uncertainity concerning the topology. In the inset the part of the protein which should get expanded in the first stage of stretching for knotted structure (red).}
+    \label{fig:results-experiment-trmd-pathway}
+\end{figure}
+
+
+
+\subsection{Analysis of Tm1570}
+\label{subsec:results-experiment-tm1570}
+In total, there were 14 available traces for Tm1570\@.
+The plot of all traces along with the fit parameters are contained in App.\ref{sec:fit-details-tm1570-experiment}.
+The analysis of those traces was, however, much more complicated, than in case of TrmD, primarily due to the high variation of the traces.
+This hinders greatly fitting, as the smoothed curves instead of being convex, may be even concave.
+Moreover, there are at least two unfolding pathways during stretching of this protein.
+Assuming, it is knotted, the unfolding there is either a state with contour length of around 40 nm (110 AA), or around 47 nm (127 AA).
+These two states do not coexist in almost any trace, however, from both states there is a transition to a state with contour length of 57 nm (155 AA), followed by complete unfolding of protein (64 nm, 174 AA).
+On the other hand, the begin of the unfolding is highly variable, with no clear pattern emerging.
+
+As the $\beta$-sheet are usually more resistant during the stretching, one would expect rupturing of the C-terminal $\alpha$-helix to happen as the first part of unfolding.
+However, the C-terminus cannot be further stretched, as in such case the knotted core would have to start shrinking (assuming the protein is knotted).
+Therefore, the next step could be rupturing of the N-terminal $\beta$-strand.
+It is, however, the central strand of the whole $\beta$-sheet core.
+As a result, the protein may be torn into two pieces in two different ways - either the N-terminal $\beta$-strand keeps attached to $\beta$4 (Asn49-Val53), or to $\beta$7 (Ile 137-Gly142).
+
+One of the following stages should include rupturing of $\beta$4 from $\beta$5 (Thr89-Thr92), which would result in increase in the contour length by about 40 AA\@.
+This, judging from the traces, should be the step leading to the final step - rupturing of $\beta$6 (Ile111-Ala114) from $\beta$7, which hold together the knotted core.
+The contour length change during such a rupture would be around 30 residues, but as knotted core is expected to ``use'' around 15, so the observed contour length gain should be equal around 15 AA\@.
+The observed change in the last step is around 19 residues.
+
+When assuming the protein is unknotted, the automatic fits are much worse.
+It does not, however, indicate, that the protein is necessarily knotted, as one may perform much better fits manually.
+In particular, in those cases, where both knotted, and unknotted versions were fitted well, there is no visible difference between the quality of the fits.
+Again, one could try to discriminate the fits based on the variation of the fitted parameters.
+However, in order to follow this path, first reasonable fits of Tm1570, assuming its unknotted state have to be performed
+
+
+\subsection{Analysis of fusion TrmD-Tm1570}
+\label{subsec:results-experiment-fusion}
+In total, there were 19 available traces for TrmD-Tm1570\@.
+Analysis of the fusion is even more troublesome than Tm1570, as it includes all the problems of Tm1570 (high variation of the traces, at least two unfolding pathways) and may be in four states (unknotted, knotted TrmD domain, knotted Tm1570 domain, doubly knotted).
+Moreover, in many traces, the final parts of stretching consist of very small amount of points, therefore, the ``prefinal'', and sometimes the final state cannot be fitted at all.
+This questions the credibility of the last traces (13-17).
+In particular, in the first measured traces, the final state was achieved after rupture with the force around 35 pN, and there are only a few nm of stretching of this state, as it was very easily detached from the micropipete.
+On the other hand, in the last traces (13-17), the final state measured was achieved for after rupture with the force around 25 pN, and can be extended by almost additional 50 nm.
+
+Nevertheless, in the first traces, there is a similar pattern as in case of Tm1570 - i.e.\ mutually exclusive contour length of either around 125 nm, or 134 nm.
+
+Similarly as in previous cases, there is no strong argument for the knot existence.
+
+\subsection{Previous attempts to solve the problem of experimental results}
+\label{subsec:results-experiment-previous}
+In previous attempts there was a rumour that some proteins may be entangled, while the others may be not.
+It followed from wrong method of analysis, where the length of the DNA fitted to the first trace was next used to fit the other cases.
+As the best-fitted DNA length is variable between measurements, this approach was not valid.
 
 %%%% Comparison %%%%
-\section{Correlation between theory and experiment}
-\label{sec:results_comparison}
+\section{Comparison between simulations and experiment}
+\label{sec:results-comparison}
+As there is a possibility, that the protein is unknotted, any attempts to compare the simulations and the experiment are subjected to the methodological error.
+However, when comparing the contour lengths and the ruptures observed, it seems, that the SMOG map features some similarities with the experiment.
+In particular, in SMOG map there is a distinct and meaningful rupture of the state with contour length around 120 residues.
+This is similar as in experiment, where for knotted TrmD the ruptured state has 112 residues.
+This is evident especially in $T=0.6\epsilon$, where all previous ruptures are rather smooth, and may be therefore lost in the experiment.
+Interestingly, analogous rupture for no-knot structure occurs for smaller contour length, conversely to the results of experimental analysis.
+This may, however, come from the fact, that the putative unknotted version of TrmD has unknown structure, therefore the one used in simulated stretching may not correspond well to the experimetal one (if it was unknotted).
+Therefore, it seems, that SMOG map in temperatures $T\ge 0.5\epsilon$ are good candidates for analyzing simulated stretching of proteins.
+
+
+
+

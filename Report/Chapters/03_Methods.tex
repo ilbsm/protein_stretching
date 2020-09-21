@@ -1,64 +1,132 @@
 % Chapter 03 - Methods
 \chapter{Methods}
-\label{chap:methods}
+\label{ch:methods}
 
 %%%% proteins %%%%
 \section{The proteins analyzed}
-\label{sec:methods_proteins}
+\label{sec:methods-proteins}
 In the experiment, three proteins were investigated:
 \begin{enumerate}
     \item TrmD, $+3_1$-knotted tRNA (guanine-N(1)-)-methyltransferase, from \textit{Haemophilus influenzae} bacteria, classified as a member of SPOUT Methyltransferase superfamilly;
-    \item Tm1510, the protein of unknown function from \textit{Thermotoga maritima} bacteria, putatively $3_1$ knotted protein;
+    \item Tm1570, the protein of unknown function from \textit{Thermotoga maritima} bacteria, putatively $3_1$ knotted protein;
     \item Their fusion TrmD-Tm1510, which is expected to have a composite knot $3_1 \# 3_1$.
 \end{enumerate}
-The sequences of the analyzed proteins:
+The sequences of TrmD and Tm1570 are presented in Tab.\ref{tab:methods_sequences}:
+\begin{table}
+\begin{tabular}{ll}
+TrmD & 240 residues\\
+1   & MKRYNVITIFPEMINEIFKYGVLSKGIDIGLFRVNPINLRDYTEDKHKTVDDYQYGGGHGLVMKPEPIYKAIADLKSKKD\\
+81  & THVVFLDPRGEQFTQKTAERLYNYDDITFVCGRYEGIDDRVRELMADEMISIGDFVITGGELAAVTIIDAVARLIPGVLG\\
+161 & DENSPNEESFTTGLLEYPHFTRPAEFMGKKVPEVLISGNHEEIRRWRLTESIKTTLQNRPDMILRKSLSREEEQILWSLT\\\hline
+Tm1570 & 193 residues\\
+1   & RGVQRKYNIYVALMHYPMRDKEGKVVTTSITNMDLHDISRSCRTFGVKNYFVVNPMPAQREIASRVVRHWIKGYGATYNE\\
+81  & NRKEAFEYTIITDSLASVIKSIEEKESGSPIIIATTARYQQKAISIEKLKEIADRPILLLFGTGWGFVDDILEFADYVLK\\
+161 & PIHGVGDFNHLSVRSAVAIYLDRINRSFQEDIL\\\hline
+\end{tabular}
+\caption{The sequences of analyzed TrmD and Tm1570.}
+\label{tab:methods_sequences}
+\end{table}
 
-No crystal structure is present for the exact sequences, therefore they were modelled using Modeller by homologous modelling, with structure with PDB code 5wyr used as a homologue for TrmD and 3dcm for Tm1510.
-The resulting structures with the knot shown in red (TrmD) and blue (Tm1510) are shown in Fig.\ref{fig:methods_proteins}.
+No crystal structure for TrmD and Tm1570 exists, therefore, for the theoretical analysis they were modelled using I-Tasser server, based on homologous structures with PDB codes 5wyr (for TrmD) and 3dcm (for Tm1570).
+Similarly, the fusion TrmD-Tm1570 does not possess crystal structure.
+It was modelled by connecting the basic structures manually.
+The modeled structures overlaid with their templates are shown in Fig.\ref{fig:methods-overlaid}.
 
-\begin{figure}
-    \includegraphics[width=\linewidth]{methods_proteins.png}
-    \caption{The modelled crystal structures of investigated proteins: TrmD, Tm1510, and their fusion TrmD-Tm1510.
-    The color indicate the knotted core.}
-    \label{fig:methods_proteins}
-\end{figure}
+%\begin{figure}
+%    \includegraphics[width=\linewidth]{methods_overlaid.png}
+%    \caption{The overlaid modeled proteins with their templates. Left TrmD and structure with PDB code 5wyr, right Tm1570 and structure with PDB code 3dcm.}
+%    \label{fig:methods_overlaid}
+%\end{figure}
+
+The exact fusion of two proteins has 433 residues (240 + 193).
+However, in the modelled structure, the chain has 432 residues, with the last C-terminal leucine missing.
+Probably that is unintended omission, therefore in the interpretation of experimental data, the protein was still considered as 433-residue long.
+On the other hand, due to the experimental setup (Sec.\ref{sec:methods-setup}), cysteine residues were added to both ends of the chain.
+Therefore, the total length of the residues in the experiment was 242 (for TrmD), 195 (for Tm1570) and 435 (for TrmD-Tm1570).
+
+The lack of the crystal structure prevents calculating only the differences in the contour length during protein stretching, as there is no reference point (initial end-to-end distance).
+Using the distance from the homologous structures is not reliable, as the topology of target is unknown.
+For example, if the target is slipknotted, its end-to-end distance may be significantly different than the in the knotted template (Fig.\ref{fig:method-slipknot}).
+Moreover, in case of the fusion, there is no template the take the end-to-end distance from.
+
+%\begin{figure}
+%    \includegraphics[width=\linewidth]{methods_slipknot.png}
+%    \caption{}
+%    \label{fig:methods-slipknot}
+%\end{figure}
+
+
+%%%% experimental setup %%%%
+\section{The experimental setup}
+\label{sec:methods-setup}
+The experiment was performed as in\cite{jahn2014charged}.
+In particular, the terminal protein cysteines were connected with 185nm DNA strands by utilizing the ``click'' chemistry approach of thiol-maleimide reaction (Fig.\ref{fig:methods-click}).
+
+%\begin{figure}
+%    \includegraphics[width=\linewidth]{methods_click.png}
+%    \caption{}
+%    \label{fig:methods-click}
+%\end{figure}
+
+The DNA strands were in turn fictionalized to connect to $1\mu m$ beads, trapped in optical tweezers.
+The experiment was performed by moving the beads apart with constant velocity, until the force reached about 40pN.
+Next the protein was relaxed (no force applied) for a fixed amount of time.
+The protein stretching speed: $v=500nm/s$.
+The temperature of measurement: $t=28^{o}C$.
+The spring constant of the optical tweezers: $0.3 pN/nm$.
 
 %%%% maps %%%%
-\section{The maps used}
+\section{The theoretical setup}
 \label{sec:methods_maps}
-In the simulations, different protein structures were used:
+In the simulations, different structures of homological proteins were used:
 \begin{enumerate}
-    \item model of TrmD;
+    \item the best model of TrmD from I-Tasser;
     \item knot-less structure with the sequence of TrmD;
     \item slipknot structure with the sequence of TrmD;
     \item TrmD homologue with PDB code 5wyr.
 \end{enumerate}
 
-In the analysis, different maps were used:
+The slipknot structure was not analyzed in this report, as the analysis was left for Aleksandra Gajkowska.
+The stretching was performed within various conditions, differing in the contact map used, the temperature, and the spring constant.
+The contact map used in simulations:
 \begin{enumerate}
-    \item $C\alpha$ map, where the amino acids are in contact if their $C\alpha$ atoms are in vicinity of $6AA$ cutoff;
-    \item Tsai map, where the contact between residues is specified based on the overlapping of the van der Walls spheres of heavy atoms;
-    \item Shadow map, where the contact is specified by the cutoff, subjected to the condition, that one residue cannot shadow the other contact.
+    \item $C\alpha$ map, where the amino acids are in contact if their $C\alpha$ atoms are in vicinity of $6AA$ cutoff (denoted by capital letter `C' in further analysis);
+    \item Tsai map, where the contact between residues is specified based on the overlapping of the van der Walls spheres of heavy atoms (denoted by `P');
+    \item Shadow map, where the contact is specified by the cutoff, subjected to the condition, that one residue cannot shadow the other contact (denoted by `S').
 \end{enumerate}
 
-The maps were used mostly in case of TrmD in conditions differing in temperature and spring constant. The names of the simulation models used are stored in the Tab.\ref{tab:methods_maps}:
+Depending on the temperature and the elasticity of the spring, the models used were named with two-letter code, described in Tab.\ref{tab:methods-maps}.
 
 \begin{table}
-    \begin{tabular}{c|c|c|c|c|c}
+    \begin{tabular}{c|c|c|c||c|c}
         Map & $T=0.5$ & $T=0.6$ & $T=0.4$ & $T=0.5$, $\kappa_S=0$ & $T=0.3$ \\\hline
         $C\alpha$ & CA & CB & CC & CD & CE\\\hline
         Tsai & PA & PB & PC & PD & ---\\\hline
         Smog & SA & SB & SC & SD & ---\\\hline
     \end{tabular}
-    \caption{The names of the model used differing in maps and conditions.}
-    \label{tab:methods_maps}
+    \caption{The names of the model used differing in maps and conditions. The double vertical line delimits the models used for no-knot TrmD and structure with PDB code 5wyr only (on the left of the line).}
+    \label{tab:methods-maps}
 \end{table}
+
+All the models were used in case of the model of TrmD protein.
+In case of the no-knot structure of TrmD and the homologue with PDB code 5wyr, only the models *A, *B, and *C (9 models out of 11) were used.
+
+The pulling speed was equal $0.0001 nm/\tau$ and the force spring constant was equal to $0.3 \epsilon/nm^2$
 
 %%%% software %%%%
 \section{The software prepared}
 \label{sec:methods_software}
-As a byproduct of working on this project a standalone Python 3 package called StretchMe was created.
-StretchMe can be downloaded by invoking \textit{pip3 install stretchme}.
-It is also equipped with the manual, present at https://jsulkowska.cent.uw.edu.pl/pawel/stretchme.
-All the data and plots presented in this report were created using StretchMe.
-The subsection App.\ref{subsec:appendices_code} contains the exemplary code used to create some plots.
+The analysis of the data could not be possible without specialized software.
+Therefore, as a byproduct of the project, a standalone Python3 package named StretchMe was created.
+All the plots and the analysis presented in this report were created using this package.
+The sample code for analysis of the traces and whole experiments is provided in App.\ref{ch:code}.
+
+Stretchme was uploaded to the PyPi server, therefore it can be installed by typing \textit{pip3 install stretchme} in the terminal.
+It features the full documentation and short manual, available at \textit{https://jsulkowska.cent.uw.edu.pl/pawel/stretchme}.
+
+In particular, StretchMe can analyze single traces and merge them into one experiment.
+It can deal with results obtained from experiment as well as from simulations, with, or without linker.
+In particular, it can also deal with the case, when the protein gets stretched simultaneously with linker.
+Additionaly, StretchMe can also simulate the traces, i.e.\ when given expected persistence lengths, contour lengths and elasticity, Stretchme can provide expected $F(d)$ dependency.
+To convenience of the user, Stretchme can read the .xlsx or .csv files.
+The data can be given as the path to the file, or as Pandas Dataframe.
