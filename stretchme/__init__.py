@@ -101,7 +101,7 @@ def simulate_experiment(traces=1, p_prot=0.7, k_prot=0.005, l_prots=(25, 50, 100
                            relaxation=relaxation, method=method)
 
 
-def analyze_trace(filename, case=None, columns=None, name=None, debug=False, **kwargs):
+def analyze_trace(filename, case=None, columns=None, name=None, debug=False, trace_name=None, **kwargs):
     """Analyzing single trace. Creates a figure with contour length histogram and fit.
 
 
@@ -121,6 +121,8 @@ def analyze_trace(filename, case=None, columns=None, name=None, debug=False, **k
 
         """
     experiment = Structure(filename, cases=case, columns=columns, name=name, debug=debug, **kwargs)
+    if trace_name:
+        experiment.traces[0].name = trace_name
     experiment.traces[0].analyze()
     experiment.traces[0].plot()
     del experiment

@@ -11,20 +11,21 @@ default_parameters = {
     'linker': None,
     'source': 'theory',
     'unit': 'nm',
-    'speed': 1,
+    'speed': 500,    #nm/s
     'residues_distance': 0.365,
-    'plot_columns': 4,
+    'plot_columns': 2,
     'separator': ',',
     'states': None,
     'low_force_cutoff': 0.1,
     'significance': 0.0005,
     'max_distance': 0.3,
     'intervals': 1001,
-    'spring_constant': 1,
+    'spring_constant': 0.3,
     'bandwidth': 0.5,
-    'method': 'improved_marko_siggia',
-    'residues': 250,
-    'initial_guess': {None: {'p_prot': 0.7, 'p_dna': 0.1, 'k_prot': 0.005, 'k_dna': 0.005, 'l_dna': 345},
-                      'theory': {'p_prot': 0.6, 'p_dna': 0.1, 'k_prot': 0.006, 'k_dna': 0.005, 'l_dna': 345},
-                      'experiment': {'p_prot': 5.88, 'p_dna': 0.16, 'k_prot': 0, 'k_dna': 0.005, 'l_dna': 345}}
-}
+    'max_force': 1600,
+    'init_means': None,
+    'method': 'marko-siggia',
+    'initial_guess': {None: {'p_prot': 0.06, 'p_dna': 0.2, 'k_prot': 0.009, 'k_dna': 0.009, 'l_dna': 345},
+                      'theory': {'p_prot': 0.26, 'p_dna': 0.13, 'k_prot': 0.009, 'k_dna': 0.009, 'l_dna': 345},
+                      'experiment': {'p_prot': 5.88, 'p_dna': 0.13, 'k_prot': 0, 'k_dna': 0.005, 'l_dna': 335}}
+ }

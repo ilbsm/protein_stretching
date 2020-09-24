@@ -8,9 +8,8 @@ from os import path
 from io import StringIO
 from scipy.optimize import curve_fit, minimize, fsolve
 from scipy.special import erf
-from scipy.stats import cauchy, ks_2samp, skew
+from scipy.stats import skew
 from scipy.signal import argrelextrema
-from sklearn.mixture import GaussianMixture
 from sklearn.neighbors import KernelDensity
 from colorsys import hsv_to_rgb
 from .default_parameters import default_parameters
@@ -120,14 +119,14 @@ def close_logs(logger):
 # calculations
 def single_gaussian(x, height, mean, width):
     if height < 0 or mean < 0:
-        return 999
+        return np.zeros(len(x))
     return height * np.exp(-(x - mean)**2/(2*width**2))
 
 
 def multiple_gaussian(x, *args):
     """ The function expects 3*states parameters (height1, center1, width1, height2, center2, width2, ..."""
-    result = np.zeros(len(x))
-    for k in range(0, len(args), 3):
+    result = args[-1] * np.ones(len(x))
+    for k in range(0, len(args)-1, 3):
         height, mean, width = args[k], args[k + 1], args[k + 2]
         result += single_gaussian(x, height, mean, width)
     return result
@@ -180,7 +179,7 @@ def stretch_adjusted_wlc(d, length, p, k=0, residues_distance=None):
              -6 * x + 9 * x**2 - 4*x**3]
     result = np.roots(coefs)
     result = np.real(result[np.isreal(result)])
-    result = result[result > 0]
+    result = result[result >= 0]
     return max(result)
 
 
@@ -267,7 +266,7 @@ def get_force_load(force, parameters):
         dna_part = (2 * (l_dna/p_dna) * (1 + force/p_dna)) / (3 + 5 * force/p_dna + 8 * (force/p_dna)**(5/2))
     else:
         dna_part = np.zeros(len(force))
-    factor = 1/k_spring + dna_part
+    factor = dna_part   # + 1/k_spring
     return speed/factor
 
 
@@ -337,7 +336,9 @@ def get_color(k, max_value):
 def plot_decomposed_histogram(position, data, bound, residue_distance):
     k = 0
     l_space = np.linspace(0, bound, 1001)
-    data = data[data['widths'] < 50]
+    print('data for histogram decomposition:')
+    print(data)
+    data = data[data['widths'] < 10]
     for index, row in data[['means', 'widths', 'heights']].iterrows():
         mean, width, height = tuple(row.to_numpy())
         residues = 1 + int(mean / residue_distance)
@@ -354,7 +355,7 @@ def plot_trace_fits(position, coefficients, max_f, residue_distance, method='mar
                       coefficients.get('k_dna', None), f_space, method=method)
     x_prot = inverse_wlc(f_space, coefficients.get('p_prot', 0), k=coefficients.get('k_prot', None), method=method)
     k = 0
-    parameters = coefficients['l_prot'][coefficients['l_prot']['widths'] < 50]
+    parameters = coefficients['l_prot'][coefficients['l_prot']['widths'] < 10]
     for index, row in parameters.iterrows():
         l_prot = row['means']
         residues = 1 + int(l_prot / residue_distance)
@@ -415,26 +416,26 @@ def get_max_contour_length(data, significance):
     return max_contour_length
 
 
-def transform_guesses(guesses, states):
+def transform_guesses(guesses, background_level, min_mean, max_mean):
     p0 = []
-    k = 0
+    bound_min = tuple([item for k in range(len(guesses)) for item in [0, min_mean, 0]] + [0])
+    bound_max = tuple([item for k in range(len(guesses)) for item in [np.inf, max_mean, np.inf]] + [np.inf])
     for ind, row in guesses.iterrows():
-        if k == states:
-            break
-        k += 1
         p0 += list(row.values)
-    return tuple(p0)
+    p0.append(background_level)
+    return tuple(p0), (bound_min, bound_max)
 
 
 def transform_fit_results(results):
-    parameters = pd.DataFrame({'heights': np.array([results[k] for k in range(0, len(results), 3)]),
-                               'means': np.array([results[k+1] for k in range(0, len(results), 3)]),
-                               'widths': np.array([abs(results[k+2]) for k in range(0, len(results), 3)])})
+    parameters = pd.DataFrame({'heights': np.array([results[k] for k in range(0, len(results)-1, 3)]),
+                               'means': np.array([results[k+1] for k in range(0, len(results)-1, 3)]),
+                               'widths': np.array([abs(results[k+2]) for k in range(0, len(results)-1, 3)])})
     parameters = parameters.sort_values(by=['means'])
     return parameters
 
 
-def decompose_histogram(hist_values, significance=None, states=None, bandwidth=None):
+def decompose_histogram(hist_values, significance=None, states=None, bandwidth=None, max_value=None,
+                        background_level=0, init_means=None):
     if not significance:
         significance = default_parameters['significance']
 
@@ -442,16 +443,23 @@ def decompose_histogram(hist_values, significance=None, states=None, bandwidth=N
         bandwidth = default_parameters['bandwidth']
 
     # finding the density from histogram
+    hist_values = hist_values[hist_values > 0]
+    if max_value:
+        hist_values = hist_values[hist_values < max_value]
     x = np.expand_dims(hist_values, 1)
     kde = KernelDensity(bandwidth=bandwidth).fit(x)
     estimator = np.linspace(min(hist_values), max(hist_values), 1001)
     kde_est = np.exp(kde.score_samples(estimator.reshape(-1, 1)))
+    kde_est[kde_est < background_level] = background_level
     significant = [estimator[_] for _ in range(len(estimator)) if kde_est[_] > significance]
     support = [min(significant), max(significant)]
     trimmed_data = hist_values[(hist_values >= support[0]) & (hist_values <= support[1])]
 
     # finding the local maxima of the histogram = number of states and their heights and widths
-    means = np.array([estimator[_] for _ in argrelextrema(kde_est, np.greater)[0] if kde_est[_] > significance])
+    if init_means:
+        means = np.array(init_means)
+    else:
+        means = np.array([estimator[_] for _ in argrelextrema(kde_est, np.greater)[0] if kde_est[_] > significance])
     if states:
         missing = max(states - len(means), 0)
         if missing > 0:
@@ -462,21 +470,33 @@ def decompose_histogram(hist_values, significance=None, states=None, bandwidth=N
     heights = np.exp(kde.score_samples(means.reshape(-1, 1)))
     guesses = pd.DataFrame({'heights': heights, 'means': means, 'widths': np.ones(len(means))})
     guesses = guesses.sort_values(by=['heights'], ascending=False)
+    if guesses['heights'].max() > 0.01:
+        guesses = guesses[guesses['heights'] > 0.0075]
 
     # for small number of points:
     if len(hist_values) <= 5:
         states = 1
 
+    guesses = guesses.head(states)
+    print(guesses)
+
     # fitting
-    p0 = transform_guesses(guesses, states)
+    p0, bounds = transform_guesses(guesses, background_level, min(hist_values), max(hist_values))
     popt = tuple()
     while len(popt) < len(p0):
         try:
-            popt, pcov = curve_fit(multiple_gaussian, estimator, kde_est, p0=p0)
+            popt, pcov = curve_fit(multiple_gaussian, estimator, kde_est, p0=p0, bounds=bounds)
         except RuntimeError:
-            p0 = p0[:-3]
+            p0 = tuple(list(p0[:-4]) + [p0[-1]])
+            bounds = (tuple(list(bounds[0])[:-4] + [list(bounds[0])[-1]]),
+                      tuple(list(bounds[1])[:-4] + [list(bounds[1])[-1]]))
             print("I reduced the number of states from expected (" + str(int((len(p0) + 3)/3)) + ") to " +
                   str(int(len(p0)/3)))
+    if len(popt) <= 1:
+        mean = sum(hist_values)/len(hist_values)
+        width = 0.5 * (max(hist_values) - min(hist_values))
+        popt = (1, mean, width)
+        print("Putting the parameters " + str(popt))
     parameters = transform_fit_results(popt)
 
     # calculating the probability the value corresponds to a given state
@@ -496,7 +516,10 @@ def decompose_histogram(hist_values, significance=None, states=None, bandwidth=N
     for k in range(len(states_names)):
         state = states_names[k]
         matching = states[(states['state'] == state)]['d']
-        begs.append(matching.min())
+        beg = matching.min()
+        if k > 0:
+            beg = max(beg, ends[-1])
+        begs.append(beg)
         ends.append(matching.max())
         skewness.append(skew(matching))
     parameters['begs'], parameters['ends'], parameters['skewness'] = begs, ends, skewness
@@ -504,59 +527,77 @@ def decompose_histogram(hist_values, significance=None, states=None, bandwidth=N
     return parameters, support
 
 
-def valid_parameters(parameters):
-    bounds_template = {'p': (0, 100), 'k': (0, 0.1), 'l': (0, np.inf)}
+def valid_parameters(parameters, max_prot, max_dna=np.inf, inverse=False):
+    # bounds_template = {'p': (0.1, 100), 'k': (0, 0.1), 'l': (0, max_dna), 'L': (0, max_prot)}
+    bounds_template = {'p_dna': (0.13, 0.21), 'p_prot': (5.66, 5.98),     # in T=298 p_dna should be > 0.13
+                       'k_dna': (0, 0.1), 'k_prot': (0, 0.1),
+                       'l_dna': (330, max_dna), 'l_prot': (0, max_prot)}
     for key in parameters.keys():
-        if parameters[key] < bounds_template[key[0]][0] or parameters[key] > bounds_template[key[0]][1]:
+        # if parameters[key] < bounds_template[key[0]][0] or parameters[key] > bounds_template[key[0]][1]:
+        if parameters[key] < bounds_template[key][0] or parameters[key] > bounds_template[key][1]:
+            return False
+    # P_L prot ~ 0.7, P_L DNA < 30 to (kbT/P_Lprot = p_prot) / (p_dna = kbT/P_L DNA) < 30/0.7 < 50
+    if parameters['p_prot'] / parameters['p_dna'] > 50:
             return False
     return True
 
 
 # fitting
-def fit_skew(x, data, states, known, unknown_keys, method='marko-siggia'):
-    unknown = {unknown_keys[k]: x[k] for k in range(len(unknown_keys))}
-    parameters = {**known, **unknown}
+def find_range(data, data_smooth, last=True):
+    extremas = argrelextrema(data_smooth['F'].to_numpy(), np.less)[0]
+    minimas = data_smooth.loc[extremas, 'd'].values
+    minimas = np.append(minimas, data_smooth['d'].max())
+    smooth_ranges = ()
+    max_dist = 0
+    max_dist_k = 0
+    if not last:
+        extremas_F = data_smooth.loc[extremas, 'F'].values
+        to_check = list(zip(extremas, extremas_F))
+        for k in range(1, len(to_check)):
+            if to_check[k][1] - to_check[k-1][1] > 2:
+                break
+        first_range = (data_smooth['d'].min(), data_smooth.loc[extremas[k], 'd'])
+        return first_range
 
-    # validation
-    if not valid_parameters(parameters):
-        return 999
-
-    # data calculation
-    d_dna = get_d_dna(parameters.get('p_dna'), parameters.get('l_dna'), parameters.get('k_dna'), (data['F']),
-                      method=method)
-    x_prot = inverse_wlc(data['F'], parameters.get('p_prot'), k=parameters.get('k_prot'), method=method)
-    hist_values = (data['d'] - d_dna)/x_prot
-
-    # parameter calculation
-    parameters, support = decompose_histogram(hist_values, states=states)
-    skewness = parameters['skewness'].abs().mean()
-    return skewness
-
-
-def find_last_range(data, data_smooth):
-    extremas = argrelextrema(data_smooth[data_smooth['d'] < data_smooth['d'].max() - 3]['F'].to_numpy(), np.less)[0]
-    local_minimum = data_smooth.loc[extremas[-1], 'd']
-    end = data_smooth['d'].max()
-    data_range = data[data['d'].between(local_minimum + 1, end - 1)]
+    else:
+        iterator = range(len(minimas) - 1, 0, -1)
+    for k in iterator:
+        dist = minimas[k] - minimas[k-1]
+        if dist > 3:
+            smooth_ranges = (minimas[k-1], minimas[k])
+            break
+        if dist > max_dist:
+            max_dist = dist
+            max_dist_k = k
+    if not smooth_ranges:
+        smooth_ranges = (minimas[max_dist_k - 1], minimas[max_dist_k])
+    data_range = data[data['d'].between(smooth_ranges[0], smooth_ranges[1])]
     last_range = (data_range.loc[data_range['F'].idxmin(), 'd'], data_range['d'].max())
     print(last_range)
     return last_range
 
 
-def fit_last(x, data, last_range, residues, known, unknown_keys, method='marko-siggia', residues_distance=None):
-    if not residues_distance:
-         residues_distance = default_parameters['residues_distance']
-
+def fit_last(x, data, last_range, max_length, known, unknown_keys, method='marko-siggia', residues_distance=None):
     unknown = {unknown_keys[k]: x[k] for k in range(len(unknown_keys))}
     parameters = {**known, **unknown}
+    # print(parameters)
 
     # validation
-    if not valid_parameters(parameters):
-        return 9999
+    if not valid_parameters(parameters, max_length, 370):
+        # print("invalid")
+        return np.inf
 
     fit_data = data[data['d'].between(last_range[0], last_range[1])]
-    length = residues_distance * (residues - 1)
-    fit_f = wlc(fit_data['d'], length, parameters['p_prot'], method=method, k=parameters['k_prot'],
+
+    if parameters['l_dna'] > 0:
+        d_dna = get_d_dna(parameters['p_dna'], parameters['l_dna'], parameters['k_dna'], fit_data['F'].to_numpy(),
+                          method=method)
+        fit_data['d'] = fit_data['d'] - d_dna
+        fit_data = fit_data[fit_data['d'] > 0]
+        fit_data = fit_data[fit_data['d'] < parameters['l_prot']]
+
+
+    fit_f = wlc(fit_data['d'], parameters['l_prot'], parameters['p_prot'], method=method, k=parameters['k_prot'],
                 residues_distance=residues_distance)
     return np.linalg.norm(fit_f - fit_data['F'].to_numpy())
 
@@ -570,21 +611,30 @@ def fit_coefficients(data, data_smooth, parameters):
     method = parameters['method']
     residues = parameters['residues']
     residues_distance = parameters['residues_distance']
-    last_range = find_last_range(data, data_smooth)
+    last_range = find_range(data, data_smooth)
     known = {c: parameters[c] for c in coefficients if parameters[c] >= 0}
+    max_length = residues_distance * (residues - 1)
+    print(residues, max_length)
+    # max_length = np.inf
+
     if not parameters['linker'] and not bool({'p_dna', 'l_dna', 'k_dna'} & set(known.keys())):
         known = {**known, **linker_known}
-
+    print(last_range)
 
     # setting unknown values with initial guesses and bounds
     unknown = {c: parameters['initial_guess'][c] for c in coefficients if c not in known.keys()}
     if len(unknown.keys()) == 0:
         return known
+    guess_prot_length = residues_distance * (residues - 1 - parameters['missing'])
+    if parameters['state'] == 'knotted':
+        known['l_prot'] = guess_prot_length
+    else:
+        unknown['l_prot'] = guess_prot_length
+    print(unknown)
 
     x0 = np.array(list(unknown.values()))
-    x_opt = minimize(fit_last, x0=x0, args=(data, last_range, residues, known, list(unknown.keys()), method,
-                                            residues_distance), method='Nelder-Mead')
-    # x_opt = minimize(fit_skew, x0=x0, args=(data, states, known, list(unknown.keys()), method), method='Nelder-Mead')
+    x_opt = minimize(fit_last, x0=x0, args=(data, last_range, max_length, known, list(unknown.keys()), method, False),
+                     method='Nelder-Mead')
     fitted = {list(unknown.keys())[k]: x_opt.x[k] for k in range(len(list(unknown.keys())))}
     result = {**known, **fitted}
     return result

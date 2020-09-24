@@ -2,6 +2,7 @@ from .stretching_tools import *
 import pandas as pd
 from matplotlib import pyplot as plt
 from copy import deepcopy
+from os.path import isfile
 
 
 class Trace:
@@ -27,12 +28,26 @@ class Trace:
             self.parameters['initial_guess'] = deepcopy(default_parameters['initial_guess'][None])
         else:
             self.parameters = parameters
+        self.parameters['l_prot'] = pd.DataFrame()
+
+        if len(self.name.split('_')) == 3:
+            n = int(self.name.split('_')[-1])+1
+            name = '_'.join(self.name.split('_')[:-1] + [str(n)])
+        else:
+            name = self.name
+
+        if isfile(self.parameters.get('state', '.') + '/' + name + '_parameters.csv'):
+            self.parameters['l_prot'] = pd.read_csv(self.parameters.get('state', '.') + '/' + name + '_parameters.csv')
+            print("found contour lengths")
 
         # filling the data
         self.data = data.dropna()
         self.data = self.data[self.data['F'] > self.parameters['low_force_cutoff']].sort_values(by='d')
 
         self.smoothed = pd.DataFrame()
+        if isfile(self.parameters.get('state', '.') + '/' + name + '_smoothed.csv'):
+            self.smoothed = pd.read_csv(self.parameters.get('state', '.') + '/' + name + '_smoothed.csv')
+            print("found smooths")
         self.boundaries = []
         self.state_boundaries = pd.DataFrame(columns=['state', 'beg', 'end'])
         self.rupture_forces = {}
@@ -73,10 +88,12 @@ class Trace:
             logger.info("Starting analysis of the trace.")
             close_logs(logger)
 
-        self.generate_smooths()
-        self.fit_contour_lengths()
-        self.find_ranges()
-        self.find_rupture_forces()
+        if len(self.smoothed) == 0:
+            self.generate_smooths()
+        if len(self.parameters['l_prot']) == 0:
+            self.fit_contour_lengths()
+            self.find_ranges()
+            self.find_rupture_forces()
 
         if self.debug:
             logger = set_logger(self.experiment_name)
@@ -94,6 +111,7 @@ class Trace:
 
         # fitting coefficients
         coefficients = fit_coefficients(self.data, self.smoothed, self.parameters)
+        print(self.name)
         print(coefficients)
         self.parameters = {**self.parameters, **coefficients}
 
@@ -103,18 +121,34 @@ class Trace:
         self.data['d_dna'] = get_d_dna(self.parameters['p_dna'], self.parameters['l_dna'], self.parameters['k_dna'],
                                        self.data['F'], method=self.parameters['method'])
         self.data['d_prot'] = self.data['d'] - self.data['d_dna']
+
         self.data['hist_values'] = self.data['d_prot'] / self.data['x_prot']
 
+        if len(self.name.split('_')) == 3:
+            name = '_'.join(self.name.split('_')[:-1] + [str(int(self.name.split('_')[-1]) + 1)])
+        else:
+            name = self.name
+        self.data.to_csv(name + '_data.csv')
+
         # decomposing contour length histogram
+        max_length = (self.parameters['residues'] - 1) * self.parameters['residues_distance'] + 20
+        print("decomposing histogram for trace " + self.name)
         parameters, bounds = decompose_histogram(np.array(self.data['hist_values']), states=self.parameters['states'],
-                                                 significance=self.parameters['significance'])
+                                                 significance=self.parameters['significance'], max_value=max_length)
         self.boundaries = bounds
         self.parameters['l_prot'] = parameters
+        print(parameters)
 
-        print(parameters['skewness'].abs().mean())
+        # print(parameters['skewness'].abs().mean())
         if self.debug:
             logger = set_logger(self.experiment_name)
+            t = 298 * 0.7 * self.parameters['p_prot'] / 4.114
+            if self.parameters['p_dna'] > 0:
+                pl = 0.7 * self.parameters['p_prot'] / self.parameters['p_dna']
+            else:
+                pl = 0
             logger.info("Contour length fitted. Coefficient got:\n" + str(coefficients))
+            logger.info("Calculated values:\tT " + str(t) + '\tPl DNA ' + str(pl))
             close_logs(logger)
         return True
 
@@ -131,16 +165,32 @@ class Trace:
         if not max_distance:
             max_distance = self.parameters['max_distance']
         last_end = 0
+        l_dna = self.parameters.get('l_dna', 0)
         for index, row in self.parameters['l_prot'].iterrows():
             state = 'state_' + str(index)
             l_prot = row['means']
-            self.smoothed[state] = wlc(list(self.smoothed['d']), l_prot, self.parameters.get('p_prot', 0),
-                                          k=self.parameters.get('k_prot', None), method=self.parameters['method'])
+            if l_dna > 0:
+                d_dna = get_d_dna(self.parameters.get('p_dna', 0), self.parameters.get('l_dna', 0),
+                                  self.parameters.get('k_dna', None), self.smoothed['F'],
+                                  method=self.parameters.get('method', 'marko-siggia'))
+                d_prot = self.smoothed['d'].to_numpy() - d_dna
+                d_prot[d_prot < 0] = 0
+            else:
+                d_prot = self.smoothed['d'].to_numpy()
+            self.smoothed[state] = wlc(d_prot, l_prot, self.parameters.get('p_prot', 0),
+                                       k=self.parameters.get('k_prot', None), method=self.parameters['method'])
             data_close = self.smoothed[abs(self.smoothed['F'] - self.smoothed[state]) <= max_distance]
             data_close = data_close[data_close['d'] > last_end]['d']
             last_end = data_close.max()
             new_row = pd.DataFrame({'state': state, 'beg': data_close.min(), 'end': last_end}, index=[0])
             self.state_boundaries = pd.concat([self.state_boundaries, new_row], ignore_index=True)
+
+        if len(self.name.split('_')) == 3:
+            name = '_'.join(self.name.split('_')[:-1] + [str(int(self.name.split('_')[-1]) + 1)])
+        else:
+            name = self.name
+
+        self.smoothed.to_csv(name + '_smoothed.csv')
 
         if self.debug:
             logger = set_logger(self.experiment_name)
@@ -160,6 +210,12 @@ class Trace:
             state, beg, end = tuple(row.to_numpy())
             forces.append(self.data[self.data['d'].between(beg, end)]['F'].max())
         self.parameters['l_prot']['rupture_forces'] = np.array(forces)
+        if len(self.name.split('_')) == 3:
+            name = '_'.join(self.name.split('_')[:-1] + [str(int(self.name.split('_')[-1]) + 1)])
+        else:
+            name = self.name
+        self.parameters['l_prot'].to_csv(name + '_parameters.csv')
+
 
         if self.debug:
             logger = set_logger(self.experiment_name)
@@ -208,6 +264,11 @@ class Trace:
                     String: The formatted information
                 """
         separator = '####'
+        T = 298 * 0.7 * self.parameters['p_prot'] / 4.114
+        if self.parameters['p_dna'] > 0:
+            pl = 0.7 * self.parameters['p_prot'] / self.parameters['p_dna']
+        else:
+            pl = 0
         info = ['Trace name ' + str(self.name),
                 'Trace source file ' + str(self.orig_input),
                 'p_Prot:\t\t' + str(self.parameters['p_prot']),
@@ -215,6 +276,8 @@ class Trace:
                 'p_DNA:\t\t' + str(self.parameters['p_dna']),
                 'k_DNA:\t\t' + str(self.parameters['k_dna']),
                 'l_DNA:\t\t' + str(self.parameters['l_dna']),
+                'T:\t\t' + str(T),
+                'P_L DNA:\t\t' + str(pl),
                 'Contour length\tgamma\t',
                 self.parameters['l_prot'].to_csv(sep='\t'),
                 separator]
@@ -259,7 +322,6 @@ class Trace:
     ''' Restricted methods '''
     def plot_histogram(self, position=None, max_contour_length=None):
         """ Plotting the contour length histogram in a given position"""
-
         # setting the scene
         position.set_title('Contour length histogram (trace ' + str(self.name) + ')')
         position.set_xlabel('Extension [nm]')
@@ -269,8 +331,9 @@ class Trace:
         position.set_xlim(0, max_contour_length)
 
         # whole histogram
-        bins = 4 * int(self.data['hist_values'].max())
-        position.hist(self.data['hist_values'], bins=bins, density=True, alpha=0.5)
+        data_to_plot = self.data[self.data['hist_values'] > 0]['hist_values']
+        bins = 4 * int(max(data_to_plot))
+        position.hist(data_to_plot, bins=bins, density=True, alpha=0.5)
 
         # decomposed histogram
         plot_decomposed_histogram(position, self.parameters['l_prot'], max_contour_length,
