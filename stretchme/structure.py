@@ -616,19 +616,20 @@ class Structure:
         for state in self.states:
             print(state)
             data_to_plot = list(self.forces[self.forces['state'] == state]['means'].dropna())
-            all_data = data_to_plot + all_data
+            all_data = all_data + data_to_plot
 
             if len(data_to_plot) < 3:
                 continue
         all_data = np.array(all_data)
-        parameters, boundaries = decompose_histogram(all_data, significance=self.parameters['significance'],
-                                                     states=1)
+        print(all_data)
+
+        parameters, boundaries = decompose_histogram(all_data, significance=self.parameters['significance'])
 
         print(parameters)
         # if len(parameters) == 0:
         #    continue
 
-        mean, width, height = parameters[['means', 'widths', 'heights']].values[0]
+        #mean, width, height = parameters[['means', 'widths', 'heights']].values[0]
         #label = 'Mean: ' + str(round(mean, 3)) + ' nm'
 
         bins = max(int(max(all_data)) - int(min(all_data)), 1)
