@@ -172,22 +172,22 @@ class Structure:
 
         fig = plt.figure(dpi=600, figsize=(10, 10))
         gs = fig.add_gridspec(4, 4)
-        # axes = [fig.add_subplot(gs[:2, :2]),
-        #         fig.add_subplot(gs[:2, 2:]),
-        #         fig.add_subplot(gs[2, :2]),
-        #         fig.add_subplot(gs[3, :2]),
-        #         fig.add_subplot(gs[2:, 2:])]
-
         axes = [fig.add_subplot(gs[:2, :2]),
                 fig.add_subplot(gs[:2, 2:]),
-                fig.add_subplot(gs[2:, :2]),
+                fig.add_subplot(gs[2, :2]),
+                fig.add_subplot(gs[3, :2]),
                 fig.add_subplot(gs[2:, 2:])]
+
+        #axes = [fig.add_subplot(gs[:2, :2]),
+        #        fig.add_subplot(gs[:2, 2:]),
+        #        fig.add_subplot(gs[2:, :2]),
+        #        fig.add_subplot(gs[2:, 2:])]
 
         self._plot_total_contour_length_histo(axes[0])   # the total contour length histogram
         self._plot_overlaid_traces(axes[1])              # the overlaid smoothed traces
         self._plot_contour_length_histo(axes[2])
         self._plot_forces_histogram(axes[3])             # the rupture forces histogram
-        # self._plot_dhs_analysis(axes[4])                 # Dudko analysis
+        #self._plot_dhs_analysis(axes[4])                 # Dudko analysis
         fig.tight_layout()
 
         if not output:
@@ -280,7 +280,7 @@ class Structure:
                   """
 
         fig, axes = plt.subplots(1, 1, dpi=600, figsize=(5, 5))
-        self._plot_dhs_analysis(axes[0])
+        self._plot_dhs_analysis(axes)
 
         if not output:
             ofile = self.name + '_dhs_analysis.png'
@@ -329,7 +329,10 @@ class Structure:
         parameters, boundaries = decompose_histogram(np.array(self.hist_values), states=self.num_states,
                                                      significance=self.parameters['significance'], max_value=max_length,
                                                      background_level=0.005, init_means=self.parameters['init_means'])
-        print(parameters)
+        file = open('cl_histo.txt', 'a')
+        file.write(str(parameters) + '\n')
+        file.close()
+
         self.parameters['l_prot'] = parameters
         self.parameters['boundaries'] = boundaries
 
@@ -338,6 +341,9 @@ class Structure:
 
         # perform Dudko-Hummer-Szabo analysis
         # self._analyze_dhs()
+        #
+        # self.plot_dhs()
+
         return True
 
     def analyze(self):
@@ -441,6 +447,7 @@ class Structure:
             data = read_dataframe(input_data, cases, columns)
         else:
             data = read_from_file(input_data, cases, columns, parameters, self.name, self.debug)
+
 
 
         # preprocessing data
@@ -605,25 +612,39 @@ class Structure:
 
         k = 0
         print("plotting contour length histo")
+        all_data = []
         for state in self.states:
             print(state)
-            data_to_plot = np.array(self.forces[self.forces['state'] == state]['means'].dropna())
+            data_to_plot = list(self.forces[self.forces['state'] == state]['means'].dropna())
+            all_data = data_to_plot + all_data
+
             if len(data_to_plot) < 3:
                 continue
-            parameters, boundaries = decompose_histogram(data_to_plot, significance=self.parameters['significance'],
-                                                         states=1)
-            print(parameters)
-            if len(parameters) == 0:
-                continue
-            mean, width, height = parameters[['means', 'widths', 'heights']].values[0]
-            label = 'Mean: ' + str(round(mean, 3)) + ' nm'
+        all_data = np.array(all_data)
+        parameters, boundaries = decompose_histogram(all_data, significance=self.parameters['significance'],
+                                                     states=1)
 
-            bins = max(int(max(data_to_plot)) - int(min(data_to_plot)), 1)
-            position.hist(data_to_plot, bins=bins, color=get_color(k, len(self.states)), alpha=0.5, density=True,
-                          label=label)
+        print(parameters)
+        # if len(parameters) == 0:
+        #    continue
+
+        mean, width, height = parameters[['means', 'widths', 'heights']].values[0]
+        #label = 'Mean: ' + str(round(mean, 3)) + ' nm'
+
+        bins = max(int(max(all_data)) - int(min(all_data)), 1)
+        position.hist(all_data, bins=bins, alpha=0.5, density=True)
+
+        for index, row in parameters[['means', 'widths', 'heights']].iterrows():
+            mean, width, height = tuple(row.to_numpy())
+            label = "Mean: " + str(round(mean, 3))
             y_plot = single_gaussian(lspace, height, mean, width)
-            position.plot(lspace, y_plot, linestyle='--', linewidth=0.5, color=get_color(k, len(self.states)))
+            position.plot(lspace, y_plot, linestyle='--', linewidth=0.5, label=label,
+                          color=get_color(k, len(parameters)))
             k += 1
+
+
+
+
         position.legend()
         return
 
@@ -657,9 +678,19 @@ class Structure:
             data_to_plot = np.array(self.forces[self.forces['state'] == state]['rupture_forces'].dropna())
             if len(data_to_plot) < 3:
                 continue
+
+            file = open('rupture.txt', 'a')
+            file.write('State ' + str(state) + '\n')
+            file.write(str(data_to_plot) + '\n')
+            file.close()
+
             parameters, boundaries = decompose_histogram(data_to_plot, significance=self.parameters['significance'],
                                                          states=1)
             print(parameters)
+            file = open('rupture_gauss.txt', 'a')
+            file.write(str(state) + '\n')
+            file.write(str(parameters) + '\n')
+            file.close()
 
             mean, width, height = parameters[['means', 'widths', 'heights']].values[0]
             label = str(round(mean, 3)) + ' pN'
@@ -745,6 +776,8 @@ class Structure:
             if len(dhs_data) < 4:
                 self.dhs_states.append(boundaries + [l_prot, []])
                 continue
+
+            print(dhs_data)
 
             # calculating the lifetime and fitting it
             self.dhs_states.append(boundaries + [l_prot, dhs_data])

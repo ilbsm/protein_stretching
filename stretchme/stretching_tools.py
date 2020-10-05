@@ -54,12 +54,16 @@ def running_average(x, y, window=None):
 
 # reading
 def read_dataframe(input_data, cases=None, columns=None):
+    #print(list(input_data))
     if columns and all([isinstance(c, int) for c in columns]):
         return input_data.iloc[:, columns]
     elif columns and not all([isinstance(c, int) for c in columns]):
         return input_data[columns]
     elif cases:
         allowed = [str(_) for _ in cases]
+        #print(list(input_data))
+        #l = [name for name in list(input_data)]
+        #print(l)
         colnames = [name for name in list(input_data) if name.strip('dF_') in allowed]
         return input_data[colnames]
     else:
@@ -67,6 +71,7 @@ def read_dataframe(input_data, cases=None, columns=None):
 
 
 def read_from_file(input_data, cases, columns, parameters, name, debug):
+    print(input_data)
     if not input_data:
         return pd.DataFrame(columns=['d', 'F'])
     elif isinstance(input_data, str) and path.isfile(input_data) and '.xls' in input_data:
@@ -87,6 +92,7 @@ def read_from_file(input_data, cases, columns, parameters, name, debug):
 
 def read_excel(input_data, cases, columns, parameters):
     data = pd.read_excel(input_data, sheet_name=parameters['sheet_name'])
+    print(data)
     return read_dataframe(data, cases=cases, columns=columns)
 
 
@@ -266,7 +272,7 @@ def get_force_load(force, parameters):
         dna_part = (2 * (l_dna/p_dna) * (1 + force/p_dna)) / (3 + 5 * force/p_dna + 8 * (force/p_dna)**(5/2))
     else:
         dna_part = np.zeros(len(force))
-    factor = dna_part   # + 1/k_spring
+    factor = dna_part + 1/k_spring
     return speed/factor
 
 
@@ -302,7 +308,7 @@ def dhs_feat(data, init_x):
         result = {'x': popt[0], 't0': popt[1], 'g': popt[2]}   #, 'covariance': pcov}
     except RuntimeError:
         result = None
-    coefficients['cusp'] = result
+    coefficients['linear_cubic'] = result
     return coefficients
 
 
@@ -482,6 +488,7 @@ def decompose_histogram(hist_values, significance=None, states=None, bandwidth=N
 
     # fitting
     p0, bounds = transform_guesses(guesses, background_level, min(hist_values), max(hist_values))
+    print('bounds', bounds)
     popt = tuple()
     while len(popt) < len(p0):
         try:
@@ -499,16 +506,18 @@ def decompose_histogram(hist_values, significance=None, states=None, bandwidth=N
         print("Putting the parameters " + str(popt))
     parameters = transform_fit_results(popt)
 
-    # calculating the probability the value corresponds to a given state
+    #calculating the probability the value corresponds to a given state
+
     states = pd.DataFrame({'d': trimmed_data})
     states_names = []
 
     for ind, row in parameters.iterrows():
-        states_names.append('state_' + str(ind))
-        mean, width, height = row[['means', 'widths', 'heights']].values
-        states[states_names[-1]] = single_gaussian(trimmed_data, height, mean, width)
+      states_names.append('state_' + str(ind))
+      mean, width, height = row[['means', 'widths', 'heights']].values
+      states[states_names[-1]] = single_gaussian(trimmed_data, height, mean, width)
 
-    # assigning the best matching state for each value
+
+    #assigning the best matching state for each value
     states['state'] = states[states_names].idxmax(axis=1)
 
     # searching for the begin and end of each state
@@ -635,6 +644,7 @@ def fit_coefficients(data, data_smooth, parameters):
     x0 = np.array(list(unknown.values()))
     x_opt = minimize(fit_last, x0=x0, args=(data, last_range, max_length, known, list(unknown.keys()), method, False),
                      method='Nelder-Mead')
+
     fitted = {list(unknown.keys())[k]: x_opt.x[k] for k in range(len(list(unknown.keys())))}
     result = {**known, **fitted}
     return result
