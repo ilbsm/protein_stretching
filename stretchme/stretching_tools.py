@@ -54,16 +54,12 @@ def running_average(x, y, window=None):
 
 # reading
 def read_dataframe(input_data, cases=None, columns=None):
-    #print(list(input_data))
     if columns and all([isinstance(c, int) for c in columns]):
         return input_data.iloc[:, columns]
     elif columns and not all([isinstance(c, int) for c in columns]):
         return input_data[columns]
     elif cases:
         allowed = [str(_) for _ in cases]
-        #print(list(input_data))
-        #l = [name for name in list(input_data)]
-        #print(l)
         colnames = [name for name in list(input_data) if name.strip('dF_') in allowed]
         return input_data[colnames]
     else:
@@ -538,58 +534,43 @@ def decompose_histogram(hist_values, significance=None, states=None, bandwidth=N
 
 def valid_parameters(parameters, max_prot, max_dna=np.inf, inverse=False):
     # bounds_template = {'p': (0.1, 100), 'k': (0, 0.1), 'l': (0, max_dna), 'L': (0, max_prot)}
-    bounds_template = {'p_dna': (0.13, 0.21), 'p_prot': (5.66, 5.98),     # in T=298 p_dna should be > 0.13
+    bounds_template = {'p_dna': (0.13, 0.21), 'p_prot': (0.01, 1.0), #'p_prot': (5.66, 5.98),     # in T=298 p_dna should be > 0.13
                        'k_dna': (0, 0.1), 'k_prot': (0, 0.1),
-                       'l_dna': (330, max_dna), 'l_prot': (0, max_prot)}
+                       'l_dna': (330, max_dna), 'l_prot': (370, 500), 'l_prot2': (370, 500)}    # 'l_dna': (330, max_dna), , 'l_prot': (0, max_prot)
     for key in parameters.keys():
+        if parameters['l_dna'] == 0 and 'dna' in key:
+            continue
         # if parameters[key] < bounds_template[key[0]][0] or parameters[key] > bounds_template[key[0]][1]:
         if parameters[key] < bounds_template[key][0] or parameters[key] > bounds_template[key][1]:
             return False
     # P_L prot ~ 0.7, P_L DNA < 30 to (kbT/P_Lprot = p_prot) / (p_dna = kbT/P_L DNA) < 30/0.7 < 50
-    if parameters['p_prot'] / parameters['p_dna'] > 50:
+    if parameters['p_dna'] > 0 and parameters['p_prot'] / parameters['p_dna'] > 50:
             return False
     return True
 
 
 # fitting
-def find_range(data, data_smooth, last=True):
-    extremas = argrelextrema(data_smooth['F'].to_numpy(), np.less)[0]
-    minimas = data_smooth.loc[extremas, 'd'].values
-    minimas = np.append(minimas, data_smooth['d'].max())
-    smooth_ranges = ()
-    max_dist = 0
-    max_dist_k = 0
-    if not last:
-        extremas_F = data_smooth.loc[extremas, 'F'].values
-        to_check = list(zip(extremas, extremas_F))
-        for k in range(1, len(to_check)):
-            if to_check[k][1] - to_check[k-1][1] > 2:
-                break
-        first_range = (data_smooth['d'].min(), data_smooth.loc[extremas[k], 'd'])
-        return first_range
-
-    else:
-        iterator = range(len(minimas) - 1, 0, -1)
-    for k in iterator:
-        dist = minimas[k] - minimas[k-1]
-        if dist > 3:
-            smooth_ranges = (minimas[k-1], minimas[k])
+def find_range(data, data_smooth):
+    minimas_indices = argrelextrema(data_smooth['F'].to_numpy(), np.less)[0]
+    maximas_indices = argrelextrema(data_smooth['F'].to_numpy(), np.greater)[0]
+    extremas_indices = [item for sublist in zip(minimas_indices, maximas_indices) for item in sublist] + \
+                       [len(data_smooth) - 1]
+    extremas = data_smooth.loc[extremas_indices, ['d', 'F']].values
+    for k in range(1, len(extremas)):
+        if extremas[k][0] - extremas[k-1][0] > 3 and extremas[k-1][1] - extremas[k][1] > 0.5:
+            first_range = (data['d'].min(), extremas[k-1][0])
             break
-        if dist > max_dist:
-            max_dist = dist
-            max_dist_k = k
-    if not smooth_ranges:
-        smooth_ranges = (minimas[max_dist_k - 1], minimas[max_dist_k])
-    data_range = data[data['d'].between(smooth_ranges[0], smooth_ranges[1])]
-    last_range = (data_range.loc[data_range['F'].idxmin(), 'd'], data_range['d'].max())
-    print(last_range)
-    return last_range
+    for l in range(len(extremas)-1, 0, -1):
+        if extremas[l][0] - extremas[l-1][0] > 3 and extremas[l][1] - extremas[l-1][1] > 5:
+            last_range = (extremas[l-1][0], extremas[l][0])
+            break
+    return (first_range, last_range)
 
 
 def fit_last(x, data, last_range, max_length, known, unknown_keys, method='marko-siggia', residues_distance=None):
+    print(x)
     unknown = {unknown_keys[k]: x[k] for k in range(len(unknown_keys))}
     parameters = {**known, **unknown}
-    # print(parameters)
 
     # validation
     if not valid_parameters(parameters, max_length, 370):
@@ -611,6 +592,32 @@ def fit_last(x, data, last_range, max_length, known, unknown_keys, method='marko
     return np.linalg.norm(fit_f - fit_data['F'].to_numpy())
 
 
+def fit_parts(x, data, first_range, last_range, max_length, known, unknown_keys, method='marko-siggia',
+              residues_distance=None):
+    print(x)
+
+    unknown = {unknown_keys[k]: x[k] for k in range(len(unknown_keys))}
+    parameters = {**known, **unknown}
+
+    # validation
+    if not valid_parameters(parameters, max_length, 370):
+        # print("invalid")
+        return np.inf
+
+    fit_first = data[data['d'].between(first_range[0], first_range[1])]
+    fit_last = data[data['d'].between(last_range[0], last_range[1])]
+
+    fit_value_first = wlc(fit_first['d'], parameters['l_prot2'], parameters['p_prot'], method=method,
+                          k=parameters['k_prot'], residues_distance=residues_distance)
+    fit_value_last = wlc(fit_last['d'], parameters['l_prot'], parameters['p_prot'], method=method,
+                         k=parameters['k_prot'], residues_distance=residues_distance)
+
+    error = np.linalg.norm(fit_value_first - fit_first['F'].to_numpy()) + \
+            np.linalg.norm(fit_value_last - fit_last['F'].to_numpy())
+
+    return error
+
+
 def fit_coefficients(data, data_smooth, parameters):
     # templates
     coefficients = ['p_prot', 'k_prot', 'p_dna', 'k_dna', 'l_dna']
@@ -620,30 +627,34 @@ def fit_coefficients(data, data_smooth, parameters):
     method = parameters['method']
     residues = parameters['residues']
     residues_distance = parameters['residues_distance']
-    last_range = find_range(data, data_smooth)
+    first_range, last_range = find_range(data, data_smooth)
+    print(first_range, last_range)
     known = {c: parameters[c] for c in coefficients if parameters[c] >= 0}
-    max_length = residues_distance * (residues - 1)
+    max_length = residues_distance * (residues - 1) + 370
     print(residues, max_length)
-    # max_length = np.inf
 
     if not parameters['linker'] and not bool({'p_dna', 'l_dna', 'k_dna'} & set(known.keys())):
         known = {**known, **linker_known}
-    print(last_range)
+    # known['p_prot'] = 0.42736028132624804
+    # known['k_prot'] = 0.008
 
     # setting unknown values with initial guesses and bounds
     unknown = {c: parameters['initial_guess'][c] for c in coefficients if c not in known.keys()}
     if len(unknown.keys()) == 0:
         return known
-    guess_prot_length = residues_distance * (residues - 1 - parameters['missing'])
+    guess_prot_length = residues_distance * (residues - 1 - parameters['missing']) + 340
     if parameters['state'] == 'knotted':
         known['l_prot'] = guess_prot_length
     else:
-        unknown['l_prot'] = guess_prot_length
+        unknown['l_prot'] = 411
+        unknown['l_prot2'] = 380
     print(unknown)
 
     x0 = np.array(list(unknown.values()))
-    x_opt = minimize(fit_last, x0=x0, args=(data, last_range, max_length, known, list(unknown.keys()), method, False),
-                     method='Nelder-Mead')
+    x_opt = minimize(fit_parts, x0=x0, args=(data, first_range, last_range, max_length, known, list(unknown.keys()),
+                                             method, None), method='Nelder-Mead')
+    # x_opt = minimize(fit_last, x0=x0, args=(data, first_range, max_length, known, list(unknown.keys()), method, False),
+    #                 method='Nelder-Mead')
 
     fitted = {list(unknown.keys())[k]: x_opt.x[k] for k in range(len(list(unknown.keys())))}
     result = {**known, **fitted}

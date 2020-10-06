@@ -113,6 +113,7 @@ class Trace:
         coefficients = fit_coefficients(self.data, self.smoothed, self.parameters)
         print(self.name)
         print(coefficients)
+
         self.parameters = {**self.parameters, **coefficients}
 
         # transforming coordinates
@@ -131,7 +132,7 @@ class Trace:
         self.data.to_csv(name + '_data.csv')
 
         # decomposing contour length histogram
-        max_length = (self.parameters['residues'] - 1) * self.parameters['residues_distance'] + 20
+        max_length = (self.parameters['residues'] - 1) * self.parameters['residues_distance'] + 20 + 370
         print("decomposing histogram for trace " + self.name)
         parameters, bounds = decompose_histogram(np.array(self.data['hist_values']), states=self.parameters['states'],
                                                  significance=self.parameters['significance'], max_value=max_length)
