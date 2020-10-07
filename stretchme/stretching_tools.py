@@ -536,7 +536,7 @@ def valid_parameters(parameters, max_prot, max_dna=np.inf, inverse=False):
     # bounds_template = {'p': (0.1, 100), 'k': (0, 0.1), 'l': (0, max_dna), 'L': (0, max_prot)}
     bounds_template = {'p_dna': (0.13, 0.21), 'p_prot': (0.01, 1.0), #'p_prot': (5.66, 5.98),     # in T=298 p_dna should be > 0.13
                        'k_dna': (0, 0.1), 'k_prot': (0, 0.1),
-                       'l_dna': (330, max_dna), 'l_prot': (370, 500), 'l_prot2': (370, 500)}    # 'l_dna': (330, max_dna), , 'l_prot': (0, max_prot)
+                       'l_dna': (330, max_dna), 'l_prot_first': (370, 500), 'l_prot_last': (370, 500)}    # 'l_dna': (330, max_dna), , 'l_prot': (0, max_prot)
     for key in parameters.keys():
         if parameters['l_dna'] == 0 and 'dna' in key:
             continue
@@ -550,7 +550,7 @@ def valid_parameters(parameters, max_prot, max_dna=np.inf, inverse=False):
 
 
 # fitting
-def find_range(data, data_smooth):
+def find_range(data, data_smooth, first_range=None, last_range=None):
     minimas_indices = argrelextrema(data_smooth['F'].to_numpy(), np.less)[0]
     maximas_indices = argrelextrema(data_smooth['F'].to_numpy(), np.greater)[0]
     extremas_indices = [item for sublist in zip(minimas_indices, maximas_indices) for item in sublist] + \
@@ -607,9 +607,9 @@ def fit_parts(x, data, first_range, last_range, max_length, known, unknown_keys,
     fit_first = data[data['d'].between(first_range[0], first_range[1])]
     fit_last = data[data['d'].between(last_range[0], last_range[1])]
 
-    fit_value_first = wlc(fit_first['d'], parameters['l_prot2'], parameters['p_prot'], method=method,
+    fit_value_first = wlc(fit_first['d'], parameters['l_prot_first'], parameters['p_prot'], method=method,
                           k=parameters['k_prot'], residues_distance=residues_distance)
-    fit_value_last = wlc(fit_last['d'], parameters['l_prot'], parameters['p_prot'], method=method,
+    fit_value_last = wlc(fit_last['d'], parameters['l_prot_last'], parameters['p_prot'], method=method,
                          k=parameters['k_prot'], residues_distance=residues_distance)
 
     error = np.linalg.norm(fit_value_first - fit_first['F'].to_numpy()) + \
@@ -618,7 +618,7 @@ def fit_parts(x, data, first_range, last_range, max_length, known, unknown_keys,
     return error
 
 
-def fit_coefficients(data, data_smooth, parameters):
+def fit_coefficients(data, data_smooth, parameters, experiment, debug=False):
     # templates
     coefficients = ['p_prot', 'k_prot', 'p_dna', 'k_dna', 'l_dna']
     linker_known = {'p_dna': 0, 'k_dna': 0, 'l_dna': 0}
@@ -627,34 +627,34 @@ def fit_coefficients(data, data_smooth, parameters):
     method = parameters['method']
     residues = parameters['residues']
     residues_distance = parameters['residues_distance']
-    first_range, last_range = find_range(data, data_smooth)
+    first_range = parameters['first_range']
+    last_range = parameters['last_range']
+    if not first_range or not last_range:
+        first_range, last_range = find_range(data, data_smooth, first_range, last_range)
     print(first_range, last_range)
+    if debug:
+        logger = set_logger(experiment)
+        logger.info("Ranges:\n" + str(first_range) + '\t' + str(last_range))
+        close_logs(logger)
     known = {c: parameters[c] for c in coefficients if parameters[c] >= 0}
     max_length = residues_distance * (residues - 1) + 370
     print(residues, max_length)
 
     if not parameters['linker'] and not bool({'p_dna', 'l_dna', 'k_dna'} & set(known.keys())):
         known = {**known, **linker_known}
-    # known['p_prot'] = 0.42736028132624804
-    # known['k_prot'] = 0.008
 
     # setting unknown values with initial guesses and bounds
     unknown = {c: parameters['initial_guess'][c] for c in coefficients if c not in known.keys()}
     if len(unknown.keys()) == 0:
         return known
-    guess_prot_length = residues_distance * (residues - 1 - parameters['missing']) + 340
-    if parameters['state'] == 'knotted':
-        known['l_prot'] = guess_prot_length
-    else:
-        unknown['l_prot'] = 411
-        unknown['l_prot2'] = 380
+    guess_prot_length = residues_distance * (residues - 1 - parameters['missing']) + 340    #parameters['l_dna']
+    unknown['l_prot_last'] = guess_prot_length
+    unknown['l_prot_first'] = guess_prot_length - 50
     print(unknown)
 
     x0 = np.array(list(unknown.values()))
     x_opt = minimize(fit_parts, x0=x0, args=(data, first_range, last_range, max_length, known, list(unknown.keys()),
                                              method, None), method='Nelder-Mead')
-    # x_opt = minimize(fit_last, x0=x0, args=(data, first_range, max_length, known, list(unknown.keys()), method, False),
-    #                 method='Nelder-Mead')
 
     fitted = {list(unknown.keys())[k]: x_opt.x[k] for k in range(len(list(unknown.keys())))}
     result = {**known, **fitted}

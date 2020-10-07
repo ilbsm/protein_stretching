@@ -110,7 +110,7 @@ class Trace:
                 """
 
         # fitting coefficients
-        coefficients = fit_coefficients(self.data, self.smoothed, self.parameters)
+        coefficients = fit_coefficients(self.data, self.smoothed, self.parameters, self.experiment_name, self.debug)
         print(self.name)
         print(coefficients)
 

@@ -22,6 +22,8 @@ def run_case(name, type, case, method='stretch-adjusted', **kwargs):
     missing = parameters.get('missing', 0)
     residues = parameters.get('residues', 240)
     state = parameters.get('state', 'unknotted')
+    first_range = parameters.get('first_range', None)
+    last_range = parameters.get('last_range', None)
 
     exp_name = 'results/'
     if l_dna > 0:
@@ -65,7 +67,9 @@ def run_case(name, type, case, method='stretch-adjusted', **kwargs):
                           # 'linker': 'dna',
                           'missing': missing,
                           'residues': residues,
-                          'state': state}
+                          'state': state,
+                          'first_range': first_range,
+                          'last_range': last_range}
 
     analyze_trace(fname, debug=True, **run_parameters)
     return True
