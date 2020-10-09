@@ -170,24 +170,22 @@ class Structure:
             logger.info("Making histograms.")
             close_logs(logger)
 
-        fig = plt.figure(dpi=600, figsize=(10, 10))
-        gs = fig.add_gridspec(4, 4)
-        axes = [fig.add_subplot(gs[:2, :2]),
-                fig.add_subplot(gs[:2, 2:]),
-                fig.add_subplot(gs[2, :2]),
-                fig.add_subplot(gs[3, :2]),
-                fig.add_subplot(gs[2:, 2:])]
+        fig = plt.figure(dpi=600, figsize=(10, 15))
+        gs = fig.add_gridspec(nrows=3, ncols=2)
+        axes = [fig.add_subplot(gs[0, 0]),
+                fig.add_subplot(gs[0, 1]),
+                fig.add_subplot(gs[1, 0]),
+                fig.add_subplot(gs[1, 1]),
+                fig.add_subplot(gs[2, 0]),
+                fig.add_subplot(gs[2, 1])
+                ]
 
-        #axes = [fig.add_subplot(gs[:2, :2]),
-        #        fig.add_subplot(gs[:2, 2:]),
-        #        fig.add_subplot(gs[2:, :2]),
-        #        fig.add_subplot(gs[2:, 2:])]
-
-        self._plot_total_contour_length_histo(axes[0])   # the total contour length histogram
-        self._plot_overlaid_traces(axes[1])              # the overlaid smoothed traces
-        self._plot_contour_length_histo(axes[2])
-        self._plot_forces_histogram(axes[3])             # the rupture forces histogram
-        #self._plot_dhs_analysis(axes[4])                 # Dudko analysis
+        self._plot_total_contour_length_histo(axes[0])      # the total contour length histogram
+        self._plot_overlaid_traces(axes[1])                 # the overlaid smoothed traces
+        self._plot_contour_length_histo(axes[2])            # the histogram of contour length obtained
+        self._plot_simulated_trace(axes[3])                 # the simulated stretching with linker subtracted
+        self._plot_forces_histogram(axes[4])                # the histogram of rupture forces
+        self._plot_dhs_analysis(axes[5])                    # the Dudko-Hummer-Szabo analysis
         fig.tight_layout()
 
         if not output:
@@ -337,13 +335,10 @@ class Structure:
         self.parameters['boundaries'] = boundaries
 
         # collecting the rupture forces
-        self._analyze_rupture_forces()
+        # self._analyze_rupture_forces()
 
         # perform Dudko-Hummer-Szabo analysis
         # self._analyze_dhs()
-        #
-        # self.plot_dhs()
-
         return True
 
     def analyze(self):
@@ -584,14 +579,6 @@ class Structure:
         return
 
     def _plot_contour_length_histo(self, position):
-        if len(self.forces) == 0:
-            if self.debug:
-                logger = set_logger(self.name)
-                logger.debug("Structure.forces empty, nothing to plot. Did you run .analyze() or "
-                             ".collect_coefficients ?")
-                close_logs(logger)
-            return
-
         if self.debug:
             logger = set_logger(self.name)
             logger.info("Making the contour length histogram.")
@@ -602,106 +589,94 @@ class Structure:
         else:
             bound = max(self.hist_values)
 
+        # setting the scene
         position.set_xlabel('Contour length [nm]')
         position.set_ylabel('Occurences')
         position.set_title('Histogram of contour lengths')
         position.set_xlim(0, bound)
-        # position.set_ylim(0, 2)
-
         lspace = np.linspace(0, bound)
 
-        k = 0
-        print("plotting contour length histo")
-        all_data = []
-        for state in self.states:
-            print(state)
-            data_to_plot = list(self.forces[self.forces['state'] == state]['means'].dropna())
-            all_data = all_data + data_to_plot
+        # collecting data
+        contour_lengths = pd.concat([t.parameters['l_prot'][['means']].dropna() for t in self.traces]).to_numpy()
+        contour_lengths = np.array([cl-self.parameters.get('l_dna', 0) for cl in contour_lengths])
 
-            if len(data_to_plot) < 3:
-                continue
-        all_data = np.array(all_data)
-        print(all_data)
+        # plotting histogram
+        bins = max(int(max(contour_lengths)) - int(min(contour_lengths)), 1)
+        position.hist(contour_lengths, bins=bins, alpha=0.5, density=True)
 
-        parameters, boundaries = decompose_histogram(all_data, significance=self.parameters['significance'])
-
+        # decomposing histogram
+        parameters, boundaries = decompose_histogram(contour_lengths, significance=self.parameters['significance'])
         print(parameters)
-        # if len(parameters) == 0:
-        #    continue
 
-        #mean, width, height = parameters[['means', 'widths', 'heights']].values[0]
-        #label = 'Mean: ' + str(round(mean, 3)) + ' nm'
-
-        bins = max(int(max(all_data)) - int(min(all_data)), 1)
-        position.hist(all_data, bins=bins, alpha=0.5, density=True)
-
+        # plotting Gaussian fits
+        k = 0
         for index, row in parameters[['means', 'widths', 'heights']].iterrows():
             mean, width, height = tuple(row.to_numpy())
-            label = "Mean: " + str(round(mean, 3))
+            label = "Mean contour length: " + str(round(mean, 3))
             y_plot = single_gaussian(lspace, height, mean, width)
             position.plot(lspace, y_plot, linestyle='--', linewidth=0.5, label=label,
                           color=get_color(k, len(parameters)))
             k += 1
 
+        position.legend()
+        return
 
+    def _plot_simulated_trace(self, position):
+        if self.debug:
+            logger = set_logger(self.name)
+            logger.info("Making the simulated stretching traces.")
+            close_logs(logger)
 
+        position.set_xlabel('Distension [nm]')
+        position.set_ylabel('Force [pN]')
+        position.set_title('Simulated stretching curves with linker subtracted')
+        max_f = max([t.data['F'].max() for t in self.traces])
+        min_d = min([t.data['d'].min() for t in self.traces])
+        max_d = max([t.data['d'].max() for t in self.traces])
 
+        # plotting fits
+        plot_trace_fits(position, self.parameters, max_f, self.parameters['residues_distance'],
+                        method=self.parameters['method'])
+
+        position.set_ylim(0, max_f)
+        position.set_xlim(min_d, max_d)
         position.legend()
         return
 
     def _plot_forces_histogram(self, position):
-        if len(self.forces) == 0:
-            if self.debug:
-                logger = set_logger(self.name)
-                logger.debug("Structure.forces empty, nothing to plot. Did you run .analyze() or "
-                             ".collect_coefficients ?")
-                close_logs(logger)
-            return
-
         if self.debug:
             logger = set_logger(self.name)
             logger.info("Making the rupture forces histogram.")
             close_logs(logger)
 
+        # collecting data
+        forces = pd.concat([t.parameters['l_prot'][['rupture_forces']].dropna() for t in self.traces]).to_numpy()
+
         # setting the scene
-        position.set_xlabel('Force [pN]')
+        position.set_xlabel('Contour length [nm]')
         position.set_ylabel('Occurences')
-        position.set_title('Rupture force histogram')
-        f_space = np.linspace(0, self.max_f)
+        position.set_title('Histogram of contour lengths')
+        position.set_xlim(0, max(forces))
+        lspace = np.linspace(0, max(forces))
 
-        print(self.parameters['l_prot'])
+        # plotting histogram
+        bins = max(int(max(forces)) - int(min(forces)), 1)
+        position.hist(forces, bins=bins, alpha=0.5, density=True)
 
-        # plotting the histograms and the fitted contour
+        # decomposing histogram
+        parameters, boundaries = decompose_histogram(forces, significance=self.parameters['significance'])
+        print(parameters)
+
+        # plotting Gaussian fits
         k = 0
-        print("plotting force histogram")
-        for state in self.states:
-            print(state)
-            data_to_plot = np.array(self.forces[self.forces['state'] == state]['rupture_forces'].dropna())
-            if len(data_to_plot) < 3:
-                continue
-
-            file = open('rupture.txt', 'a')
-            file.write('State ' + str(state) + '\n')
-            file.write(str(data_to_plot) + '\n')
-            file.close()
-
-            parameters, boundaries = decompose_histogram(data_to_plot, significance=self.parameters['significance'],
-                                                         states=1)
-            print(parameters)
-            file = open('rupture_gauss.txt', 'a')
-            file.write(str(state) + '\n')
-            file.write(str(parameters) + '\n')
-            file.close()
-
-            mean, width, height = parameters[['means', 'widths', 'heights']].values[0]
-            label = str(round(mean, 3)) + ' pN'
-
-            bins = max(int(max(data_to_plot)) - int(min(data_to_plot)), 1)
-            position.hist(data_to_plot, bins=bins, color=get_color(k, len(self.states)), alpha=0.5, density=True,
-                          label=label)
-            y_plot = single_gaussian(f_space, height, mean, width)
-            position.plot(f_space, y_plot, linestyle='--', linewidth=0.5, color=get_color(k, len(self.states)))
+        for index, row in parameters[['means', 'widths', 'heights']].iterrows():
+            mean, width, height = tuple(row.to_numpy())
+            label = "Mean force: " + str(round(mean, 3))
+            y_plot = single_gaussian(lspace, height, mean, width)
+            position.plot(lspace, y_plot, linestyle='--', linewidth=0.5, label=label,
+                          color=get_color(k, len(parameters)))
             k += 1
+
         position.legend()
         return
 
@@ -710,7 +685,6 @@ class Structure:
         position.set_title('Dudko-Hummer-Szabo lifetime')
         position.set_xlabel('Rupture force [pN]')
         position.set_ylabel('State lifetime [s]')
-        # position.set_ylim(top=1000)
         position.set_yscale('log')
 
         for k, data in enumerate(self.dhs_states):

@@ -534,7 +534,7 @@ def decompose_histogram(hist_values, significance=None, states=None, bandwidth=N
 
 def valid_parameters(parameters, max_prot, max_dna=np.inf, inverse=False):
     # bounds_template = {'p': (0.1, 100), 'k': (0, 0.1), 'l': (0, max_dna), 'L': (0, max_prot)}
-    bounds_template = {'p_dna': (0.13, 0.21), 'p_prot': (0.01, 1.0), #'p_prot': (5.66, 5.98),     # in T=298 p_dna should be > 0.13
+    bounds_template = {'p_dna': (0.13, 0.21), 'p_prot': (0.01, 1.5), #'p_prot': (5.66, 5.98),     # in T=298 p_dna should be > 0.13
                        'k_dna': (0, 0.1), 'k_prot': (0, 0.1),
                        'l_dna': (330, max_dna), 'l_prot_first': (370, 500), 'l_prot_last': (370, 500)}    # 'l_dna': (330, max_dna), , 'l_prot': (0, max_prot)
     for key in parameters.keys():
