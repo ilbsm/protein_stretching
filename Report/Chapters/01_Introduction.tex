@@ -2,39 +2,40 @@
 \chapter{Introduction}
 \label{ch:intro}
 
-The aim of this project was to analyze the experimental and theoretical stretching curves of some knotted proteins.
-As a result of this analysis, the model which best matches the experimental data had to be selected.
-This model had to be then further investigated to show, what is the putative unfolding pathway observed in the experiment.
+\dropcap{T}he aim of this project was to analyze the experimental and theoretical stretching curves of three proteins - TrmD, Tm1570, and their fusion.
+As the proteins analyzed were supposed to be knotted, the first important task of the analysis was to establish the actual topology of the proteins.
+On the other hand, the simulated stretching was performed in various models.
+Therefore, the second important task of the analysis was to select the model, which matches the experiment best.
+Finally, the third task was to explain the unfolding pathway observed in the experiment, based on the results of the simulated stretching.
 
-Usually, such task is solved by fitting of numerous curves, and comparing the obtained parameters.
-However, it quickly turned out, that the standard ways of pursuing such task are not sufficient.
-In particular, the usual treatment of the experimental data requires the protein to be much more rigid than the linker.
-As a result, in the first part of stretching only the linker is extended.
-This in consequence allows to separate out the influence of the linker.
-However, the analyzed proteins are build of subdomains, which easily get separated with a small force.
-Therefore, the protein is being stretched simultaneously with the linker even for small forces.
+Usually, analysis of the protein stretching is done by fitting the stretching curves and comparing the parameters obtained.
+However, it quickly turned out, that the standard methods cannot be applied in this case.
+In particular, usually it is assumed, that the protein is much more rigid than the DNA linker, and therefore in the first stage of stretching only the DNA gets extended.
+This is, however, not the case of TrmD, which is composed of two subdomains connected with the flexible linker.
+Alternatively, one knows the initial distance between the termini of protein from crystal structure.
+This time, however, there in case of TrmD and Tm1570 there are only the crystal structures of homologs, not the structures measured.
+As the initial topology is unknown, the end-to-end distance taken from this crystal is not a reliable value.
 
 \graffito{Contour length is the largest part of the chain, which can currently be stretched.}
-Moreover, usually the changes of protein contour length are extracted from the experiment.
-These, along with the initial distance between the termini is used to determine the final length of the stretched protein.
-The initial distance is taken usually from the crystal structure.
-However, in this case no crystal (neither any other structure) is available, although it may be crucial for the analysis of the results.
 
-Furthermore, until now, no thorough \textit{in silico} analysis of protein stretching, where the exact protein contour lengths was calculated, was done so far.
-Usually, the theoretical analysis concentrates on the common patterns of stretching curves, not on the particular numbers.
-However, to select the best model, the emerging pattern of the curve is not informative enough.
-This leads to the previously unknown problem of appropriate description if theoretical data.
-In particular, such analysis have to take into account the unphysical effect, that \textit{in silico}, for large enough forces, the chain may pass through itself allowing the knot to disappear.
+On the other hand, until now, no thorough \textit{in silico} analysis of protein stretching was done so far.
+Usually, the general scheme of the unfolding is analyzed.
+However, to select the best model, the coarse pattern of the stretching curve, emerging from simulations is not informative enough.
+This creates need of in-detail analysis of the theoretical stretching, with calculation of the contour lengths.
+The contour lengths are then the numbers, which can be compared with experiment and the model, which recreates these numbers best can be considered as the best model.
+However, such meticulous analysis of simulated stretching was not performed yet.
 
-All the problems mentioned, can, however, be solved, and this is the content of this report.
-In particular, the report introduces:
+Therefore, apart from the raw results of the analysis of stretching, in this work many new techniques were introduced to solve previously unknown problems.
+In particular, the report:
 \begin{enumerate}
-    \item alternative method of fitting the curves, which reduces the number of fits substantially;
-    \item the solution of the problem of simultaneous protein and linker stretching;
-    \item alternative way of estimating the protein total length, without prior knowledge of the initial end-to-end distance;
-    \item new approach to analysis of the theoretical data on protein stretching;
-    \item new extension of the commonly used WLC model, which gives more reliable results.
+    \item introduces a new model of of protein stretching (stretch-adjusted WLC - Sec.\ref{subsec:results-approach-elasticity}), which is more reliable than usually used eWLC;
+    \item introduces the method of inverting the force-distance dependence (Sec.\ref{subsec:results-approach-inverting});
+    \item establishes the protocol of the analysis of the simulated stretching of proteins (Sec.\ref{subsec:results-approach-theory});
+    \item introduces a way to deal with stretching of proteins with flexible linker (Sec.\ref{subsec:results-approach-linker});
+    \item introduces a new method of extracting the proteins persistence length, which is then used to establish the topology of the models.
 \end{enumerate}
+
+The analysis
 
 In particular, the ability to estimate the total protein length allowed to determine the topology of the protein.
 Surprisingly, not all the proteins were shown to be knotted.

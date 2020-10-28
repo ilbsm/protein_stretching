@@ -3,7 +3,7 @@ from simulation_data import data_partial
 from os import remove, replace
 import sys
 
-directory = '/home/pawel/PycharmProjects/protein_stretching/data/'
+directory = '/Users/pawel/PycharmProjects/Rozciaganie/data/'
 
 
 def run_case(name, type, case, method='stretch-adjusted', **kwargs):
@@ -19,6 +19,8 @@ def run_case(name, type, case, method='stretch-adjusted', **kwargs):
     p_dna = parameters.get('p_dna', 0)
     k_dna = parameters.get('k_dna', 0)
     l_dna = parameters.get('l_dna', 0)
+    first_range = parameters.get('first_range', None)
+    last_range = parameters.get('last_range', None)
     missing = parameters.get('missing', 0)
     residues = parameters.get('residues', 240)
     state = parameters.get('state', 'unknotted')
@@ -86,8 +88,8 @@ def run_case(name, type, case, method='stretch-adjusted', **kwargs):
 
 
 proteins = {'5wyr': 248, 'trmd-no-knot': 240, 'trmd': 240, 'tm1570': 193, 'fuzja': 432}
-protein, model, case, missing = sys.argv[1], sys.argv[2], int(sys.argv[3]), int(sys.argv[4])
-# protein, model, case, missing = 'trmd', 'exp', 1, 14
+# protein, model, case, missing = sys.argv[1], sys.argv[2], int(sys.argv[3]), int(sys.argv[4])
+protein, model, case, missing = 'trmd', 'exp', 1, 14
 if len(sys.argv) > 5 and int(sys.argv[5]) > 0:
     state = 'knotted'
 else:

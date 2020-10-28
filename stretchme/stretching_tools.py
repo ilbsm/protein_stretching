@@ -88,7 +88,6 @@ def read_from_file(input_data, cases, columns, parameters, name, debug):
 
 def read_excel(input_data, cases, columns, parameters):
     data = pd.read_excel(input_data, sheet_name=parameters['sheet_name'])
-    print(data)
     return read_dataframe(data, cases=cases, columns=columns)
 
 
@@ -134,9 +133,9 @@ def multiple_gaussian(x, *args):
     return result
 
 
-def integrate_gauss(force, mean, width):
-    return 0.5 * (1 - erf((force-mean)/(np.sqrt(width * 2))))
-
+def integrate_gauss(force, mean, width, height):
+    # return width * np.sqrt(2*np.pi) * (1 - 0.5 * erf((force - mean)/(width * np.sqrt(2))))
+    return 0.5 * (1-erf((force - mean)/(np.sqrt(2) * width)))
 
 # calculating F(d)
 def marko_siggia(d, length, p, k=0):
@@ -257,17 +256,13 @@ def get_d_dna(p_dna, l_dna, k_dna, f_space, method='marko-siggia'):
         return np.zeros(len(f_space))
 
 
-def get_force_load(force, parameters):
-    speed = parameters['speed']
-    l_dna, p_dna, k_dna = parameters['l_dna'], parameters['p_dna'], parameters['k_dna']
-    k_spring = parameters['spring_constant']
+def get_force_load(force, p_linker, l_linker, speed, k_spring):
+    # speed = parameters['speed']
+    # l_dna, p_dna, k_dna = parameters['l_dna'], parameters['p_dna'], parameters['k_dna']
+    # k_spring = parameters['spring_constant']
     if float(k_spring) == 0.0:
         raise NotImplementedError("Cannot deal with no-spring case right now")
-    if l_dna > 0:
-        # TODO include k_dna
-        dna_part = (2 * (l_dna/p_dna) * (1 + force/p_dna)) / (3 + 5 * force/p_dna + 8 * (force/p_dna)**(5/2))
-    else:
-        dna_part = np.zeros(len(force))
+    dna_part = (2 * (l_linker/p_linker) * (1 + force/p_linker)) / (3 + 5 * force/p_linker + 8 * (force/p_linker)**(5/2))
     factor = dna_part + 1/k_spring
     return speed/factor
 
@@ -302,6 +297,15 @@ def dhs_feat(data, init_x):
     try:
         popt, pcov = curve_fit(dhs_feat_cusp, data['forces'], np.log(data['lifetime']), p0=p0)
         result = {'x': popt[0], 't0': popt[1], 'g': popt[2]}   #, 'covariance': pcov}
+    except RuntimeError:
+        result = None
+    coefficients['cusp'] = result
+
+    # v = 2/3
+    p0 = (coefficients['bell']['x'], coefficients['bell']['t0'], coefficients['bell']['x'] * data['forces'].max())
+    try:
+        popt, pcov = curve_fit(dhs_feat_linear_cubic, data['forces'], data['lifetime'], p0=p0)
+        result = {'x': popt[0], 't0': popt[1], 'g': popt[2]}  # , 'covariance': pcov}
     except RuntimeError:
         result = None
     coefficients['linear_cubic'] = result
@@ -480,11 +484,11 @@ def decompose_histogram(hist_values, significance=None, states=None, bandwidth=N
         states = 1
 
     guesses = guesses.head(states)
-    print(guesses)
+    # print(guesses)
 
     # fitting
     p0, bounds = transform_guesses(guesses, background_level, min(hist_values), max(hist_values))
-    print('bounds', bounds)
+    # print('bounds', bounds)
     popt = tuple()
     while len(popt) < len(p0):
         try:
@@ -527,6 +531,7 @@ def decompose_histogram(hist_values, significance=None, states=None, bandwidth=N
         begs.append(beg)
         ends.append(matching.max())
         skewness.append(skew(matching))
+    print(begs, ends)
     parameters['begs'], parameters['ends'], parameters['skewness'] = begs, ends, skewness
     parameters = parameters[parameters['heights'] > 0.001]
     return parameters, support
@@ -538,8 +543,8 @@ def valid_parameters(parameters, max_prot, max_dna=np.inf, inverse=False):
                        'k_dna': (0, 0.1), 'k_prot': (0, 0.1),
                        'l_dna': (330, max_dna), 'l_prot_first': (370, 500), 'l_prot_last': (370, 500)}    # 'l_dna': (330, max_dna), , 'l_prot': (0, max_prot)
     for key in parameters.keys():
-        if parameters['l_dna'] == 0 and 'dna' in key:
-            continue
+        # if parameters['l_dna'] == 0 and 'dna' in key:
+        #     continue
         # if parameters[key] < bounds_template[key[0]][0] or parameters[key] > bounds_template[key[0]][1]:
         if parameters[key] < bounds_template[key][0] or parameters[key] > bounds_template[key][1]:
             return False
@@ -607,10 +612,10 @@ def fit_parts(x, data, first_range, last_range, max_length, known, unknown_keys,
     fit_first = data[data['d'].between(first_range[0], first_range[1])]
     fit_last = data[data['d'].between(last_range[0], last_range[1])]
 
-    fit_value_first = wlc(fit_first['d'], parameters['l_prot_first'], parameters['p_prot'], method=method,
-                          k=parameters['k_prot'], residues_distance=residues_distance)
-    fit_value_last = wlc(fit_last['d'], parameters['l_prot_last'], parameters['p_prot'], method=method,
-                         k=parameters['k_prot'], residues_distance=residues_distance)
+    fit_value_first = wlc(fit_first['d'], parameters['l_first'], parameters['p_tot'], method=method,
+                          k=parameters['k_tot'], residues_distance=residues_distance)
+    fit_value_last = wlc(fit_last['d'], parameters['l_tot'], parameters['p_tot'], method=method,
+                         k=parameters['k_tot'], residues_distance=residues_distance)
 
     error = np.linalg.norm(fit_value_first - fit_first['F'].to_numpy()) + \
             np.linalg.norm(fit_value_last - fit_last['F'].to_numpy())
@@ -620,8 +625,8 @@ def fit_parts(x, data, first_range, last_range, max_length, known, unknown_keys,
 
 def fit_coefficients(data, data_smooth, parameters, experiment, debug=False):
     # templates
-    coefficients = ['p_prot', 'k_prot', 'p_dna', 'k_dna', 'l_dna']
-    linker_known = {'p_dna': 0, 'k_dna': 0, 'l_dna': 0}
+    coefficients = ['p_tot', 'l_tot', 'k_tot']  #['p_prot', 'k_prot', 'p_dna', 'k_dna', 'l_dna']
+    # linker_known = {'p_dna': 0, 'k_dna': 0, 'l_dna': 0}
 
     # setting known values
     method = parameters['method']
@@ -636,20 +641,20 @@ def fit_coefficients(data, data_smooth, parameters, experiment, debug=False):
         logger = set_logger(experiment)
         logger.info("Ranges:\n" + str(first_range) + '\t' + str(last_range))
         close_logs(logger)
-    known = {c: parameters[c] for c in coefficients if parameters[c] >= 0}
+    known = {c: parameters.get(c, 0) for c in coefficients if parameters.get(c, 0) > 0}
     max_length = residues_distance * (residues - 1) + 370
     print(residues, max_length)
 
-    if not parameters['linker'] and not bool({'p_dna', 'l_dna', 'k_dna'} & set(known.keys())):
-        known = {**known, **linker_known}
+    # if not parameters['linker'] and not bool({'p_dna', 'l_dna', 'k_dna'} & set(known.keys())):
+    #     known = {**known, **linker_known}
 
     # setting unknown values with initial guesses and bounds
     unknown = {c: parameters['initial_guess'][c] for c in coefficients if c not in known.keys()}
     if len(unknown.keys()) == 0:
         return known
     guess_prot_length = residues_distance * (residues - 1 - parameters['missing']) + 340    #parameters['l_dna']
-    unknown['l_prot_last'] = guess_prot_length
-    unknown['l_prot_first'] = guess_prot_length - 50
+    unknown['l_tot'] = guess_prot_length
+    unknown['l_first'] = guess_prot_length - 50
     print(unknown)
 
     x0 = np.array(list(unknown.values()))
@@ -660,3 +665,10 @@ def fit_coefficients(data, data_smooth, parameters, experiment, debug=False):
     result = {**known, **fitted}
     return result
 
+
+def extract_dna(data, parameters):
+    return
+
+
+def fit_coefficients2(data, l_tot, method='marko-siggia'):
+    return

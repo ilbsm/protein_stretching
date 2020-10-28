@@ -183,8 +183,8 @@ class Structure:
         self._plot_total_contour_length_histo(axes[0])      # the total contour length histogram
         self._plot_overlaid_traces(axes[1])                 # the overlaid smoothed traces
         self._plot_contour_length_histo(axes[2])            # the histogram of contour length obtained
-        self._plot_simulated_trace(axes[3])                 # the simulated stretching with linker subtracted
-        self._plot_forces_histogram(axes[4])                # the histogram of rupture forces
+        self._plot_forces_histogram(axes[3])                # the histogram of rupture forces
+        # self._plot_simulated_trace(axes[4])                 # the simulated stretching with linker subtracted
         self._plot_dhs_analysis(axes[5])                    # the Dudko-Hummer-Szabo analysis
         fig.tight_layout()
 
@@ -302,7 +302,7 @@ class Structure:
             close_logs(logger)
 
         # collecting the traces coefficients
-        coefficients = ['p_prot', 'k_prot', 'p_dna', 'k_dna', 'l_dna']
+        coefficients = ['p_tot', 'k_tot']   #, 'p_prot', 'k_prot', 'p_linker', 'k_linker', 'l_linker']
         for c in coefficients:
             self.parameters[c] = np.mean(np.array([t.parameters.get(c, 0) for t in self.traces]))
 
@@ -324,18 +324,26 @@ class Structure:
         # decomposing the contour length histogram = obtaining the contour lengths
         max_length = (self.parameters['residues'] - 1) * self.parameters['residues_distance'] + 20
         print("collecting coefficients")
-        parameters, boundaries = decompose_histogram(np.array(self.hist_values), states=self.num_states,
-                                                     significance=self.parameters['significance'], max_value=max_length,
-                                                     background_level=0.005, init_means=self.parameters['init_means'])
-        file = open('cl_histo.txt', 'a')
-        file.write(str(parameters) + '\n')
-        file.close()
+        # parameters, boundaries = decompose_histogram(np.array(self.hist_values), states=self.num_states,
+        #                                              significance=self.parameters['significance'], max_value=max_length,
+        #                                              background_level=0.005, init_means=self.parameters['init_means'])
+        # file = open('cl_histo.txt', 'a')
+        # file.write(str(parameters) + '\n')
+        # file.close()
 
-        self.parameters['l_prot'] = parameters
-        self.parameters['boundaries'] = boundaries
+        # self.parameters['l_prot'] = parameters
+        # self.parameters['boundaries'] = boundaries
 
         # collecting the rupture forces
         # self._analyze_rupture_forces()
+        self.parameters['contour_lengths'] = pd.concat([t.parameters['l_prot'][['means_prot']].dropna()
+                                                        for t in self.traces], ignore_index=True)
+        self.parameters['rupture_forces'] = pd.concat([t.parameters['l_prot'][['rupture_forces']].head(-1).dropna()
+                                                        for t in self.traces], ignore_index=True)
+        print('contour lengths')
+        print(self.parameters['contour_lengths'])
+        print('rupture forces')
+        print(self.parameters['rupture_forces'])
 
         # perform Dudko-Hummer-Szabo analysis
         # self._analyze_dhs()
@@ -443,8 +451,6 @@ class Structure:
         else:
             data = read_from_file(input_data, cases, columns, parameters, self.name, self.debug)
 
-
-
         # preprocessing data
         data.dropna(axis='columns', how='all', inplace=True)
         if len(data) == 0:
@@ -522,10 +528,12 @@ class Structure:
                              ".collect_coefficients ?")
                 close_logs(logger)
             return
-        if self.parameters['boundaries']:
-            bound = self.parameters['boundaries'][1]
-        else:
-            bound = max(self.hist_values)
+
+        # if self.parameters['boundaries']:
+        #     bound = self.parameters['boundaries'][1]
+        # else:
+        #     bound = max(self.hist_values)
+        bound = 500
 
         if self.debug:
             logger = set_logger(self.name)
@@ -544,7 +552,12 @@ class Structure:
         position.hist(data_to_plot, bins=bins, density=True, alpha=0.5)
 
         # plotting decomposition
-        plot_decomposed_histogram(position, self.parameters['l_prot'], bound, self.parameters['residues_distance'])
+        print("plotting the overalaid contour length histogram")
+        parameters, boundaries = decompose_histogram(np.array(data_to_plot), significance=self.parameters['significance'],
+                                                     states=3)
+        print(parameters)
+
+        plot_decomposed_histogram(position, parameters, bound, self.parameters['residues_distance'])
 
         position.legend()
         return
@@ -570,8 +583,8 @@ class Structure:
             max_d = max(max_d, t.data['d'].max())
 
         # plotting fits
-        plot_trace_fits(position, self.parameters, max_f, self.parameters['residues_distance'],
-                        method=self.parameters['method'])
+        # plot_trace_fits(position, self.parameters, max_f, self.parameters['residues_distance'],
+        #                 method=self.parameters['method'])
 
         position.set_ylim(0, max_f)
         position.set_xlim(min_d, max_d)
@@ -584,28 +597,31 @@ class Structure:
             logger.info("Making the contour length histogram.")
             close_logs(logger)
 
-        if self.parameters['boundaries']:
-            bound = self.parameters['boundaries'][1]
-        else:
-            bound = max(self.hist_values)
+        # if self.parameters['boundaries']:
+        #     bound = self.parameters['boundaries'][1]
+        # else:
+        #     bound = max(self.hist_values)
+        bound = max([t.parameters['l_tot'] - t.parameters['l_linker'] for t in self.traces]) + 20
 
         # setting the scene
         position.set_xlabel('Contour length [nm]')
         position.set_ylabel('Occurences')
-        position.set_title('Histogram of contour lengths')
+        position.set_title('Histogram of protein contour lengths')
         position.set_xlim(0, bound)
         lspace = np.linspace(0, bound)
 
         # collecting data
-        contour_lengths = pd.concat([t.parameters['l_prot'][['means']].dropna() for t in self.traces]).to_numpy()
-        contour_lengths = np.array([cl-self.parameters.get('l_dna', 0) for cl in contour_lengths])
+        # contour_lengths = pd.concat([t.parameters['l_prot'][['means']].dropna() for t in self.traces]).to_numpy()
+        # contour_lengths = np.array([cl-self.parameters.get('l_linker', 0) for cl in contour_lengths])
+        contour_lengths = self.parameters['contour_lengths'].values
 
         # plotting histogram
         bins = max(int(max(contour_lengths)) - int(min(contour_lengths)), 1)
         position.hist(contour_lengths, bins=bins, alpha=0.5, density=True)
 
         # decomposing histogram
-        parameters, boundaries = decompose_histogram(contour_lengths, significance=self.parameters['significance'])
+        parameters, boundaries = decompose_histogram(contour_lengths, significance=self.parameters['significance'],
+                                                     states=4)
         print(parameters)
 
         # plotting Gaussian fits
@@ -650,22 +666,24 @@ class Structure:
             close_logs(logger)
 
         # collecting data
-        forces = pd.concat([t.parameters['l_prot'][['rupture_forces']].dropna() for t in self.traces]).to_numpy()
+        forces = self.parameters['rupture_forces'].values  # pd.concat([t.parameters['l_prot'][['rupture_forces']].dropna() for t in self.traces]).to_numpy()
 
         # setting the scene
-        position.set_xlabel('Contour length [nm]')
+        position.set_xlabel('Rupture force [pN]')
         position.set_ylabel('Occurences')
-        position.set_title('Histogram of contour lengths')
-        position.set_xlim(0, max(forces))
-        lspace = np.linspace(0, max(forces))
+        position.set_title('Histogram of rupture forces')
+        max_f = max(forces) + 5
+        position.set_xlim(0, max_f)
+        lspace = np.linspace(0, max_f)
 
         # plotting histogram
         bins = max(int(max(forces)) - int(min(forces)), 1)
         position.hist(forces, bins=bins, alpha=0.5, density=True)
 
         # decomposing histogram
-        parameters, boundaries = decompose_histogram(forces, significance=self.parameters['significance'])
+        parameters, boundaries = decompose_histogram(forces, significance=self.parameters['significance'], states=1)
         print(parameters)
+        self.forces_parameters = parameters
 
         # plotting Gaussian fits
         k = 0
@@ -676,7 +694,7 @@ class Structure:
             position.plot(lspace, y_plot, linestyle='--', linewidth=0.5, label=label,
                           color=get_color(k, len(parameters)))
             k += 1
-
+        #
         position.legend()
         return
 
@@ -686,14 +704,31 @@ class Structure:
         position.set_xlabel('Rupture force [pN]')
         position.set_ylabel('State lifetime [s]')
         position.set_yscale('log')
+        print("Dudko-Hummer-Szabo analysis")
+        p_linker = 0.16
+        l_linker = 328.38
+        speed = self.parameters['speed']
+        spring = self.parameters['spring_constant']
+        k = 0
+        print('---')
+        for index, row in self.forces_parameters.iterrows():
+            mean, width, height, beg, end = row[['means', 'widths', 'heights', 'begs', 'ends']].values
+            f_space = np.linspace(beg, end)
+            nominator = integrate_gauss(f_space, mean, width, height)
+            force_load = get_force_load(f_space, p_linker, l_linker, speed, spring)
+            denominator = force_load * single_gaussian(f_space, 1/(width*np.sqrt(2*np.pi)), mean, width)
+            y_plot = nominator/denominator
+            label = str(round(mean, 3))
+            position.plot(f_space, y_plot, linewidth=0.5, label=label,
+                          color=get_color(k, len(self.forces_parameters)))
+            dhs_data = pd.DataFrame({'lifetime': y_plot, 'forces': f_space})
+            dhs_result = dhs_feat(dhs_data, 50)
+            for key in dhs_result.keys():
+                print(key)
+                print(dhs_result[key])
+            k += 1
 
-        for k, data in enumerate(self.dhs_states):
-            beg, end, l_prot, dhs_data = data
-            if len(dhs_data) == 0:
-                continue
-            label = 'l_prot=' + str(round(l_prot, 3))
-            position.plot(dhs_data['forces'], dhs_data['lifetime'], label=label,
-                          color=get_color(k, len(self.dhs_states)))
+
         position.legend()
         return
 

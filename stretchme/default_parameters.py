@@ -25,7 +25,10 @@ default_parameters = {
     'max_force': 1600,
     'init_means': None,
     'method': 'marko-siggia',
-    'initial_guess': {None: {'p_prot': 0.06, 'p_dna': 0.2, 'k_prot': 0.011, 'k_dna': 0.009, 'l_dna': 345},
-                      'theory': {'p_prot': 0.3, 'p_dna': 0.13, 'k_prot': 0.008, 'k_dna': 0.009, 'l_dna': 345},
-                      'experiment': {'p_prot': 5.88, 'p_dna': 0.13, 'k_prot': 0, 'k_dna': 0.005, 'l_dna': 335}}
+    'initial_guess': {None: {'p_prot': 0.06, 'p_dna': 0.2, 'k_prot': 0.011, 'k_dna': 0.009, 'l_dna': 345, 'p_tot': 0.3,
+                             'k_tot': 0.009, 'l_tot': 450},
+                      'theory': {'p_prot': 0.3, 'p_dna': 0.13, 'k_prot': 0.008, 'k_dna': 0.009, 'l_dna': 345,
+                                 'p_tot': 0.3, 'k_tot': 0.009, 'l_tot': 450},
+                      'experiment': {'p_prot': 5.88, 'p_dna': 0.13, 'k_prot': 0, 'k_dna': 0.005, 'l_dna': 335,
+                                     'p_tot': 0.3, 'k_tot': 0.009, 'l_tot': 450}}
  }

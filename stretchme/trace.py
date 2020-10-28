@@ -117,13 +117,26 @@ class Trace:
         self.parameters = {**self.parameters, **coefficients}
 
         # transforming coordinates
-        self.data['x_prot'] = inverse_wlc(self.data['F'], self.parameters['p_prot'], k=self.parameters['k_prot'],
-                                          method=self.parameters['method'])
-        self.data['d_dna'] = get_d_dna(self.parameters['p_dna'], self.parameters['l_dna'], self.parameters['k_dna'],
-                                       self.data['F'], method=self.parameters['method'])
-        self.data['d_prot'] = self.data['d'] - self.data['d_dna']
+        self.data['x_tot'] = inverse_wlc(self.data['F'], self.parameters['p_tot'], k=self.parameters['k_tot'],
+                                         method=self.parameters['method'])
+        self.data['hist_values'] = self.data['d'] / self.data['x_tot']
 
-        self.data['hist_values'] = self.data['d_prot'] / self.data['x_prot']
+        # decomposing contour length histogram
+        max_length = (self.parameters['residues'] - 1) * self.parameters['residues_distance'] + 20 + 370
+        print("decomposing histogram for trace " + self.name)
+        parameters, bounds = decompose_histogram(np.array(self.data['hist_values']), states=self.parameters['states'],
+                                                 significance=self.parameters['significance'], max_value=max_length)
+        parameters['means_prot'] = parameters['means'] - self.parameters['l_linker']
+        self.boundaries = bounds
+        self.parameters['l_prot'] = parameters
+        print(parameters)
+
+
+        # extracting linker influence - needed for DHS analysis
+        # if self.parameters['l_linker'] != 0:
+        #     l_tot = 0
+        #     self.data['d_linker'] = extract_dna(self.data, self.parameters)
+        #     self.parameters['p_linker'], self.parameters['k_linker'] = fit_coefficients2(self.data, l_tot, method=self.parameters['method'])
 
         if len(self.name.split('_')) == 3:
             name = '_'.join(self.name.split('_')[:-1] + [str(int(self.name.split('_')[-1]) + 1)])
@@ -131,26 +144,17 @@ class Trace:
             name = self.name
         self.data.to_csv(name + '_data.csv')
 
-        # decomposing contour length histogram
-        max_length = (self.parameters['residues'] - 1) * self.parameters['residues_distance'] + 20 + 370
-        print("decomposing histogram for trace " + self.name)
-        parameters, bounds = decompose_histogram(np.array(self.data['hist_values']), states=self.parameters['states'],
-                                                 significance=self.parameters['significance'], max_value=max_length)
-        self.boundaries = bounds
-        self.parameters['l_prot'] = parameters
-        print(parameters)
-
         # print(parameters['skewness'].abs().mean())
-        if self.debug:
-            logger = set_logger(self.experiment_name)
-            t = 298 * 0.7 * self.parameters['p_prot'] / 4.114
-            if self.parameters['p_dna'] > 0:
-                pl = 0.7 * self.parameters['p_prot'] / self.parameters['p_dna']
-            else:
-                pl = 0
-            logger.info("Contour length fitted. Coefficient got:\n" + str(coefficients))
-            logger.info("Calculated values:\tT " + str(t) + '\tPl DNA ' + str(pl))
-            close_logs(logger)
+        # if self.debug:
+        #     logger = set_logger(self.experiment_name)
+        #     t = 298 * 0.7 * self.parameters['p_prot'] / 4.114
+        #     if self.parameters['p_dna'] > 0:
+        #         pl = 0.7 * self.parameters['p_prot'] / self.parameters['p_dna']
+        #     else:
+        #         pl = 0
+        #     logger.info("Contour length fitted. Coefficient got:\n" + str(coefficients))
+        #     logger.info("Calculated values:\tT " + str(t) + '\tPl DNA ' + str(pl))
+        #     close_logs(logger)
         return True
 
     def find_ranges(self, max_distance=None):
@@ -166,20 +170,12 @@ class Trace:
         if not max_distance:
             max_distance = self.parameters['max_distance']
         last_end = 0
-        l_dna = self.parameters.get('l_dna', 0)
         for index, row in self.parameters['l_prot'].iterrows():
             state = 'state_' + str(index)
             l_prot = row['means']
-            if l_dna > 0:
-                d_dna = get_d_dna(self.parameters.get('p_dna', 0), self.parameters.get('l_dna', 0),
-                                  self.parameters.get('k_dna', None), self.smoothed['F'],
-                                  method=self.parameters.get('method', 'marko-siggia'))
-                d_prot = self.smoothed['d'].to_numpy() - d_dna
-                d_prot[d_prot < 0] = 0
-            else:
-                d_prot = self.smoothed['d'].to_numpy()
-            self.smoothed[state] = wlc(d_prot, l_prot, self.parameters.get('p_prot', 0),
-                                       k=self.parameters.get('k_prot', None), method=self.parameters['method'])
+            d_prot = self.smoothed['d'].to_numpy()
+            self.smoothed[state] = wlc(d_prot, l_prot, self.parameters.get('p_tot', 0),
+                                       k=self.parameters.get('k_tot', None), method=self.parameters['method'])
             data_close = self.smoothed[abs(self.smoothed['F'] - self.smoothed[state]) <= max_distance]
             data_close = data_close[data_close['d'] > last_end]['d']
             last_end = data_close.max()
@@ -193,6 +189,9 @@ class Trace:
 
         self.smoothed.to_csv(name + '_smoothed.csv')
 
+        print("ranges:")
+        print(self.state_boundaries)
+
         if self.debug:
             logger = set_logger(self.experiment_name)
             logger.info("Ranges found. These are:\n" + str(self.state_boundaries))
@@ -205,6 +204,8 @@ class Trace:
                 Returns:
                     True if successful, False otherwise.
                 """
+        print('Finding rupture forces')
+
 
         forces = []
         for ind, row in self.state_boundaries.iterrows():
@@ -216,7 +217,7 @@ class Trace:
         else:
             name = self.name
         self.parameters['l_prot'].to_csv(name + '_parameters.csv')
-
+        print(self.parameters['l_prot'])
 
         if self.debug:
             logger = set_logger(self.experiment_name)
